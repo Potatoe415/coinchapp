@@ -29,6 +29,8 @@ export interface PlayerView {
   bidOptions: BidOptions | null;
   handCounts: number[];
   currentTrick: Trick;
+  /** Completed tricks this deal (public information all players have seen). */
+  tricks: Trick[];
   lastTrick: Trick | null;
   tricksWon: { A: number; B: number };
   scores: { A: number; B: number };
@@ -61,6 +63,7 @@ export function redact(state: GameState, seat: Seat): PlayerView {
     bidOptions: myTurn && state.phase === "bidding" ? bidOptions(state) : null,
     handCounts: state.hands.map((h) => h.length),
     currentTrick: state.currentTrick,
+    tricks: state.tricks,
     lastTrick: state.tricks.length > 0 ? state.tricks[state.tricks.length - 1] : null,
     tricksWon: tricksWon(state),
     scores: state.scores,

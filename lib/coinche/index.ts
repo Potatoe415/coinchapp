@@ -5,5 +5,5 @@ export { applyBid, bidOptions, validateBid, BID_VALUES, CAPOT_VALUE, type BidOpt
 export { legalCards, isLegalPlay, applyPlay, trickWinner } from "./trick";
 export { computeDealResult, finalizeDeal, detectBelote } from "./scoring";
 export { submitBid, submitPlay, startNextDeal } from "./engine";
-export { chooseBid, chooseCard, type Difficulty } from "./bot";
+export { chooseBid, chooseCard, advanceBots, type Difficulty } from "./bot";
 export { redact, type PlayerView } from "./redact";

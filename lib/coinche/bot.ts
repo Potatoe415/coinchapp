@@ -1,7 +1,8 @@
 import { bidOptions } from "./bidding";
 import { cardPoints, cardStrength, SUITS } from "./cards";
+import { submitBid, submitPlay } from "./engine";
 import { legalCards, trickWinner } from "./trick";
-import type { Bid, Card, GameState, Suit } from "./types";
+import type { Bid, Card, GameState, Seat, Suit } from "./types";
 
 export type Difficulty = "easy" | "medium" | "hard";
 
@@ -71,4 +72,25 @@ export function chooseCard(
   if (difficulty === "easy") return pickRandom(legal, rng);
   const winner = cheapestWinner(state, legal);
   return winner ?? weakest(legal, state.trump);
+}
+
+/** Auto-play bot seats until it is a human's turn or the deal ends. */
+export function advanceBots(
+  state: GameState,
+  isBot: boolean[],
+  difficulty: Difficulty,
+  rng: () => number = Math.random,
+): GameState {
+  let current = state;
+  let guard = 0;
+  while (guard++ < 64) {
+    const active = current.phase === "bidding" || current.phase === "playing";
+    if (!active || !isBot[current.turn]) break;
+    if (current.phase === "bidding") {
+      current = submitBid(current, chooseBid(current), rng);
+    } else {
+      current = submitPlay(current, current.turn as Seat, chooseCard(current, difficulty, rng));
+    }
+  }
+  return current;
 }

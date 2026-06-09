@@ -2,11 +2,16 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { nextDeal } from "@/lib/server/actions-game";
 import type { PlayerView } from "@/lib/coinche";
 import { formatContract } from "./labels";
 
-export function DealOverlay({ gameId, view }: { gameId: string; view: PlayerView }) {
+export function DealOverlay({
+  view,
+  onNextDeal,
+}: {
+  view: PlayerView;
+  onNextDeal: () => Promise<void> | void;
+}) {
   const [busy, setBusy] = useState(false);
   const result = view.lastDeal;
   const finished = view.phase === "finished";
@@ -52,7 +57,7 @@ export function DealOverlay({ gameId, view }: { gameId: string; view: PlayerView
                 onClick={async () => {
                   setBusy(true);
                   try {
-                    await nextDeal(gameId);
+                    await onNextDeal();
                   } finally {
                     setBusy(false);
                   }

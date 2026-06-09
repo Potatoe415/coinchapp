@@ -1,6 +1,7 @@
 "use server";
 
 import {
+  advanceBots,
   startNextDeal,
   submitBid,
   submitPlay,
@@ -12,7 +13,6 @@ import {
 } from "@/lib/coinche";
 import { getUserId } from "@/lib/supabase/server";
 import type { GameRow, GameStatus } from "@/lib/supabase/types";
-import { advanceBots } from "./bots";
 import { botSeats, loadGame, persistGame, seatOf, type LoadedGame } from "./repo";
 import { buildView, type GameView } from "./view";
 

@@ -3,29 +3,43 @@ import type { Team } from "@/lib/coinche";
 export interface PlayerBadgeProps {
   name: string;
   team: Team;
-  cardCount: number;
   isTurn: boolean;
   isDealer: boolean;
   dataId?: string;
+  orientation?: "horizontal" | "vertical";
 }
 
-export function PlayerBadge({ name, team, cardCount, isTurn, isDealer, dataId }: PlayerBadgeProps) {
-  return (
-    <div
-      data-id={dataId}
-      className={`flex flex-col items-center gap-1 rounded-xl px-3 py-1.5 ring-2 transition-colors ${
-        isTurn ? "bg-amber-300/20 ring-amber-300" : "bg-black/30 ring-white/5"
-      }`}
-    >
-      <div className="flex items-center gap-1.5">
-        <span
-          className="h-2.5 w-2.5 rounded-full"
-          style={{ background: `var(--team-${team === "A" ? "a" : "b"})` }}
-        />
-        <span className="text-sm font-bold">{name}</span>
-        {isDealer && <span className="text-[10px] text-emerald-200/70">D</span>}
+export function PlayerBadge({
+  name,
+  team,
+  isTurn,
+  isDealer,
+  dataId,
+  orientation = "horizontal",
+}: PlayerBadgeProps) {
+  const teamClass = team === "A" ? "bg-team-a" : "bg-team-b";
+  const turnClass = isTurn ? "ring-4 ring-amber-300" : "ring-2 ring-black/15";
+
+  if (orientation === "vertical") {
+    return (
+      <div data-id={dataId} className="flex items-center drop-shadow-lg">
+        <div
+          className={`rounded-full px-1.5 py-3 text-lg font-black uppercase leading-none ${teamClass} ${turnClass}`}
+          style={{ writingMode: "vertical-rl" }}
+        >
+          {name}
+          {isDealer && <span className="mt-1 text-[10px]">D</span>}
+        </div>
       </div>
-      <span className="text-[11px] text-emerald-100/60">{cardCount} cartes</span>
+    );
+  }
+
+  return (
+    <div data-id={dataId} className="flex flex-col items-center gap-0.5 drop-shadow-lg">
+      <div className={`rounded-full px-3 py-1 text-xl font-black uppercase leading-none ${teamClass} ${turnClass}`}>
+        {name}
+        {isDealer && <span className="ml-1 align-middle text-[10px]">D</span>}
+      </div>
     </div>
   );
 }

@@ -6,20 +6,21 @@ History lives in `docs/DECISIONS.md` (decisions) and `docs/BACKLOG.md` (tasks).
 ---
 
 Status: Vertical slice implemented. Builds and tests pass. Not yet deployed.
-Current_Goal: Provision Supabase + deploy to Vercel and verify a full game in prod.
-Last_Action: Implemented engine, server actions, realtime, UI; filled project docs.
+Current_Goal: Add a client-side bot brain (heuristic bidding + ISMCTS play) runnable in the browser.
+Last_Action: Implemented `lib/client/bot.ts` + `lib/client/botSim.ts` and exposed completed `tricks` in `PlayerView`; tsc/lint/tests pass.
 Next_Actions:
-- Create Supabase project, run `supabase/migrations/0001_init.sql`, enable anonymous sign-ins.
-- Set env vars locally (.env.local) and on Vercel; push to GitHub; deploy.
-- Verify: create -> fill bots -> bidding -> 8 tricks -> score -> next deal -> finish.
+- Wire `chooseClientAction` into the bot-turn handler so the UI submits the computed move via the existing Server Action.
+- Confirm whether TECH.md "Bots run server-side" should be updated to allow the client brain.
+- Resume the Supabase/Vercel deployment sequence.
 
 Open_Questions:
 - Manual Belote/Rebelote announcement vs current auto-detection?
 - Accounts/stats needed later?
+- Client-side bot conflicts with TECH.md "Bots run server-side" - keep both paths or migrate fully to client?
 
 Recent_Changes:
-- 2026-06-09 Scaffolded Next.js 16 + TS + Tailwind 4 + Vitest + Supabase, git init.
-- 2026-06-09 Pure Coinche rules engine in lib/coinche + 36 Vitest tests (green).
-- 2026-06-09 Supabase schema + RLS + realtime tick; authoritative Server Actions.
-- 2026-06-09 Mobile-first UI (home, lobby, table, bidding, overlays); realtime hook.
-- 2026-06-09 Filled PRODUCT/TECH/DATA_MODEL/RUNBOOK/DECISIONS/BACKLOG; added README.
+- 2026-06-09 Added client-side bot brain (heuristic bid + time-boxed ISMCTS); `PlayerView` now exposes completed tricks.
+- 2026-06-09 Self-played cards now animate before move resolution; completed tricks stay visible for 1.2s.
+- 2026-06-09 Played-card animation now uses stronger CSS keyframes from each player's direction.
+- 2026-06-09 Fixed `/local` hydration mismatch by passing a deterministic seed into local game initialization.
+- 2026-06-09 Side opponent card backs are now horizontal; bidding slider lint issue fixed.

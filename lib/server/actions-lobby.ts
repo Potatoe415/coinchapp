@@ -1,9 +1,8 @@
 "use server";
 
-import { beginNextDeal, createInitialState, type Difficulty } from "@/lib/coinche";
+import { advanceBots, beginNextDeal, createInitialState, type Difficulty } from "@/lib/coinche";
 import { getServiceClient, getUserId } from "@/lib/supabase/server";
 import type { GameRow, GameSettings } from "@/lib/supabase/types";
-import { advanceBots } from "./bots";
 import {
   botSeats,
   findGameByCode,
@@ -17,6 +16,7 @@ import {
 
 const TARGET_OPTIONS = [500, 1000, 1500, 2000];
 const DIFFICULTIES: Difficulty[] = ["easy", "medium", "hard"];
+const ROOM_CODE_REGEX = /^[A-Z0-9]{3}$/;
 
 function sanitizeSettings(input: Partial<GameSettings>): GameSettings {
   const targetPoints = TARGET_OPTIONS.includes(input.targetPoints ?? 0)
@@ -31,6 +31,12 @@ function sanitizeSettings(input: Partial<GameSettings>): GameSettings {
 function cleanName(name: string, fallback: string): string {
   const trimmed = (name ?? "").trim().slice(0, 20);
   return trimmed.length > 0 ? trimmed : fallback;
+}
+
+function normalizeRoomCode(code: string): string {
+  const normalized = (code ?? "").trim().toUpperCase();
+  if (!ROOM_CODE_REGEX.test(normalized)) throw new Error("invalid_room_code");
+  return normalized;
 }
 
 async function requireUser(): Promise<string> {
@@ -79,7 +85,8 @@ export async function joinGame(input: {
   displayName: string;
 }): Promise<{ gameId: string; seat: number }> {
   const uid = await requireUser();
-  const loaded = await findGameByCode(input.roomCode);
+  const roomCode = normalizeRoomCode(input.roomCode);
+  const loaded = await findGameByCode(roomCode);
   if (!loaded) throw new Error("game_not_found");
   if (loaded.game.status !== "lobby") throw new Error("already_started");
 

@@ -22,6 +22,7 @@ Status: Living document. Always reflects current state.
 - [ ] Prod verification blocked on user's Supabase + Vercel + GitHub setup.
 
 ## Done
+- [x] Restyle the mobile game table to match the provided visual reference.
 - [x] Bootstrap context architecture.
 - [x] Scaffold Next.js + TS + Tailwind + Vitest + Supabase deps, git init.
 - [x] Pure rules engine (cards, deal, bidding, trick, scoring, bots, redact) + 36 tests.

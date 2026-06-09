@@ -9,7 +9,7 @@ export interface LoadedGame {
 
 const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
 
-export function randomRoomCode(length = 4): string {
+export function randomRoomCode(length = 3): string {
   let code = "";
   for (let i = 0; i < length; i++) {
     code += ALPHABET[Math.floor(Math.random() * ALPHABET.length)];

@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
-import { placeBid } from "@/lib/server/actions-game";
-import type { BidOptions, Suit } from "@/lib/coinche";
+import { useMemo, useState } from "react";
+import type { BidOptions, BidType, Suit } from "@/lib/coinche";
 import { SUIT_SYMBOL, isRedSuit } from "./labels";
 
 const SUITS: Suit[] = ["H", "D", "C", "S"];
+
+export type BidPayload = { type: BidType; value?: number; suit?: Suit };
 
 function valueChoices(min: number): number[] {
   const values: number[] = [];
@@ -14,14 +15,26 @@ function valueChoices(min: number): number[] {
   return values;
 }
 
-export function BiddingPanel({ gameId, options }: { gameId: string; options: BidOptions }) {
-  const [value, setValue] = useState(options.minValue ?? 80);
+export function BiddingPanel({
+  options,
+  onBid,
+}: {
+  options: BidOptions;
+  onBid: (payload: BidPayload) => Promise<void> | void;
+}) {
+  const choices = useMemo(
+    () => (options.minValue !== null ? valueChoices(options.minValue) : []),
+    [options.minValue],
+  );
+  const [selectedValue, setSelectedValue] = useState(options.minValue ?? 80);
   const [busy, setBusy] = useState(false);
+  const value = choices.includes(selectedValue) ? selectedValue : (choices[0] ?? selectedValue);
+  const sliderIndex = Math.max(0, choices.indexOf(value));
 
-  async function send(payload: Parameters<typeof placeBid>[1]) {
+  async function send(payload: BidPayload) {
     setBusy(true);
     try {
-      await placeBid(gameId, payload);
+      await onBid(payload);
     } finally {
       setBusy(false);
     }
@@ -31,20 +44,11 @@ export function BiddingPanel({ gameId, options }: { gameId: string; options: Bid
     <div className="flex flex-col gap-3" data-id="bidding-panel">
       {options.minValue !== null && (
         <>
-          <div className="flex items-center justify-center gap-2">
+          <div className="flex flex-col items-center gap-1" data-id="bid-value-display-wrap">
             <span className="text-sm text-emerald-100/70">Annonce</span>
-            <select
-              data-id="bid-value-select"
-              value={value}
-              onChange={(e) => setValue(Number(e.target.value))}
-              className="rounded-lg bg-black/40 px-3 py-2 font-bold ring-1 ring-white/10"
-            >
-              {valueChoices(options.minValue).map((v) => (
-                <option key={v} value={v}>
-                  {v === 250 ? "Capot" : v}
-                </option>
-              ))}
-            </select>
+            <span className="text-2xl font-black text-emerald-200" data-id="bid-value-display">
+              {value === 250 ? "Capot" : value}
+            </span>
           </div>
           <div className="flex justify-center gap-2">
             {SUITS.map((suit) => (
@@ -60,6 +64,22 @@ export function BiddingPanel({ gameId, options }: { gameId: string; options: Bid
                 {SUIT_SYMBOL[suit]}
               </button>
             ))}
+          </div>
+          <div className="px-1" data-id="bid-value-slider-wrap">
+            <input
+              type="range"
+              data-id="bid-value-slider"
+              min={0}
+              max={Math.max(0, choices.length - 1)}
+              step={1}
+              value={sliderIndex}
+              onChange={(e) => setSelectedValue(choices[Number(e.target.value)] ?? choices[0])}
+              className="h-2 w-full cursor-pointer appearance-none rounded-full bg-gradient-to-r from-sky-400 via-emerald-400 to-amber-300"
+            />
+            <div className="mt-1 flex justify-between text-xs font-bold text-emerald-100/60">
+              <span data-id="bid-slider-min">{choices[0] ?? options.minValue}</span>
+              <span data-id="bid-slider-max">{choices[choices.length - 1] === 250 ? "Capot" : choices[choices.length - 1]}</span>
+            </div>
           </div>
         </>
       )}

@@ -2,11 +2,29 @@
 
 import Link from "next/link";
 import { useGameView } from "@/lib/client/useGameView";
+import { nextDeal, placeBid, playCard } from "@/lib/server/actions-game";
+import type { Card } from "@/lib/coinche";
 import { Lobby } from "./Lobby";
-import { GameTable } from "./GameTable";
+import { GameTable, type GameActions } from "./GameTable";
+import type { BidPayload } from "./BiddingPanel";
 
 export function GameRoom({ gameId }: { gameId: string }) {
   const { view, loading, error, refetch } = useGameView(gameId);
+
+  const actions: GameActions = {
+    onBid: async (payload: BidPayload) => {
+      await placeBid(gameId, payload);
+      await refetch();
+    },
+    onPlay: async (card: Card) => {
+      await playCard(gameId, card);
+      await refetch();
+    },
+    onNextDeal: async () => {
+      await nextDeal(gameId);
+      await refetch();
+    },
+  };
 
   if (loading) {
     return <Centered>Chargement…</Centered>;
@@ -41,7 +59,7 @@ export function GameRoom({ gameId }: { gameId: string }) {
     );
   }
 
-  return <GameTable gv={view} />;
+  return <GameTable gv={view} actions={actions} />;
 }
 
 function Centered({ children }: { children: React.ReactNode }) {
