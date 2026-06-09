@@ -1,0 +1,29 @@
+@import "tailwindcss";
+
+:root {
+  --background: #0f1c14;
+  --foreground: #f2f5f3;
+  --felt: #1f7a4d;
+  --felt-dark: #155c39;
+  --team-a: #e0556b;
+  --team-b: #3aa6d6;
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-felt: var(--felt);
+  --color-felt-dark: var(--felt-dark);
+  --color-team-a: var(--team-a);
+  --color-team-b: var(--team-b);
+  --font-sans: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+}
+
+html,
+body {
+  background: var(--background);
+  color: var(--foreground);
+  font-family: var(--font-sans), system-ui, sans-serif;
+  overscroll-behavior: none;
+}

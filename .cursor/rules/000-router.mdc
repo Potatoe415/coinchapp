@@ -1,0 +1,8 @@
+---
+description: Always apply in any situation. USE WHEN starting any chat, agent session, or project action.
+globs: 
+alwaysApply: true
+---
+
+Before any project action, read and strictly follow @AGENTS.md.
+Do not duplicate project rules here.

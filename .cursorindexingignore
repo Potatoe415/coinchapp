@@ -1,0 +1,11 @@
+# Lockfiles: committed but rarely useful for semantic indexing
+package-lock.json
+yarn.lock
+pnpm-lock.yaml
+bun.lockb
+
+# Generated / heavy
+coverage/
+reports/
+*.min.js
+*.map
