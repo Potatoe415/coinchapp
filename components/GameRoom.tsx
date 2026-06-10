@@ -21,8 +21,8 @@ type Channel = ReturnType<ReturnType<typeof createClient>["channel"]>;
 
 export function GameRoom({ gameId }: { gameId: string }) {
   const { t } = useI18n();
-  const { view, loading, error, refetch } = useGameView(gameId);
-  useBotRunner(gameId, view, refetch);
+  const { view, loading, error, refetch, notify } = useGameView(gameId);
+  useBotRunner(gameId, view, refetch, notify);
 
   const [reactions, setReactions] = useState<Map<number, EmojiReaction>>(new Map());
   const timers = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map());
@@ -60,12 +60,18 @@ export function GameRoom({ gameId }: { gameId: string }) {
   const actions: GameActions = {
     onBid: async (payload: BidPayload) => {
       await placeBid(gameId, payload);
+      notify();
+      await refetch();
     },
     onPlay: async (card: Card) => {
       await playCard(gameId, card);
+      notify();
+      await refetch();
     },
     onNextDeal: async () => {
       await nextDeal(gameId);
+      notify();
+      await refetch();
     },
     onBecomeHost: async () => {
       await becomeHost(gameId);

@@ -241,7 +241,7 @@ function BimFlash({ bimTrickKey }: { bimTrickKey: string | null }) {
   if (!visible) return null;
   return (
     <div
-      className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center"
+      className="pointer-events-none absolute inset-0 z-30 flex items-start justify-center pt-6"
       data-id="bim-flash"
     >
       <span

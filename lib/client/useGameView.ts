@@ -11,7 +11,11 @@ export interface GameViewState {
   loading: boolean;
   error: string | null;
   refetch: () => Promise<void>;
+  /** Tell peers to refetch immediately via a fast broadcast (vs. slow postgres_changes). */
+  notify: () => void;
 }
+
+type Channel = ReturnType<ReturnType<typeof createClient>["channel"]>;
 
 /** Load the redacted game view and refetch whenever a realtime tick fires. */
 export function useGameView(gameId: string): GameViewState {
@@ -19,6 +23,7 @@ export function useGameView(gameId: string): GameViewState {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const supabaseRef = useRef(createClient());
+  const channelRef = useRef<Channel | null>(null);
 
   const refetch = useCallback(async () => {
     try {
@@ -30,6 +35,10 @@ export function useGameView(gameId: string): GameViewState {
       setLoading(false);
     }
   }, [gameId]);
+
+  const notify = useCallback(() => {
+    void channelRef.current?.send({ type: "broadcast", event: "tick", payload: {} });
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -49,13 +58,18 @@ export function useGameView(gameId: string): GameViewState {
           void refetch();
         },
       )
+      .on("broadcast", { event: "tick" }, () => {
+        void refetch();
+      })
       .subscribe();
+    channelRef.current = channel;
 
     return () => {
       active = false;
+      channelRef.current = null;
       void supabase.removeChannel(channel);
     };
   }, [gameId, refetch]);
 
-  return { view, loading, error, refetch };
+  return { view, loading, error, refetch, notify };
 }

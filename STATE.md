@@ -7,7 +7,7 @@ History lives in `docs/DECISIONS.md` (decisions) and `docs/BACKLOG.md` (tasks).
 
 Status: Vertical slice implemented. Builds and tests pass. Not yet deployed.
 Current_Goal: Continue gameplay UX hardening and keep visible app version up to date.
-Last_Action: Updated home screen app version label from `V0.8.2` to `V0.8.3`.
+Last_Action: Moved "BIM !" flash animation to the top of the screen to avoid covering cards.
 Next_Actions:
 - Verify the home screen footer shows `V0.8.3` next to `Reset` on mobile and desktop.
 - Validate online game tempo after removing bot delays (bidding and playing), especially turn chaining between bots.

@@ -19,7 +19,12 @@ function toMove(action: BotAction): BotMove {
  * the bot seat's redacted view and submit through the authoritative action.
  * Each move emits a realtime tick, which re-runs this effect for the next bot.
  */
-export function useBotRunner(gameId: string, gv: GameView | null, refetch: () => Promise<void>): void {
+export function useBotRunner(
+  gameId: string,
+  gv: GameView | null,
+  refetch: () => Promise<void>,
+  notify: () => void,
+): void {
   const busyRef = useRef(false);
   const decide = useBotWorker(gv?.settings.botPunch as BotPunch | undefined);
 
@@ -39,7 +44,10 @@ export function useBotRunner(gameId: string, gv: GameView | null, refetch: () =>
         const action = await decide(botView);
         if (cancelled) return;
         await submitBotMove(gameId, turn as Seat, toMove(action));
-        if (!cancelled) await refetch();
+        if (!cancelled) {
+          notify();
+          await refetch();
+        }
       } catch {
         // Host may have changed or another tick already advanced the state;
         // the next realtime tick re-evaluates whose turn it is.
@@ -51,5 +59,5 @@ export function useBotRunner(gameId: string, gv: GameView | null, refetch: () =>
     return () => {
       cancelled = true;
     };
-  }, [gameId, gv, refetch, decide]);
+  }, [gameId, gv, refetch, decide, notify]);
 }
