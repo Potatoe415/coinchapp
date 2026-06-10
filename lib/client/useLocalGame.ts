@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import {
   beginNextDeal,
   chooseBid,
@@ -11,7 +11,6 @@ import {
   submitBid,
   submitPlay,
   type Card,
-  type Difficulty,
   type GameState,
   type ScoringRules,
   type Seat,
@@ -23,6 +22,8 @@ const BOTS = [false, true, true, true];
 const NAMES = ["Vous", "Adam", "Jane", "Lea"];
 /** Must match the CSS trick-collect animation duration. */
 const COLLECT_DELAY_MS = 1500;
+/** Simulated thinking time before each bot move. Configurable. */
+export const BOT_THINKING_MS = 700;
 
 function seededRng(seed: number): () => number {
   let state = seed >>> 0;
@@ -39,34 +40,26 @@ function wait(ms: number): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, ms));
 }
 
-function startState(targetPoints: number, difficulty: Difficulty, seed: number, scoringRules: ScoringRules): GameState {
-  const rng = seededRng(seed);
-  let current = beginNextDeal(createInitialState(targetPoints, scoringRules), rng);
-  let guard = 0;
-  while (guard++ < 64) {
-    if (current.phase !== "bidding" || !BOTS[current.turn]) break;
-    current = submitBid(current, chooseBid(current), rng);
-  }
-  return current;
+function startState(targetPoints: number, seed: number, scoringRules: ScoringRules): GameState {
+  return beginNextDeal(createInitialState(targetPoints, scoringRules), seededRng(seed));
 }
 
 /** Fully offline single-player game: you are seat 0, the rest are bots.
  *  Runs the pure rules engine in the browser, no network. */
 export function useLocalGame(
   targetPoints: number,
-  difficulty: Difficulty,
   seed: number,
   scoringRules: ScoringRules,
 ): { gv: GameView; actions: GameActions } {
   const stateRef = useRef<GameState | null>(null);
   if (!stateRef.current) {
-    stateRef.current = startState(targetPoints, difficulty, seed, scoringRules);
+    stateRef.current = startState(targetPoints, seed, scoringRules);
   }
   const [, setTick] = useState(0);
   const busyRef = useRef(false);
   const tick = useCallback(() => setTick((n) => n + 1), []);
 
-  /** Advance bot seats one move at a time, pausing after each trick completes. */
+  /** Advance bot seats one move at a time, waiting before each move to show the thinking indicator. */
   const runBots = useCallback(async () => {
     if (busyRef.current) return;
     busyRef.current = true;
@@ -75,11 +68,12 @@ export function useLocalGame(
       while (guard++ < 64) {
         const s = stateRef.current!;
         if ((s.phase !== "bidding" && s.phase !== "playing") || !BOTS[s.turn]) break;
+        await wait(BOT_THINKING_MS);
         const prev = s;
         const next =
           s.phase === "bidding"
             ? submitBid(s, chooseBid(s))
-            : submitPlay(s, s.turn as Seat, chooseCard(s, difficulty));
+            : submitPlay(s, s.turn as Seat, chooseCard(s));
         stateRef.current = next;
         tick();
         if (next.tricks.length > prev.tricks.length) {
@@ -89,7 +83,12 @@ export function useLocalGame(
     } finally {
       busyRef.current = false;
     }
-  }, [difficulty, tick]);
+  }, [tick]);
+
+  /** Trigger bots on mount to handle any initial bot turns (e.g. bot bids first after the dealer). */
+  useEffect(() => {
+    runBots();
+  }, [runBots]);
 
   const actions: GameActions = {
     onBid: async (payload) => {
@@ -119,7 +118,7 @@ export function useLocalGame(
     gameId: "local",
     roomCode: "LOCAL",
     status: state.phase === "finished" ? "finished" : "playing",
-    settings: { targetPoints, botDifficulty: difficulty },
+    settings: { targetPoints },
     version: 0,
     players: NAMES.map((name, seat) => ({
       seat,

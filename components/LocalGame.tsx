@@ -2,17 +2,15 @@
 
 import { useState } from "react";
 import { useLocalGame } from "@/lib/client/useLocalGame";
-import type { Difficulty, ScoringRules } from "@/lib/coinche";
+import type { ScoringRules } from "@/lib/coinche";
 import { GameTable } from "./GameTable";
 
 export function LocalGame({
   targetPoints,
-  difficulty,
   seed,
   scoringRules,
 }: {
   targetPoints: number;
-  difficulty: Difficulty;
   seed: number;
   scoringRules: ScoringRules;
 }) {
@@ -21,7 +19,6 @@ export function LocalGame({
     <LocalGameInner
       key={gameKey}
       targetPoints={targetPoints}
-      difficulty={difficulty}
       seed={seed + gameKey * 131071}
       scoringRules={scoringRules}
       onReset={() => setGameKey((k) => k + 1)}
@@ -31,17 +28,15 @@ export function LocalGame({
 
 function LocalGameInner({
   targetPoints,
-  difficulty,
   seed,
   scoringRules,
   onReset,
 }: {
   targetPoints: number;
-  difficulty: Difficulty;
   seed: number;
   scoringRules: ScoringRules;
   onReset: () => void;
 }) {
-  const { gv, actions } = useLocalGame(targetPoints, difficulty, seed, scoringRules);
+  const { gv, actions } = useLocalGame(targetPoints, seed, scoringRules);
   return <GameTable gv={gv} actions={{ ...actions, onReset }} />;
 }

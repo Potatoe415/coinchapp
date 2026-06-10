@@ -1,11 +1,14 @@
-import type { Difficulty } from "@/lib/coinche";
 import type { GameState } from "@/lib/coinche";
 
 export interface GameSettings {
   targetPoints: number;
-  botDifficulty: Difficulty;
+  countContractOnlyIfMade?: boolean;
+  failedContractDefensePoints?: number;
+  zeroPointsForNonContractingTeamWhenContractMade?: boolean;
   capotMadePoints?: number;
   capotFailedDefensePoints?: number;
+  allowToutAtoutSansAtout?: boolean;
+  requireMorePointsToWin?: boolean;
 }
 
 export type GameStatus = "lobby" | "playing" | "finished";

@@ -3,8 +3,10 @@
 import Link from "next/link";
 import { useState, type ReactNode } from "react";
 import { useI18n } from "@/lib/client/i18n";
-import type { PlayerView, Trick } from "@/lib/coinche";
-import { formatContract } from "./labels";
+import type { Bid, PlayerView, Trick } from "@/lib/coinche";
+import { nextSeat, teamOf } from "@/lib/coinche";
+import type { LobbyPlayer } from "@/lib/server/view";
+import { formatContract, trumpModeLabel } from "./labels";
 import { PlayingCard } from "./PlayingCard";
 
 export interface HostControls {
@@ -13,7 +15,7 @@ export interface HostControls {
   onBecomeHost: () => Promise<void> | void;
 }
 
-export function GameHud({ view, host, onReset }: { view: PlayerView; host?: HostControls; onReset?: () => void }) {
+export function GameHud({ view, host, onReset, players }: { view: PlayerView; host?: HostControls; onReset?: () => void; players?: LobbyPlayer[] }) {
   const { locale, t } = useI18n();
   const [panelOpen, setPanelOpen] = useState(false);
   return (
@@ -33,14 +35,36 @@ export function GameHud({ view, host, onReset }: { view: PlayerView; host?: Host
             </div>
             <ScoreNumber color="var(--team-b)" value={view.scores.B} />
           </div>
-          <p className="mt-2 rounded-full bg-[var(--surface-overlay)] px-4 py-1 text-base font-black" data-id="game-contract">
+          <p
+            className="mt-2 rounded-full px-4 py-1 text-base font-black text-[var(--card-face)]"
+            style={{
+              background: view.contract
+                ? view.contract.team === "A"
+                  ? "var(--team-a)"
+                  : "var(--team-b)"
+                : "var(--surface-overlay)",
+            }}
+            data-id="game-contract"
+          >
             {view.trump ? formatContract(view.contract, locale) : t("bidding")}
           </p>
+          {view.phase === "bidding" && (() => {
+            const firstSeat = nextSeat(view.dealer);
+            const isMe = firstSeat === view.mySeat;
+            const name = players?.find((p) => p.seat === firstSeat)?.displayName;
+            const label = isMe ? "Tu commences" : name ? `${name} commence` : null;
+            return label ? (
+              <p className="mt-1 text-xs italic text-[var(--card-face)]/70" data-id="game-bidding-starter">
+                {label}
+              </p>
+            ) : null;
+          })()}
+          {view.phase === "bidding" && <LiveBid bids={view.bids} locale={locale} />}
         </div>
-        <ParametersButton label={t("parameters")} onClick={() => setPanelOpen(true)} />
+        <GameInfoButton label={t("gameInfo")} onClick={() => setPanelOpen(true)} />
       </div>
       {panelOpen && (
-        <ParametersPanel
+        <GameInfoPanel
           host={host}
           onReset={onReset}
           lastTrick={view.lastTrick}
@@ -51,7 +75,7 @@ export function GameHud({ view, host, onReset }: { view: PlayerView; host?: Host
   );
 }
 
-function ParametersPanel({
+function GameInfoPanel({
   host,
   onReset,
   lastTrick,
@@ -66,15 +90,15 @@ function ParametersPanel({
   return (
     <div
       className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 px-6"
-      data-id="parameters-overlay"
+      data-id="game-info-overlay"
       onClick={onClose}
     >
       <div
         className="w-full max-w-xs rounded-2xl bg-[var(--surface)] p-5 shadow-2xl"
-        data-id="parameters-panel"
+        data-id="game-info-panel"
         onClick={(e) => e.stopPropagation()}
       >
-        <p className="mb-4 text-center text-lg font-black text-[var(--card-face)]">{t("parameters")}</p>
+        <p className="mb-4 text-center text-lg font-black text-[var(--card-face)]">{t("gameInfo")}</p>
 
         {lastTrick && lastTrick.cards.length === 4 && (
           <div className="mb-4" data-id="last-trick-section">
@@ -91,21 +115,10 @@ function ParametersPanel({
           </div>
         )}
 
-        <div
-          className="rounded-lg bg-[var(--card-face)]/8 px-3 py-2 text-sm text-[var(--card-face)]"
-          data-id="parameters-rules"
-        >
-          <p data-id="parameters-rule-capot">
-            {t("capot")}: <span className="font-bold">{scoringRules.capotMadePoints}</span>
-          </p>
-          <p data-id="parameters-rule-failed-capot">
-            {t("failedCapot")}: <span className="font-bold">{scoringRules.capotFailedDefensePoints}</span>
-          </p>
-        </div>
         {host && <HostRow host={host} onClose={onClose} />}
         {onReset && (
           <button
-            data-id="parameters-reset-button"
+            data-id="game-info-reset-button"
             onClick={() => { onReset(); onClose(); }}
             className="mt-2 w-full rounded-lg bg-[var(--accent-red)]/80 py-2 font-bold text-[var(--card-face)]"
           >
@@ -113,7 +126,7 @@ function ParametersPanel({
           </button>
         )}
         <button
-          data-id="parameters-close-button"
+          data-id="game-info-close-button"
           onClick={onClose}
           className="mt-4 w-full rounded-lg bg-[var(--card-face)]/14 py-2 font-bold text-[var(--card-face)]"
         >
@@ -184,11 +197,11 @@ function IconLink({
   );
 }
 
-function ParametersButton({ label, onClick }: { label: string; onClick: () => void }) {
+function GameInfoButton({ label, onClick }: { label: string; onClick: () => void }) {
   return (
     <button
       type="button"
-      data-id="game-parameters-button"
+      data-id="game-info-button"
       onClick={onClick}
       className="flex h-16 w-16 items-center justify-center rounded-full bg-[var(--card-face)] text-[var(--surface)] shadow-lg"
       aria-label={label}
@@ -199,6 +212,37 @@ function ParametersButton({ label, onClick }: { label: string; onClick: () => vo
         <span className="h-7 w-2 rounded-full bg-[var(--accent-cyan)]" />
       </span>
     </button>
+  );
+}
+
+function deriveLiveBid(bids: Bid[]): { bid: Bid; coinched: boolean; surcoinched: boolean } | null {
+  let highest: Bid | undefined;
+  let coinched = false;
+  let surcoinched = false;
+  for (const b of bids) {
+    if (b.type === "bid") { highest = b; coinched = false; surcoinched = false; }
+    else if (b.type === "coinche") coinched = true;
+    else if (b.type === "surcoinche") surcoinched = true;
+  }
+  if (!highest) return null;
+  return { bid: highest, coinched, surcoinched };
+}
+
+function LiveBid({ bids, locale }: { bids: Bid[]; locale: import("@/lib/client/i18n").Locale }) {
+  const derived = deriveLiveBid(bids);
+  if (!derived) return null;
+  const { bid, coinched, surcoinched } = derived;
+  const team = teamOf(bid.seat);
+  const mult = surcoinched ? " ×4" : coinched ? " ×2" : "";
+  const label = `${bid.value} ${trumpModeLabel(bid.suit!, locale)}${mult}`;
+  return (
+    <p
+      className="mt-1 rounded-full px-4 py-0.5 text-sm font-black text-[var(--card-face)]"
+      style={{ background: team === "A" ? "var(--team-a)" : "var(--team-b)" }}
+      data-id="game-live-bid"
+    >
+      {label}
+    </p>
   );
 }
 

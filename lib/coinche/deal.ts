@@ -8,6 +8,8 @@ export const DEFAULT_SCORING_RULES: ScoringRules = {
   zeroPointsForNonContractingTeamWhenContractMade: false,
   capotMadePoints: 250,
   capotFailedDefensePoints: 250,
+  allowToutAtoutSansAtout: false,
+  requireMorePointsToWin: true,
 };
 
 /** Fisher-Yates shuffle with an injectable RNG (deterministic in tests). */
@@ -46,7 +48,7 @@ export function createInitialState(targetPoints: number, scoringRules: Partial<S
     hands: [[], [], [], []],
     currentTrick: { leader: 0, cards: [] },
     tricks: [],
-    belote: { team: null, announced: [] },
+    belote: { team: null, points: { A: 0, B: 0 }, announced: [] },
     scores: { A: 0, B: 0 },
     targetPoints,
     scoringRules: { ...DEFAULT_SCORING_RULES, ...scoringRules },
@@ -71,7 +73,7 @@ export function beginNextDeal(state: GameState, rng: Rng = Math.random): GameSta
     hands,
     currentTrick: { leader: opener, cards: [] },
     tricks: [],
-    belote: { team: null, announced: [] },
+    belote: { team: null, points: { A: 0, B: 0 }, announced: [] },
     lastDeal: undefined,
   };
 }

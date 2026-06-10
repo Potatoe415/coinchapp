@@ -53,8 +53,8 @@ export function DealOverlay({
                 {result.capot && ` · ${t("capot")}`}
               </p>
               <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-                <ScoreCell team="A" gained={result.gained.A} total={view.scores.A} />
-                <ScoreCell team="B" gained={result.gained.B} total={view.scores.B} />
+                <ScoreCell team="A" cardPoints={result.cardPoints.A} gained={result.gained.A} total={view.scores.A} />
+                <ScoreCell team="B" cardPoints={result.cardPoints.B} gained={result.gained.B} total={view.scores.B} />
               </div>
               <button
                 data-id="next-deal-button"
@@ -79,11 +79,12 @@ export function DealOverlay({
   );
 }
 
-function ScoreCell({ team, gained, total }: { team: "A" | "B"; gained: number; total: number }) {
+function ScoreCell({ team, cardPoints, gained, total }: { team: "A" | "B"; cardPoints: number; gained: number; total: number }) {
   const { t } = useI18n();
   return (
-    <div className="rounded-lg bg-[rgba(255,250,242,0.12)] py-2" data-id={`deal-score-${team}`}>
+    <div className="rounded-lg bg-[rgba(255,250,242,0.12)] py-3 px-2" data-id={`deal-score-${team}`}>
       <p className="text-xs text-[var(--card-face)]/65">{t("team")} {team}</p>
+      <p className="mt-1 text-xs text-[var(--card-face)]/55">{t("cardPoints")} : {cardPoints}</p>
       <p className="text-lg font-bold">+{gained}</p>
       <p className="text-xs text-[var(--card-face)]/65">{t("total")} {total}</p>
     </div>

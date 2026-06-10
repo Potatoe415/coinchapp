@@ -9,9 +9,9 @@ import type {
   Phase,
   Seat,
   ScoringRules,
-  Suit,
   Team,
   Trick,
+  TrumpMode,
 } from "./types";
 
 /** What a single seat is allowed to see. Never includes other players' hands. */
@@ -20,7 +20,7 @@ export interface PlayerView {
   phase: Phase;
   dealer: Seat;
   turn: Seat;
-  trump: Suit | null;
+  trump: TrumpMode | null;
   contract: Contract | null;
   bids: Bid[];
   myHand: Card[];

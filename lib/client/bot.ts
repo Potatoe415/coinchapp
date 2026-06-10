@@ -1,5 +1,5 @@
-import { SUITS, teamOf } from "@/lib/coinche";
-import type { Bid, Card, PlayerView, Rank, Suit } from "@/lib/coinche";
+import { cardPoints, SUITS, teamOf } from "@/lib/coinche";
+import type { Bid, Card, PlayerView, Rank, Suit, TrumpMode } from "@/lib/coinche";
 import { buildDeterminizer, simulateRootMove } from "./botSim";
 
 /**
@@ -8,7 +8,7 @@ import { buildDeterminizer, simulateRootMove } from "./botSim";
  * a human would. Bidding uses fast heuristics; playing uses time-boxed ISMCTS.
  */
 export type BotAction =
-  | { action: "BID"; value: number; suit: Suit }
+  | { action: "BID"; value: number; suit: TrumpMode }
   | { action: "PASS" }
   | { action: "PLAY"; card: Card };
 
@@ -72,15 +72,42 @@ function highestBid(bids: Bid[]): number {
   return highest;
 }
 
+/** Tout atout potential, normalized to the /162 scale; jacks and nines dominate. */
+function toutAtoutPotential(hand: Card[]): number {
+  let raw = 0;
+  for (const card of hand) raw += cardPoints(card, "TA");
+  const jacks = hand.filter((c) => c.rank === "J").length;
+  const nines = hand.filter((c) => c.rank === "9").length;
+  return Math.round(raw * (162 / 214)) + jacks * 5 + nines * 3;
+}
+
+/** Sans atout potential: aces and tens carry the hand, no cutting. */
+function sansAtoutPotential(hand: Card[]): number {
+  let points = 0;
+  for (const card of hand) points += cardPoints(card, "SA");
+  const aces = hand.filter((c) => c.rank === "A").length;
+  const tens = hand.filter((c) => c.rank === "10").length;
+  return points + aces * 4 + tens * 2;
+}
+
 function chooseBidAction(view: PlayerView): BotAction {
-  let best: { suit: Suit; points: number } = { suit: "H", points: -1 };
+  const allowed = view.bidOptions?.suits ?? [];
+  let best: { mode: TrumpMode; points: number } = { mode: "H", points: -1 };
   for (const suit of SUITS) {
     const points = trumpPotential(view.myHand, suit);
-    if (points > best.points) best = { suit, points };
+    if (points > best.points) best = { mode: suit, points };
+  }
+  if (allowed.includes("TA")) {
+    const ta = toutAtoutPotential(view.myHand);
+    if (ta > best.points) best = { mode: "TA", points: ta };
+  }
+  if (allowed.includes("SA")) {
+    const sa = sansAtoutPotential(view.myHand);
+    if (sa > best.points) best = { mode: "SA", points: sa };
   }
   const value = Math.min(MAX_BID, Math.round(best.points / 10) * 10);
   if (best.points >= MIN_BID && value > highestBid(view.bids)) {
-    return { action: "BID", value, suit: best.suit };
+    return { action: "BID", value, suit: best.mode };
   }
   return { action: "PASS" };
 }

@@ -1,7 +1,6 @@
 "use client";
 
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
-import type { Difficulty } from "@/lib/coinche";
 
 export type Locale = "fr" | "en";
 
@@ -29,7 +28,6 @@ const TRANSLATIONS = {
     settings: "Paramètres",
     gameSettings: "Paramètres de partie",
     pointsCount: "Nombre de points",
-    bots: "Bots",
     start: "Démarrer",
     yourName: "Votre pseudo",
     pseudo: "Pseudo",
@@ -55,7 +53,7 @@ const TRANSLATIONS = {
     biddingInProgress: "Enchères en cours…",
     bid: "Annonce",
     capot: "Capot",
-    generale: "Generale",
+    generale: "Générale",
     pass: "Passer",
     coinche: "Coincher",
     surcoinche: "Surcoincher",
@@ -68,15 +66,18 @@ const TRANSLATIONS = {
     contractFailed: "Contrat chuté",
     nextDeal: "Donne suivante",
     total: "total",
+    cardPoints: "pts de plis",
     stats: "Statistiques",
-    parameters: "Paramètres",
+    gameInfo: "Infos partie",
     currentHost: "Hôte actuel",
     becomeHost: "Devenir hôte",
     youAreHost: "Vous êtes l'hôte",
     noContract: "Pas de contrat",
-    localOnlyContractPoints: "Compter uniquement les points du contrat quand il est fait",
+    localOnlyContractPoints: "Calcul du Score - Annonce Seulement",
     failedContract: "Contrat chuté",
     failedCapot: "Capot chuté",
+    allowSpecialBids: "Tout Atout / Sans Atout",
+    requireMorePointsToWin: "+ de points pour gagner",
     lastTrick: "Dernier pli",
     failedContractFull: "Adversaire marque 160 + contrat",
     failedContractOnly160: "Adversaire marque 160",
@@ -86,6 +87,9 @@ const TRANSLATIONS = {
     language: "Langue",
     confirmBid: "OK",
     restartGame: "Recommencer",
+    addPreset: "Ajouter un preset",
+    presetName: "Nom du preset",
+    savePreset: "Créer",
   },
   en: {
     backToDashboard: "Back to dashboard",
@@ -102,7 +106,6 @@ const TRANSLATIONS = {
     settings: "Settings",
     gameSettings: "Game settings",
     pointsCount: "Points target",
-    bots: "Bots",
     start: "Start",
     yourName: "Your nickname",
     pseudo: "Nickname",
@@ -141,15 +144,18 @@ const TRANSLATIONS = {
     contractFailed: "Contract failed",
     nextDeal: "Next deal",
     total: "total",
+    cardPoints: "trick pts",
     stats: "Stats",
-    parameters: "Settings",
+    gameInfo: "Game info",
     currentHost: "Current host",
     becomeHost: "Become host",
     youAreHost: "You are the host",
     noContract: "No contract",
-    localOnlyContractPoints: "Count only contract points when made",
+    localOnlyContractPoints: "Score Calculation - Bid Only",
     failedContract: "Failed contract",
     failedCapot: "Failed capot",
+    allowSpecialBids: "All Trump / No Trump",
+    requireMorePointsToWin: "More points to win",
     lastTrick: "Last trick",
     failedContractFull: "Defense scores 160 + contract",
     failedContractOnly160: "Defense scores 160",
@@ -159,6 +165,9 @@ const TRANSLATIONS = {
     language: "Language",
     confirmBid: "OK",
     restartGame: "Restart",
+    addPreset: "Add a preset",
+    presetName: "Preset name",
+    savePreset: "Create",
   },
 } as const;
 
@@ -195,12 +204,6 @@ export function useI18n() {
   const ctx = useContext(I18nContext);
   if (!ctx) throw new Error("useI18n must be used inside I18nProvider");
   return ctx;
-}
-
-export function difficultyLabel(level: Difficulty, locale: Locale): string {
-  if (level === "easy") return locale === "fr" ? "Facile" : "Easy";
-  if (level === "hard") return locale === "fr" ? "Difficile" : "Hard";
-  return locale === "fr" ? "Moyen" : "Medium";
 }
 
 export function formatText(

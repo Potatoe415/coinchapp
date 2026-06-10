@@ -37,7 +37,7 @@ describe("computeDealResult", () => {
     expect(result.gained).toEqual({ A: 54, B: 188 });
   });
 
-  it("gives 160 + contract to the defense on a failed contract", () => {
+  it("gives the defense the configured failed-contract points (160) on a failed contract", () => {
     const state = withContract(dealWithWinners(alternating, "C"), {
       seat: 0,
       team: "A",
@@ -47,7 +47,7 @@ describe("computeDealResult", () => {
     });
     const result = computeDealResult(state);
     expect(result.contractMade).toBe(false);
-    expect(result.gained).toEqual({ A: 0, B: 280 });
+    expect(result.gained).toEqual({ A: 0, B: 160 });
   });
 
   it("applies the coinche multiplier on a made contract", () => {
@@ -59,7 +59,7 @@ describe("computeDealResult", () => {
       coinche: 2,
     });
     const result = computeDealResult(state);
-    expect(result.gained).toEqual({ A: 0, B: 520 });
+    expect(result.gained).toEqual({ A: 0, B: 320 });
   });
 
   it("gives the defense the coinche base when a coinched contract falls", () => {
@@ -72,10 +72,10 @@ describe("computeDealResult", () => {
     });
     const result = computeDealResult(state);
     expect(result.contractMade).toBe(false);
-    expect(result.gained).toEqual({ A: 0, B: 520 });
+    expect(result.gained).toEqual({ A: 0, B: 320 });
   });
 
-  it("scores a made announced capot as 500", () => {
+  it("scores a made announced capot using capotMadePoints (250)", () => {
     const state = withContract(dealWithWinners([0, 0, 0, 0, 0, 0, 0, 0], "C"), {
       seat: 0,
       team: "A",
@@ -84,10 +84,10 @@ describe("computeDealResult", () => {
       coinche: 1,
     });
     const result = computeDealResult(state);
-    expect(result.gained).toEqual({ A: 500, B: 0 });
+    expect(result.gained).toEqual({ A: 250, B: 0 });
   });
 
-  it("gives 410 to the defense when an announced capot fails", () => {
+  it("gives the defense capotFailedDefensePoints (250) when an announced capot fails", () => {
     const state = withContract(dealWithWinners(alternating, "C"), {
       seat: 0,
       team: "A",
@@ -97,7 +97,7 @@ describe("computeDealResult", () => {
     });
     const result = computeDealResult(state);
     expect(result.contractMade).toBe(false);
-    expect(result.gained).toEqual({ A: 0, B: 410 });
+    expect(result.gained).toEqual({ A: 0, B: 250 });
   });
 
   it("scores a made announced generale as 1000", () => {

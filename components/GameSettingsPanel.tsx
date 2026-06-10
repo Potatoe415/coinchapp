@@ -1,0 +1,206 @@
+"use client";
+
+import { useI18n } from "@/lib/client/i18n";
+import { ParamPresetPicker } from "./ParamPresetPicker";
+import type { ParamPreset } from "@/lib/client/useParamPresets";
+
+export interface GameSetupValues {
+  target: number;
+  countContractOnlyIfMade: boolean;
+  failedContractDefensePoints: string;
+  zeroPointsForNonContractingTeamWhenContractMade: boolean;
+  capotMadePoints: string;
+  capotFailedDefensePoints: string;
+  allowToutAtoutSansAtout: boolean;
+  requireMorePointsToWin: boolean;
+}
+
+export const DEFAULT_GAME_SETUP: GameSetupValues = {
+  target: 1000,
+  countContractOnlyIfMade: true,
+  failedContractDefensePoints: "160",
+  zeroPointsForNonContractingTeamWhenContractMade: true,
+  capotMadePoints: "250",
+  capotFailedDefensePoints: "250",
+  allowToutAtoutSansAtout: false,
+  requireMorePointsToWin: true,
+};
+
+const TARGETS = [500, 1000, 1500, 2000];
+
+interface ToggleProps {
+  checked: boolean;
+  onToggle: () => void;
+  dataId: string;
+}
+
+function ToggleSwitch({ checked, onToggle, dataId }: ToggleProps) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={checked}
+      data-id={dataId}
+      onClick={onToggle}
+      className={[
+        "relative h-6 w-11 flex-shrink-0 rounded-full transition-colors",
+        checked ? "bg-[var(--accent-yellow)]" : "bg-[var(--card-face)]/20",
+      ].join(" ")}
+    >
+      <span
+        className={[
+          "absolute top-0.5 left-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform",
+          checked ? "translate-x-[22px]" : "translate-x-0",
+        ].join(" ")}
+      />
+    </button>
+  );
+}
+
+interface Props {
+  values: GameSetupValues;
+  onChange: (next: GameSetupValues) => void;
+  /** Prefix for data-id attributes, e.g. "local" or "online". */
+  idPrefix: string;
+  title: string;
+}
+
+export function GameSettingsPanel({ values, onChange, idPrefix, title }: Props) {
+  const { t } = useI18n();
+
+  function set<K extends keyof GameSetupValues>(key: K, val: GameSetupValues[K]) {
+    onChange({ ...values, [key]: val });
+  }
+
+  function applyPreset(preset: ParamPreset) {
+    onChange({
+      ...values,
+      capotMadePoints: String(preset.capotMadePoints),
+      capotFailedDefensePoints: String(preset.capotFailedDefensePoints),
+      countContractOnlyIfMade: preset.countContractOnlyIfMade,
+      failedContractDefensePoints: String(preset.failedContractDefensePoints),
+      zeroPointsForNonContractingTeamWhenContractMade: preset.zeroPointsForNonContractingTeamWhenContractMade,
+    });
+  }
+
+  return (
+    <section
+      className="rounded-2xl bg-[var(--surface)] p-5 text-[var(--card-face)] shadow-lg ring-1 ring-[var(--accent-cyan)]/25"
+      data-id={`${idPrefix}-settings-card`}
+    >
+      <div className="mb-3 flex items-start justify-between gap-2">
+        <h2 className="text-lg font-bold">{title}</h2>
+        <ParamPresetPicker
+          currentValues={{
+            capotMadePoints: Number(values.capotMadePoints) || 250,
+            capotFailedDefensePoints: Number(values.capotFailedDefensePoints) || 250,
+            countContractOnlyIfMade: values.countContractOnlyIfMade,
+            failedContractDefensePoints: Number(values.failedContractDefensePoints) || 160,
+            zeroPointsForNonContractingTeamWhenContractMade: values.zeroPointsForNonContractingTeamWhenContractMade,
+          }}
+          onSelect={applyPreset}
+        />
+      </div>
+      <div className="grid grid-cols-1 gap-3">
+        <label className="flex items-center justify-between gap-3 text-sm">
+          <span className="text-[var(--card-face)]/75">{t("pointsCount")}</span>
+          <select
+            data-id={`${idPrefix}-target-select`}
+            value={values.target}
+            onChange={(e) => set("target", Number(e.target.value))}
+            className="w-40 rounded-lg bg-[rgba(255,250,242,0.12)] px-3 py-2 ring-1 ring-[var(--accent-cyan)]/25"
+          >
+            {TARGETS.map((p) => (
+              <option key={p} value={p}>{p} points</option>
+            ))}
+          </select>
+        </label>
+        <label
+          className="flex items-center justify-between gap-3 text-sm"
+          data-id={`${idPrefix}-count-contract-only-checkbox-row`}
+        >
+          <span className="text-[var(--card-face)]/75">{t("localOnlyContractPoints")}</span>
+          <ToggleSwitch
+            checked={values.countContractOnlyIfMade}
+            onToggle={() => set("countContractOnlyIfMade", !values.countContractOnlyIfMade)}
+            dataId={`${idPrefix}-count-contract-only-checkbox`}
+          />
+        </label>
+        <label className="flex items-center justify-between gap-3 text-sm">
+          <span className="text-[var(--card-face)]/75">{t("failedContract")}</span>
+          <input
+            type="number"
+            inputMode="numeric"
+            min={0}
+            data-id={`${idPrefix}-failed-contract-points-input`}
+            value={values.failedContractDefensePoints}
+            onChange={(e) => set("failedContractDefensePoints", e.target.value)}
+            placeholder="160"
+            className="w-40 rounded-lg bg-[rgba(255,250,242,0.12)] px-3 py-2 ring-1 ring-[var(--accent-cyan)]/25"
+          />
+        </label>
+        <label className="flex items-center justify-between gap-3 text-sm">
+          <span className="text-[var(--card-face)]/75">{t("opponentPoints")}</span>
+          <ToggleSwitch
+            checked={!values.zeroPointsForNonContractingTeamWhenContractMade}
+            onToggle={() =>
+              set(
+                "zeroPointsForNonContractingTeamWhenContractMade",
+                !values.zeroPointsForNonContractingTeamWhenContractMade,
+              )
+            }
+            dataId={`${idPrefix}-opponent-points-switch`}
+          />
+        </label>
+        <label className="flex items-center justify-between gap-3 text-sm">
+          <span className="text-[var(--card-face)]/75">{t("capot")}</span>
+          <input
+            type="number"
+            inputMode="numeric"
+            min={0}
+            data-id={`${idPrefix}-capot-made-points-input`}
+            value={values.capotMadePoints}
+            onChange={(e) => set("capotMadePoints", e.target.value)}
+            placeholder="250"
+            className="w-40 rounded-lg bg-[rgba(255,250,242,0.12)] px-3 py-2 ring-1 ring-[var(--accent-cyan)]/25"
+          />
+        </label>
+        <label className="flex items-center justify-between gap-3 text-sm">
+          <span className="text-[var(--card-face)]/75">{t("failedCapot")}</span>
+          <input
+            type="number"
+            inputMode="numeric"
+            min={0}
+            data-id={`${idPrefix}-capot-failed-defense-points-input`}
+            value={values.capotFailedDefensePoints}
+            onChange={(e) => set("capotFailedDefensePoints", e.target.value)}
+            placeholder="250"
+            className="w-40 rounded-lg bg-[rgba(255,250,242,0.12)] px-3 py-2 ring-1 ring-[var(--accent-cyan)]/25"
+          />
+        </label>
+        <label
+          className="flex items-center justify-between gap-3 text-sm"
+          data-id={`${idPrefix}-allow-special-bids-row`}
+        >
+          <span className="text-[var(--card-face)]/75">{t("allowSpecialBids")}</span>
+          <ToggleSwitch
+            checked={values.allowToutAtoutSansAtout}
+            onToggle={() => set("allowToutAtoutSansAtout", !values.allowToutAtoutSansAtout)}
+            dataId={`${idPrefix}-allow-special-bids-switch`}
+          />
+        </label>
+        <label
+          className="flex items-center justify-between gap-3 text-sm"
+          data-id={`${idPrefix}-require-more-points-row`}
+        >
+          <span className="text-[var(--card-face)]/75">{t("requireMorePointsToWin")}</span>
+          <ToggleSwitch
+            checked={values.requireMorePointsToWin}
+            onToggle={() => set("requireMorePointsToWin", !values.requireMorePointsToWin)}
+            dataId={`${idPrefix}-require-more-points-switch`}
+          />
+        </label>
+      </div>
+    </section>
+  );
+}

@@ -8,7 +8,7 @@ import {
   type Card,
   type GameState,
   type Seat,
-  type Suit,
+  type TrumpMode,
 } from "@/lib/coinche";
 import { getServiceClient, getUserId } from "@/lib/supabase/server";
 import type { GameRow, GameStatus } from "@/lib/supabase/types";
@@ -17,7 +17,7 @@ import { buildView, type GameView } from "./view";
 
 /** A move the host client submits on behalf of a bot seat. */
 export type BotMove =
-  | { kind: "bid"; type: BidType; value?: number; suit?: Suit }
+  | { kind: "bid"; type: BidType; value?: number; suit?: TrumpMode }
   | { kind: "play"; card: Card };
 
 function statusFor(state: GameState): GameStatus {
@@ -44,7 +44,7 @@ async function commit(loaded: LoadedGame, state: GameState): Promise<void> {
 
 export async function placeBid(
   gameId: string,
-  bid: { type: BidType; value?: number; suit?: Suit },
+  bid: { type: BidType; value?: number; suit?: TrumpMode },
 ): Promise<void> {
   const { loaded, seat, state } = await loadForAction(gameId);
   const next = submitBid(state, { seat, type: bid.type, value: bid.value, suit: bid.suit });

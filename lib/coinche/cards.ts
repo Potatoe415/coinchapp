@@ -1,4 +1,4 @@
-import type { Card, Rank, Seat, Suit, Team } from "./types";
+import type { Card, Rank, Seat, Suit, Team, TrumpMode } from "./types";
 
 export const SUITS: Suit[] = ["H", "D", "C", "S"];
 export const RANKS: Rank[] = ["7", "8", "9", "10", "J", "Q", "K", "A"];
@@ -30,6 +30,30 @@ const PLAIN_POINTS: Record<Rank, number> = {
   "7": 0,
 };
 
+/** Sans-atout points (no trump): A high. Deck total = 152 (+10 de der = 162). */
+const SANS_ATOUT_POINTS: Record<Rank, number> = {
+  A: 19,
+  "10": 10,
+  K: 4,
+  Q: 3,
+  J: 2,
+  "9": 0,
+  "8": 0,
+  "7": 0,
+};
+
+/** Tout-atout points (every suit trump). Raw deck total = 204 (+10 de der = 214). */
+const TOUT_ATOUT_POINTS: Record<Rank, number> = {
+  J: 14,
+  "9": 9,
+  A: 11,
+  "10": 10,
+  K: 4,
+  Q: 3,
+  "8": 0,
+  "7": 0,
+};
+
 export function buildDeck(): Card[] {
   const deck: Card[] = [];
   for (const suit of SUITS) {
@@ -48,16 +72,23 @@ export function sameCard(a: Card, b: Card): boolean {
   return a.suit === b.suit && a.rank === b.rank;
 }
 
-export function isTrump(card: Card, trump: Suit | null): boolean {
-  return trump !== null && card.suit === trump;
+export function isTrump(card: Card, trump: TrumpMode | null): boolean {
+  if (trump === "TA") return true;
+  if (trump === "SA" || trump === null) return false;
+  return card.suit === trump;
 }
 
-export function cardPoints(card: Card, trump: Suit | null): number {
+export function cardPoints(card: Card, trump: TrumpMode | null): number {
+  if (trump === "TA") return TOUT_ATOUT_POINTS[card.rank];
+  if (trump === "SA") return SANS_ATOUT_POINTS[card.rank];
   return isTrump(card, trump) ? TRUMP_POINTS[card.rank] : PLAIN_POINTS[card.rank];
 }
 
-/** Comparable strength of a card within a trick, given the led suit and trump. */
-export function cardStrength(card: Card, led: Suit, trump: Suit | null): number {
+/** Comparable strength of a card within a trick, given the led suit and trump.
+ *  In TA every suit is its own trump line (J high); in SA there is no cutting. */
+export function cardStrength(card: Card, led: Suit, trump: TrumpMode | null): number {
+  if (trump === "TA") return card.suit === led ? 200 + TRUMP_ORDER.indexOf(card.rank) : 0;
+  if (trump === "SA") return card.suit === led ? 100 + PLAIN_ORDER.indexOf(card.rank) : 0;
   if (isTrump(card, trump)) return 200 + TRUMP_ORDER.indexOf(card.rank);
   if (card.suit === led) return 100 + PLAIN_ORDER.indexOf(card.rank);
   return 0;

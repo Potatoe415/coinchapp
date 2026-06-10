@@ -3,6 +3,41 @@
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/lib/client/i18n";
 
+async function resetBrowserData() {
+  localStorage.clear();
+  sessionStorage.clear();
+
+  document.cookie.split(";").forEach((cookie) => {
+    const [rawName] = cookie.split("=");
+    const name = rawName?.trim();
+    if (!name) return;
+    document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
+  });
+
+  if ("caches" in window) {
+    const keys = await caches.keys();
+    await Promise.all(keys.map((key) => caches.delete(key)));
+  }
+
+  if ("indexedDB" in window && typeof indexedDB.databases === "function") {
+    const databases = await indexedDB.databases();
+    await Promise.all(
+      databases
+        .map((db) => db.name)
+        .filter((name): name is string => Boolean(name))
+        .map(
+          (name) =>
+            new Promise<void>((resolve) => {
+              const req = indexedDB.deleteDatabase(name);
+              req.onsuccess = () => resolve();
+              req.onerror = () => resolve();
+              req.onblocked = () => resolve();
+            }),
+        ),
+    );
+  }
+}
+
 const SUIT_SYMBOLS = ["♠", "♥", "♦", "♣"];
 
 export default function Home() {
@@ -49,13 +84,21 @@ export default function Home() {
 
           <button
             data-id="play-online-button"
-            onClick={() => router.push("/online?target=1000&difficulty=medium")}
+            onClick={() => router.push("/online?target=1000")}
             className="rounded-2xl bg-[var(--accent-cyan)] px-4 py-5 text-lg font-black text-[var(--surface)] shadow-lg"
           >
             {t("playOnline")}
           </button>
         </div>
       </div>
+
+      <button
+        data-id="reset-browser-data-button"
+        onClick={resetBrowserData}
+        className="mt-auto self-center rounded-lg border border-gray-500 bg-transparent px-4 py-2 text-sm font-medium text-gray-400 transition hover:border-gray-400 hover:text-gray-300 active:scale-95"
+      >
+        Reset
+      </button>
     </main>
   );
 }

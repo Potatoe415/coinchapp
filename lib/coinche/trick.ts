@@ -1,8 +1,8 @@
 import { cardStrength, nextSeat, sameCard, teamOf, trumpStrength } from "./cards";
-import type { Card, GameState, PlayedCard, Seat, Suit, Trick } from "./types";
+import type { Card, GameState, PlayedCard, Seat, Suit, Trick, TrumpMode } from "./types";
 
 /** Seat currently winning the given (partial) trick. */
-export function trickWinner(cards: PlayedCard[], trump: Suit | null): Seat {
+export function trickWinner(cards: PlayedCard[], trump: TrumpMode | null): Seat {
   const led = cards[0].card.suit;
   let best = cards[0];
   for (const played of cards) {
@@ -15,12 +15,21 @@ export function trickWinner(cards: PlayedCard[], trump: Suit | null): Seat {
   return best.seat;
 }
 
-function highestTrumpStrength(cards: PlayedCard[], trump: Suit | null): number {
+function highestTrumpStrength(cards: PlayedCard[], trump: TrumpMode | null): number {
   let max = -1;
   for (const played of cards) {
-    if (trump && played.card.suit === trump) {
+    if (trump && trump !== "SA" && trump !== "TA" && played.card.suit === trump) {
       max = Math.max(max, trumpStrength(played.card));
     }
+  }
+  return max;
+}
+
+/** Highest trump-order strength among trick cards of the given suit (used in TA). */
+function highestStrengthInSuit(cards: PlayedCard[], suit: Suit): number {
+  let max = -1;
+  for (const played of cards) {
+    if (played.card.suit === suit) max = Math.max(max, trumpStrength(played.card));
   }
   return max;
 }
@@ -33,6 +42,23 @@ export function legalCards(state: GameState, seat: Seat): Card[] {
   if (trick.length === 0) return [...hand];
 
   const led = trick[0].card.suit;
+
+  // Sans atout: follow the led suit if possible, otherwise play anything. No cutting.
+  if (trump === "SA") {
+    const ledCards = hand.filter((c) => c.suit === led);
+    return ledCards.length > 0 ? ledCards : [...hand];
+  }
+
+  // Tout atout: each suit is its own trump line. Must follow and overtake within the
+  // led suit; if void, play anything (another suit can never win the trick).
+  if (trump === "TA") {
+    const ledCards = hand.filter((c) => c.suit === led);
+    if (ledCards.length === 0) return [...hand];
+    const top = highestStrengthInSuit(trick, led);
+    const higher = ledCards.filter((c) => trumpStrength(c) > top);
+    return higher.length > 0 ? higher : ledCards;
+  }
+
   const myTrumps = trump ? hand.filter((c) => c.suit === trump) : [];
   const topTrump = highestTrumpStrength(trick, trump);
   const partnerMaster = teamOf(trickWinner(trick, trump)) === teamOf(seat);

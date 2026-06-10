@@ -5,21 +5,17 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 import { createGame, joinGame } from "@/lib/server/actions-lobby";
 import { ensureAnonAuth } from "@/lib/client/auth";
-import type { Difficulty } from "@/lib/coinche";
-import { difficultyLabel, useI18n } from "@/lib/client/i18n";
+import { useI18n } from "@/lib/client/i18n";
+import { GameSettingsPanel, DEFAULT_GAME_SETUP } from "@/components/GameSettingsPanel";
+import type { GameSetupValues } from "@/components/GameSettingsPanel";
 
-const TARGETS = [500, 1000, 1500, 2000];
-const DIFFICULTIES: Difficulty[] = ["easy", "medium", "hard"];
 const ROOM_CODE_LENGTH = 3;
 
 export default function OnlinePage() {
   const router = useRouter();
-  const { locale, t } = useI18n();
+  const { t } = useI18n();
   const [name, setName] = useState("");
-  const [target, setTarget] = useState(1000);
-  const [difficulty, setDifficulty] = useState<Difficulty>("medium");
-  const [capotMadePoints, setCapotMadePoints] = useState("250");
-  const [capotFailedDefensePoints, setCapotFailedDefensePoints] = useState("250");
+  const [setup, setSetup] = useState<GameSetupValues>(DEFAULT_GAME_SETUP);
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -46,8 +42,13 @@ export default function OnlinePage() {
 
   return (
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-5 px-5 py-8" data-id="online-screen">
-      <Link href="/" className="text-sm text-[var(--foreground)]/70" data-id="online-back-home">
-        ← {t("backToDashboard")}
+      <Link
+        href="/"
+        className="flex h-9 w-9 items-center justify-center rounded-full bg-[var(--foreground)]/10 text-[var(--foreground)]/70 transition-colors hover:bg-[var(--foreground)]/20"
+        data-id="online-back-home"
+        aria-label={t("backToDashboard")}
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
       </Link>
 
       <header className="text-center">
@@ -56,74 +57,18 @@ export default function OnlinePage() {
       </header>
 
       {error && (
-        <p className="rounded-lg bg-[var(--accent-red)]/20 px-4 py-2 text-center text-sm text-[var(--surface)]" data-id="online-error">
+        <p
+          className="rounded-lg bg-[var(--accent-red)]/20 px-4 py-2 text-center text-sm text-[var(--surface)]"
+          data-id="online-error"
+        >
           {error}
         </p>
       )}
 
-      <section className="rounded-2xl bg-[var(--surface)] p-5 text-[var(--card-face)] shadow-lg ring-1 ring-[var(--accent-cyan)]/25" data-id="online-settings-card">
-        <h2 className="mb-3 text-lg font-bold">{t("gameSettings")}</h2>
-        <div className="grid gap-3">
-          <label className="block text-sm">
-            <span className="mb-1 block text-[var(--card-face)]/75">{t("pointsCount")}</span>
-            <select
-              data-id="online-target-select"
-              value={target}
-              onChange={(e) => setTarget(Number(e.target.value))}
-              className="w-full rounded-lg bg-[rgba(255,250,242,0.12)] px-3 py-2 ring-1 ring-[var(--accent-cyan)]/25"
-            >
-              {TARGETS.map((points) => (
-                <option key={points} value={points}>
-                  {points} points
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="block text-sm">
-            <span className="mb-1 block text-[var(--card-face)]/75">{t("bots")}</span>
-            <select
-              data-id="online-difficulty-select"
-              value={difficulty}
-              onChange={(e) => setDifficulty(e.target.value as Difficulty)}
-              className="w-full rounded-lg bg-[rgba(255,250,242,0.12)] px-3 py-2 ring-1 ring-[var(--accent-cyan)]/25"
-            >
-              {DIFFICULTIES.map((item) => (
-                <option key={item} value={item}>
-                  {difficultyLabel(item, locale)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="block text-sm">
-            <span className="mb-1 block text-[var(--card-face)]/75">{t("capot")}</span>
-            <input
-              type="number"
-              inputMode="numeric"
-              min={0}
-              data-id="online-capot-made-points-input"
-              value={capotMadePoints}
-              onChange={(e) => setCapotMadePoints(e.target.value)}
-              placeholder="250"
-              className="w-full rounded-lg bg-[rgba(255,250,242,0.12)] px-3 py-2 ring-1 ring-[var(--accent-cyan)]/25"
-            />
-          </label>
-          <label className="block text-sm">
-            <span className="mb-1 block text-[var(--card-face)]/75">{t("failedCapot")}</span>
-            <input
-              type="number"
-              inputMode="numeric"
-              min={0}
-              data-id="online-capot-failed-defense-points-input"
-              value={capotFailedDefensePoints}
-              onChange={(e) => setCapotFailedDefensePoints(e.target.value)}
-              placeholder="250"
-              className="w-full rounded-lg bg-[rgba(255,250,242,0.12)] px-3 py-2 ring-1 ring-[var(--accent-cyan)]/25"
-            />
-          </label>
-        </div>
-      </section>
-
-      <section className="rounded-2xl bg-[var(--surface)] p-5 text-[var(--card-face)] shadow-lg ring-1 ring-[var(--accent-cyan)]/25" data-id="online-actions-card">
+      <section
+        className="rounded-2xl bg-[var(--surface)] p-5 text-[var(--card-face)] shadow-lg ring-1 ring-[var(--accent-cyan)]/25"
+        data-id="online-actions-card"
+      >
         <label className="mb-3 block text-sm">
           <span className="mb-1 block text-[var(--card-face)]/75">{t("yourName")}</span>
           <input
@@ -138,15 +83,21 @@ export default function OnlinePage() {
           data-id="create-game-button"
           disabled={busy}
           onClick={() =>
-            run(() => createGame({
-              displayName: name,
-              settings: {
-                targetPoints: target,
-                botDifficulty: difficulty,
-                capotMadePoints: Number(capotMadePoints) || 250,
-                capotFailedDefensePoints: Number(capotFailedDefensePoints) || 250,
-              },
-            }))
+            run(() =>
+              createGame({
+                displayName: name,
+                settings: {
+                  targetPoints: setup.target,
+                  countContractOnlyIfMade: setup.countContractOnlyIfMade,
+                  failedContractDefensePoints: Number(setup.failedContractDefensePoints) || 160,
+                  zeroPointsForNonContractingTeamWhenContractMade: setup.zeroPointsForNonContractingTeamWhenContractMade,
+                  capotMadePoints: Number(setup.capotMadePoints) || 250,
+                  capotFailedDefensePoints: Number(setup.capotFailedDefensePoints) || 250,
+                  allowToutAtoutSansAtout: setup.allowToutAtoutSansAtout,
+                  requireMorePointsToWin: setup.requireMorePointsToWin,
+                },
+              }),
+            )
           }
           className="mb-4 w-full rounded-lg bg-[var(--accent-cyan)] px-4 py-3 font-bold text-[var(--surface)] disabled:opacity-50"
         >
@@ -156,7 +107,9 @@ export default function OnlinePage() {
           <input
             data-id="join-code-input"
             value={code}
-            onChange={(e) => setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, ROOM_CODE_LENGTH))}
+            onChange={(e) =>
+              setCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, ROOM_CODE_LENGTH))
+            }
             placeholder="CODE"
             maxLength={ROOM_CODE_LENGTH}
             className="w-32 rounded-lg bg-[rgba(255,250,242,0.12)] px-3 py-2 text-center font-mono text-lg tracking-widest text-[var(--card-face)] outline-none ring-1 ring-[var(--accent-cyan)]/25 focus:ring-[var(--accent-yellow)]"
@@ -171,6 +124,13 @@ export default function OnlinePage() {
           </button>
         </div>
       </section>
+
+      <GameSettingsPanel
+        values={setup}
+        onChange={setSetup}
+        idPrefix="online"
+        title={t("gameSettings")}
+      />
     </main>
   );
 }

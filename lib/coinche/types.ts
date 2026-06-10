@@ -1,6 +1,9 @@
 export type Suit = "H" | "D" | "C" | "S";
 export type Rank = "7" | "8" | "9" | "10" | "J" | "Q" | "K" | "A";
 
+/** Trump mode chosen by the contract: a single suit, all-trump ("TA") or no-trump ("SA"). */
+export type TrumpMode = Suit | "TA" | "SA";
+
 export interface Card {
   suit: Suit;
   rank: Rank;
@@ -19,15 +22,16 @@ export interface Bid {
   type: BidType;
   /** Contract value for a "bid": 80,90,...,160, 250 (capot) or 500 (generale). */
   value?: number;
-  /** Trump suit for a "bid". */
-  suit?: Suit;
+  /** Trump mode for a "bid": a suit, "TA" (tout atout) or "SA" (sans atout). */
+  suit?: TrumpMode;
 }
 
 export interface Contract {
   seat: Seat;
   team: Team;
   value: number;
-  suit: Suit;
+  /** Trump mode: a suit, "TA" (tout atout) or "SA" (sans atout). */
+  suit: TrumpMode;
   /** Multiplier: 1 = normal, 2 = coinche, 4 = surcoinche. */
   coinche: 1 | 2 | 4;
 }
@@ -44,8 +48,10 @@ export interface Trick {
 }
 
 export interface BeloteState {
-  /** Team holding K+Q of trump, or null if none / no trump yet. */
+  /** Team holding K+Q of the single trump suit, or null (none / SA / TA). */
   team: Team | null;
+  /** Belote points per team. Handles multiple belotes in tout atout. */
+  points: { A: number; B: number };
   announced: ("belote" | "rebelote")[];
 }
 
@@ -71,13 +77,19 @@ export interface ScoringRules {
   capotMadePoints: number;
   /** Points defense scores when an announced capot fails (default 250). */
   capotFailedDefensePoints: number;
+  /** Whether tout atout / sans atout may be announced (default false). */
+  allowToutAtoutSansAtout: boolean;
+  /** To win, a team must have strictly more points than the opponent. On an exact
+   *  tie at/above the target the game continues instead of being decided (default true). */
+  requireMorePointsToWin: boolean;
 }
 
 export interface GameState {
   phase: Phase;
   dealer: Seat;
   turn: Seat;
-  trump: Suit | null;
+  /** Active trump mode, or null during bidding. */
+  trump: TrumpMode | null;
   contract: Contract | null;
   bids: Bid[];
   /** hands[seat] = remaining cards. HIDDEN: server-only, redacted per seat. */

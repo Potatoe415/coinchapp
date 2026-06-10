@@ -1,5 +1,5 @@
 import { buildDeck, cardId, DEFAULT_SCORING_RULES, legalCards, submitPlay, teamOf } from "@/lib/coinche";
-import type { Card, GameState, PlayerView, Seat, Suit, Team, Trick } from "@/lib/coinche";
+import type { Card, GameState, PlayerView, Seat, Suit, Team, Trick, TrumpMode } from "@/lib/coinche";
 
 /** Upper bound on plays in a single rollout (8 tricks * 4 seats). */
 const MAX_PLAYS = 32;
@@ -43,12 +43,26 @@ function seatHolding(hands: Card[][], tricks: Trick[], suit: Suit, rank: string)
   return -1;
 }
 
-/** Team whose member holds (or played) both K and Q of trump. */
-function locateBeloteTeam(hands: Card[][], tricks: Trick[], trump: Suit | null): Team | null {
-  if (!trump) return null;
-  const kingSeat = seatHolding(hands, tricks, trump, "K");
-  const queenSeat = seatHolding(hands, tricks, trump, "Q");
-  return kingSeat >= 0 && kingSeat === queenSeat ? teamOf(kingSeat as Seat) : null;
+/** Belote per team (K+Q of a suit), scanning hands and played tricks. Mode-aware. */
+function locateBelote(
+  hands: Card[][],
+  tricks: Trick[],
+  trump: TrumpMode | null,
+): { team: Team | null; points: { A: number; B: number } } {
+  const points = { A: 0, B: 0 };
+  if (trump === null || trump === "SA") return { team: null, points };
+  const suits: Suit[] = trump === "TA" ? ["H", "D", "C", "S"] : [trump];
+  let team: Team | null = null;
+  for (const suit of suits) {
+    const kingSeat = seatHolding(hands, tricks, suit, "K");
+    const queenSeat = seatHolding(hands, tricks, suit, "Q");
+    if (kingSeat >= 0 && kingSeat === queenSeat) {
+      const holder = teamOf(kingSeat as Seat);
+      points[holder] += 20;
+      if (trump !== "TA") team = holder;
+    }
+  }
+  return { team, points };
 }
 
 function baseTemplate(view: PlayerView): GameState {
@@ -62,7 +76,7 @@ function baseTemplate(view: PlayerView): GameState {
     hands: [[], [], [], []],
     currentTrick: view.currentTrick,
     tricks: view.tricks,
-    belote: { team: null, announced: [] },
+    belote: { team: null, points: { A: 0, B: 0 }, announced: [] },
     scores: view.scores,
     targetPoints: view.targetPoints,
     scoringRules: DEFAULT_SCORING_RULES,
@@ -95,7 +109,8 @@ export function buildDeterminizer(view: PlayerView, rng: () => number): Determin
         hands[seat] = pool.slice(cursor, cursor + counts[i]);
         cursor += counts[i];
       });
-      const belote = { team: locateBeloteTeam(hands, view.tricks, view.trump), announced: [] };
+      const located = locateBelote(hands, view.tricks, view.trump);
+      const belote = { ...located, announced: [] as ("belote" | "rebelote")[] };
       return { ...template, hands, belote };
     },
   };

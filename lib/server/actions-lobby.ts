@@ -1,6 +1,6 @@
 "use server";
 
-import { beginNextDeal, createInitialState, type Difficulty } from "@/lib/coinche";
+import { beginNextDeal, createInitialState } from "@/lib/coinche";
 import { getServiceClient, getUserId } from "@/lib/supabase/server";
 import type { GameRow, GameSettings } from "@/lib/supabase/types";
 import {
@@ -14,7 +14,6 @@ import {
 } from "./repo";
 
 const TARGET_OPTIONS = [500, 1000, 1500, 2000];
-const DIFFICULTIES: Difficulty[] = ["easy", "medium", "hard"];
 const ROOM_CODE_REGEX = /^[A-Z0-9]{3}$/;
 
 function sanitizePoints(val: number | undefined, fallback: number): number {
@@ -25,14 +24,15 @@ function sanitizeSettings(input: Partial<GameSettings>): GameSettings {
   const targetPoints = TARGET_OPTIONS.includes(input.targetPoints ?? 0)
     ? (input.targetPoints as number)
     : 1000;
-  const botDifficulty = DIFFICULTIES.includes(input.botDifficulty as Difficulty)
-    ? (input.botDifficulty as Difficulty)
-    : "medium";
   return {
     targetPoints,
-    botDifficulty,
+    countContractOnlyIfMade: input.countContractOnlyIfMade === true,
+    failedContractDefensePoints: sanitizePoints(input.failedContractDefensePoints, 160),
+    zeroPointsForNonContractingTeamWhenContractMade: input.zeroPointsForNonContractingTeamWhenContractMade === true,
     capotMadePoints: sanitizePoints(input.capotMadePoints, 250),
     capotFailedDefensePoints: sanitizePoints(input.capotFailedDefensePoints, 250),
+    allowToutAtoutSansAtout: input.allowToutAtoutSansAtout === true,
+    requireMorePointsToWin: input.requireMorePointsToWin !== false,
   };
 }
 
@@ -148,8 +148,13 @@ export async function startGame(gameId: string): Promise<void> {
 
   const settings = loaded.game.settings;
   const state = beginNextDeal(createInitialState(settings.targetPoints, {
+    countContractOnlyIfMade: settings.countContractOnlyIfMade,
+    failedContractDefensePoints: settings.failedContractDefensePoints,
+    zeroPointsForNonContractingTeamWhenContractMade: settings.zeroPointsForNonContractingTeamWhenContractMade,
     capotMadePoints: settings.capotMadePoints,
     capotFailedDefensePoints: settings.capotFailedDefensePoints,
+    allowToutAtoutSansAtout: settings.allowToutAtoutSansAtout,
+    requireMorePointsToWin: settings.requireMorePointsToWin,
   }));
   await persistGame(loaded.game as GameRow, state, state.phase === "finished" ? "finished" : "playing");
 }

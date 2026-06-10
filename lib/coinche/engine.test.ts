@@ -13,11 +13,11 @@ function forceContract(state: GameState, rng: () => number): GameState {
   return s;
 }
 
-function playOut(state: GameState, rng: () => number): GameState {
+function playOut(state: GameState): GameState {
   let s = state;
   let guard = 0;
   while (s.phase === "playing" && guard++ < 40) {
-    const cardChoice = chooseCard(s, "medium", rng);
+    const cardChoice = chooseCard(s);
     s = submitPlay(s, s.turn as Seat, cardChoice);
   }
   return s;
@@ -29,7 +29,7 @@ describe("full deal playthrough", () => {
       const rng = seededRng(seed);
       const opened = beginNextDeal(createInitialState(1000), rng);
       const playing = forceContract(opened, rng);
-      const done = playOut(playing, rng);
+      const done = playOut(playing);
 
       expect(done.tricks).toHaveLength(8);
       expect(["scoring", "finished"]).toContain(done.phase);

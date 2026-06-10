@@ -96,3 +96,13 @@ Context: User wants bots to always run on a player's phone (the one that created
 Rationale: Keeps heavy bot CPU off Vercel functions and gives a simple, explicit handoff via a button instead of presence/heartbeat infra (none exists yet).
 Consequences: Trusted-runner model - the host's `getView` payload now includes `botViews` (bot seats' hands), so a malicious host could see opponent-bot cards in mixed human+bot games (accepted risk). New column `games.host_user_id` (folded into `0001_init.sql`; DB is still in dev/reset mode). `lib/coinche/bot.ts advanceBots` is now used only by the offline `useLocalGame`.
 Alternatives_Rejected: Automatic presence-based election (needs heartbeat/presence tracking that does not exist); keeping server-side bots (heavy serverless CPU, contradicts the product directive); withholding bot hands from the host (the browser bot brain needs the seat's hand to play).
+
+---
+
+## 2026-06-10 - Single bot level (no difficulty choice)
+
+Decision: Removed the bot difficulty feature entirely. There is now one bot strategy (the former "hard"/"medium" smart play: cheapest winning card, else weakest discard). Dropped the `Difficulty` type, `chooseCard`/`advanceBots` difficulty params, the `easy` random branch, `GameSettings.botDifficulty`, the setup-screen selectors and `difficultyLabel`.
+Context: User wants a single bot level equivalent to the current hardest, with no way to choose the level.
+Rationale: `medium` and `hard` were already identical in code; only `easy` differed (random). One level keeps the engine/UI simpler and matches the product directive.
+Consequences: `GameSettings` no longer carries `botDifficulty` (existing game rows keep a harmless stale key in their `settings` jsonb). The home link and local URL no longer pass a difficulty param.
+Alternatives_Rejected: Hardcoding difficulty to "hard" while keeping the type/UI (leaves dead `easy` branch and a constant setting).

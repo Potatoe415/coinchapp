@@ -2,9 +2,7 @@ import { bidOptions } from "./bidding";
 import { cardPoints, cardStrength, SUITS } from "./cards";
 import { submitBid, submitPlay } from "./engine";
 import { legalCards, trickWinner } from "./trick";
-import type { Bid, Card, GameState, Seat, Suit } from "./types";
-
-export type Difficulty = "easy" | "medium" | "hard";
+import type { Bid, Card, GameState, Seat, Suit, TrumpMode } from "./types";
 
 /** Rough estimate of a suit's value as trump, plus off-suit aces. */
 function evaluateSuit(hand: Card[], suit: Suit): number {
@@ -27,22 +25,51 @@ function bestSuit(hand: Card[]): { suit: Suit; estimate: number } {
   return best;
 }
 
+/** Tout atout potential, normalized to the /162 scale; jacks and nines dominate. */
+function evaluateToutAtout(hand: Card[]): number {
+  let raw = 0;
+  for (const card of hand) raw += cardPoints(card, "TA");
+  const jacks = hand.filter((c) => c.rank === "J").length;
+  const nines = hand.filter((c) => c.rank === "9").length;
+  return Math.round(raw * (162 / 214)) + jacks * 5 + nines * 3;
+}
+
+/** Sans atout potential: aces and tens carry the hand, no cutting. */
+function evaluateSansAtout(hand: Card[]): number {
+  let points = 0;
+  for (const card of hand) points += cardPoints(card, "SA");
+  const aces = hand.filter((c) => c.rank === "A").length;
+  const tens = hand.filter((c) => c.rank === "10").length;
+  return points + aces * 4 + tens * 2;
+}
+
+/** Best trump mode among the allowed ones (the four suits, plus TA/SA when enabled). */
+function bestMode(hand: Card[], allowed: TrumpMode[]): { mode: TrumpMode; estimate: number } {
+  const suit = bestSuit(hand);
+  let best: { mode: TrumpMode; estimate: number } = { mode: suit.suit, estimate: suit.estimate };
+  if (allowed.includes("TA")) {
+    const ta = evaluateToutAtout(hand);
+    if (ta > best.estimate) best = { mode: "TA", estimate: ta };
+  }
+  if (allowed.includes("SA")) {
+    const sa = evaluateSansAtout(hand);
+    if (sa > best.estimate) best = { mode: "SA", estimate: sa };
+  }
+  return best;
+}
+
 export function chooseBid(state: GameState): Bid {
   const seat = state.turn;
   const options = bidOptions(state);
-  const { suit, estimate } = bestSuit(state.hands[seat]);
+  const { mode, estimate } = bestMode(state.hands[seat], options.suits);
   if (options.minValue !== null && estimate >= options.minValue) {
     const value = Math.min(160, Math.max(options.minValue, Math.floor(estimate / 10) * 10));
-    return { seat, type: "bid", value, suit };
+    return { seat, type: "bid", value, suit: mode };
   }
   return { seat, type: "pass" };
 }
 
-function pickRandom<T>(items: T[], rng: () => number): T {
-  return items[Math.floor(rng() * items.length)];
-}
-
-function weakest(cards: Card[], trump: Suit | null): Card {
+function weakest(cards: Card[], trump: TrumpMode | null): Card {
   return cards.reduce((lo, c) =>
     cardPoints(c, trump) < cardPoints(lo, trump) ? c : lo,
   );
@@ -63,13 +90,9 @@ function cheapestWinner(state: GameState, legal: Card[]): Card | null {
   return weakest(winners, state.trump);
 }
 
-export function chooseCard(
-  state: GameState,
-  difficulty: Difficulty = "medium",
-  rng: () => number = Math.random,
-): Card {
+/** Single bot strategy: play the cheapest card that wins, else discard the weakest. */
+export function chooseCard(state: GameState): Card {
   const legal = legalCards(state, state.turn);
-  if (difficulty === "easy") return pickRandom(legal, rng);
   const winner = cheapestWinner(state, legal);
   return winner ?? weakest(legal, state.trump);
 }
@@ -78,7 +101,6 @@ export function chooseCard(
 export function advanceBots(
   state: GameState,
   isBot: boolean[],
-  difficulty: Difficulty,
   rng: () => number = Math.random,
 ): GameState {
   let current = state;
@@ -89,7 +111,7 @@ export function advanceBots(
     if (current.phase === "bidding") {
       current = submitBid(current, chooseBid(current), rng);
     } else {
-      current = submitPlay(current, current.turn as Seat, chooseCard(current, difficulty, rng));
+      current = submitPlay(current, current.turn as Seat, chooseCard(current));
     }
   }
   return current;

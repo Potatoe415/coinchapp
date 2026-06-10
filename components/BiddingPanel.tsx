@@ -2,12 +2,14 @@
 
 import { useMemo, useState } from "react";
 import { useI18n } from "@/lib/client/i18n";
-import { CAPOT_VALUE, GENERALE_VALUE, type BidOptions, type BidType, type Suit } from "@/lib/coinche";
-import { SUIT_SYMBOL, isRedSuit } from "./labels";
+import { CAPOT_VALUE, GENERALE_VALUE, type BidOptions, type BidType, type TrumpMode } from "@/lib/coinche";
+import { SUIT_SYMBOL, isRedSuit, trumpModeLabel } from "./labels";
 
-const SUITS: Suit[] = ["H", "D", "C", "S"];
+function isSuitMode(mode: TrumpMode): mode is "H" | "D" | "C" | "S" {
+  return mode !== "TA" && mode !== "SA";
+}
 
-export type BidPayload = { type: BidType; value?: number; suit?: Suit };
+export type BidPayload = { type: BidType; value?: number; suit?: TrumpMode };
 
 function valueChoices(min: number): number[] {
   const values: number[] = [];
@@ -25,9 +27,11 @@ function formatBidValue(value: number, t: (key: "capot" | "generale") => string)
 export function BiddingPanel({
   options,
   onBid,
+  onSuitChange,
 }: {
   options: BidOptions;
   onBid: (payload: BidPayload) => Promise<void> | void;
+  onSuitChange?: (suit: TrumpMode | null) => void;
 }) {
   const { t } = useI18n();
   const choices = useMemo(
@@ -35,7 +39,7 @@ export function BiddingPanel({
     [options.minValue],
   );
   const [selectedValue, setSelectedValue] = useState(options.minValue ?? 80);
-  const [selectedSuit, setSelectedSuit] = useState<Suit | null>(null);
+  const [selectedSuit, setSelectedSuit] = useState<TrumpMode | null>(null);
   const [busy, setBusy] = useState(false);
   const value = choices.includes(selectedValue) ? selectedValue : (choices[0] ?? selectedValue);
   const sliderIndex = Math.max(0, choices.indexOf(value));
@@ -59,22 +63,24 @@ export function BiddingPanel({
               {formatBidValue(value, t)}
             </span>
           </div>
-          <div className="flex justify-center gap-2">
-            {SUITS.map((suit) => (
+          <div className="flex flex-wrap justify-center gap-2">
+            {options.suits.map((mode) => (
               <button
-                key={suit}
-                data-id={`bid-suit-${suit}`}
+                key={mode}
+                data-id={`bid-suit-${mode}`}
                 disabled={busy}
-                onClick={() => setSelectedSuit(suit)}
-                className={`h-12 w-12 rounded-lg text-2xl font-bold disabled:opacity-50 transition-all ${
-                  isRedSuit(suit) ? "text-[var(--accent-red)]" : "text-[var(--card-ink)]"
+                onClick={() => { setSelectedSuit(mode); onSuitChange?.(mode); }}
+                className={`h-12 w-12 rounded-lg font-bold disabled:opacity-50 transition-all ${
+                  isSuitMode(mode) ? "text-2xl" : "text-base"
                 } ${
-                  selectedSuit === suit
+                  isSuitMode(mode) && isRedSuit(mode) ? "text-[var(--accent-red)]" : "text-[var(--card-ink)]"
+                } ${
+                  selectedSuit === mode
                     ? "bg-[var(--card-face)] ring-2 ring-[var(--ring-strong)] scale-110"
                     : "bg-[var(--card-face)]/70"
                 }`}
               >
-                {SUIT_SYMBOL[suit]}
+                {isSuitMode(mode) ? SUIT_SYMBOL[mode] : trumpModeLabel(mode)}
               </button>
             ))}
           </div>

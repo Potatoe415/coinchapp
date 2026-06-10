@@ -8,6 +8,12 @@ import { playerName, seatTeam } from "./gameTableHelpers";
 import { PlayerBadge } from "./PlayerBadge";
 import { CardBack, PlayingCard } from "./PlayingCard";
 
+function isBotThinking(gv: GameView, view: PlayerView, seat: number): boolean {
+  if (view.phase !== "bidding" && view.phase !== "playing") return false;
+  if (view.turn !== seat) return false;
+  return gv.players.find((p) => p.seat === seat)?.isBot === true;
+}
+
 export type TableSeats = {
   top: number;
   left: number;
@@ -35,7 +41,7 @@ export function GameTableScene({
   onNextDeal: () => Promise<void> | void;
 }) {
   return (
-    <section className="relative z-10 h-svh min-h-[720px] w-full" data-id="table-scene">
+    <section className="relative z-10 h-[720px] w-full shrink-0" data-id="table-scene">
       <div
         className="absolute inset-x-[11%] bottom-[19%] top-[29%] rounded-[3rem] bg-[rgba(255,250,242,0.08)] shadow-[inset_0_0_55px_rgba(22,200,240,0.22)] ring-[10px] ring-[rgba(242,196,79,0.18)]"
         data-id="central-felt"
@@ -56,12 +62,13 @@ function TopOpponent({ gv, view, seat }: { gv: GameView; view: PlayerView; seat:
   return (
     <div className="absolute left-1/2 top-[13%] flex -translate-x-1/2 flex-col items-center" data-id="table-top">
       <CardBackFanH count={view.handCounts[seat]} />
-      <div className="-mt-[13px]" data-id="table-top-badge-wrap">
+      <div className="mt-2" data-id="table-top-badge-wrap">
         <PlayerBadge
           name={playerName(gv, seat)}
           team={seatTeam(seat)}
           isTurn={view.turn === seat}
           isDealer={view.dealer === seat}
+          isThinking={isBotThinking(gv, view, seat)}
           dataId={`player-seat-${seat}`}
         />
       </div>
@@ -82,7 +89,7 @@ function SideOpponent({
 }) {
   const sideClass = side === "left" ? "left-0 flex-row" : "right-0 flex-row-reverse";
   const handShiftClass = side === "left" ? "-translate-x-3/4" : "translate-x-3/4";
-  const badgeNudgeClass = side === "left" ? "-ml-[17px]" : "-mr-[17px]";
+  const badgeNudgeClass = side === "left" ? "-ml-[50px]" : "-mr-[50px]";
   const badgeRotateClass = side === "right" ? "rotate-180" : "";
   return (
     <div className={`absolute top-[41%] flex items-center gap-0 ${sideClass}`} data-id={`table-${side}`}>
@@ -95,6 +102,7 @@ function SideOpponent({
           team={seatTeam(seat)}
           isTurn={view.turn === seat}
           isDealer={view.dealer === seat}
+          isThinking={isBotThinking(gv, view, seat)}
           orientation="vertical"
           dataId={`player-seat-${seat}`}
         />
@@ -312,20 +320,17 @@ function animationStart(enterFrom: "top" | "left" | "right" | "bottom") {
   return { "--played-card-from": "translate3d(0,210px,0) scale(0.7) rotate(10deg)" };
 }
 
+const FAN_STEP_H = 22;
+const CARD_W_MD = 56;
+
 function CardBackFanH({ count }: { count: number }) {
   const n = Math.min(count, 8);
-  if (n === 0) return <div className="h-20 w-14" />;
+  if (n === 0) return <div className="h-24 w-14" />;
+  const totalW = CARD_W_MD + (n - 1) * FAN_STEP_H;
   return (
-    <div className="relative h-24 w-48">
+    <div className="relative h-24" style={{ width: totalW }}>
       {Array.from({ length: n }, (_, i) => (
-        <div
-          key={i}
-          className="absolute bottom-0"
-          style={{
-            left: n > 1 ? `calc(${i} * (100% - 56px) / ${n - 1})` : "calc(50% - 28px)",
-            zIndex: i,
-          }}
-        >
+        <div key={i} className="absolute bottom-0" style={{ left: i * FAN_STEP_H, zIndex: i }}>
           <CardBack size="md" />
         </div>
       ))}

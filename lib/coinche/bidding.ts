@@ -1,6 +1,9 @@
 import { nextSeat, teamOf } from "./cards";
-import { detectBelote } from "./scoring";
-import type { Bid, Contract, GameState, Suit } from "./types";
+import { computeBelote } from "./scoring";
+import type { Bid, Contract, GameState, TrumpMode } from "./types";
+
+/** Trump modes a player may announce: the four suits, tout atout, sans atout. */
+export const TRUMP_MODES: TrumpMode[] = ["H", "D", "C", "S", "TA", "SA"];
 
 export const CAPOT_VALUE = 250;
 export const GENERALE_VALUE = 500;
@@ -47,6 +50,9 @@ export function validateBid(state: GameState, bid: Bid): void {
     if (coinched || surcoinched) throw new Error("locked_by_coinche");
     if (bid.value === undefined || bid.suit === undefined) throw new Error("bid_incomplete");
     if (!BID_VALUES.includes(bid.value)) throw new Error("bad_bid_value");
+    if ((bid.suit === "TA" || bid.suit === "SA") && !state.scoringRules.allowToutAtoutSansAtout) {
+      throw new Error("special_bids_disabled");
+    }
     const floor = highest?.value ?? 70;
     if (bid.value <= floor) throw new Error("bid_too_low");
     return;
@@ -85,7 +91,7 @@ function completeBidding(state: GameState, bids: Bid[], d: Derived): GameState {
     bids,
     trump: contract.suit,
     contract,
-    belote: { team: detectBelote(state.hands, contract.suit), announced: [] },
+    belote: computeBelote(state.hands, contract.suit),
     currentTrick: { leader, cards: [] },
     turn: leader,
   };
@@ -118,7 +124,8 @@ export function applyBid(state: GameState, bid: Bid): GameState {
 export interface BidOptions {
   canPass: boolean;
   minValue: number | null;
-  suits: Suit[];
+  /** Trump modes that may be announced (empty when bidding is locked). */
+  suits: TrumpMode[];
   canCoinche: boolean;
   canSurcoinche: boolean;
 }
@@ -133,10 +140,13 @@ export function bidOptions(state: GameState): BidOptions {
   const locked = coinched || surcoinched;
   const floor = highest?.value ?? 70;
   const minValue = locked || floor >= GENERALE_VALUE ? null : nextBidValue(floor);
+  const modes = state.scoringRules.allowToutAtoutSansAtout
+    ? [...TRUMP_MODES]
+    : TRUMP_MODES.filter((m) => m !== "TA" && m !== "SA");
   return {
     canPass: true,
     minValue,
-    suits: minValue === null ? [] : (["H", "D", "C", "S"] as Suit[]),
+    suits: minValue === null ? [] : modes,
     canCoinche: !!highest && !coinched && teamOf(seat) !== teamOf(highest.seat),
     canSurcoinche: coinched && !surcoinched && !!highest && teamOf(seat) === teamOf(highest.seat),
   };

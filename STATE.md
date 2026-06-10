@@ -6,11 +6,11 @@ History lives in `docs/DECISIONS.md` (decisions) and `docs/BACKLOG.md` (tasks).
 ---
 
 Status: Vertical slice implemented. Builds and tests pass. Not yet deployed.
-Current_Goal: Stabilize UX for local/online flows and continue gameplay polish.
-Last_Action: Added configurable "Capot" and "Capot chuté" scoring params (default 250) to setup screens (local + online); scoring engine uses them; in-game panel shows the actual configured values.
+Current_Goal: Stabilize gameplay UX and scoring options (including advanced contracts).
+Last_Action: Extracted shared GameSettingsPanel component (components/GameSettingsPanel.tsx). Both local and online setup pages now use the same component with all 8 scoring fields. Added countContractOnlyIfMade, failedContractDefensePoints, zeroPointsForNonContractingTeamWhenContractMade to GameSettings + sanitizeSettings + startGame.
 Next_Actions:
-- Reset/re-run 0001_init.sql in Supabase (now includes host_user_id) before testing online.
-- Manually verify online solo-vs-bots flow and host handoff across two profiles.
+- Manually verify settings panel looks and behaves identically on local and online setup screens.
+- Manually play a TA and an SA deal vs bots to sanity-check ordering, cutting rules and scores.
 - Resume the Supabase/Vercel deployment sequence.
 
 Open_Questions:
@@ -19,8 +19,9 @@ Open_Questions:
 - Trusted-runner: host can see opponent-bot hands in mixed games - acceptable long-term?
 
 Recent_Changes:
-- 2026-06-10 Capot/Capot chuté params (default 250) added to local+online setup screens; ScoringRules + scoring engine use them; in-game panel shows real values.
-- 2026-06-10 Added /join/[code] route (resolves room code -> game, redirects to lobby); Lobby "Copy invite link" copies /join/CODE; /online prefills code from ?code.
-- 2026-06-10 Online Lobby has a "Copy invite link" button (data-id="lobby-copy-invite") for one-click sharing/joining.
-- 2026-06-10 Added last-trick preview (4 overlapping xs cards, data-id="last-trick-preview") below the parameters button.
-- 2026-06-10 Added trick-collect animation: 4 cards gather toward table center then fly to the winning seat (pure CSS keyframes + custom props, no library).
+- 2026-06-10 Extracted GameSettingsPanel: single shared component for all 8 scoring fields; added 3 missing fields to GameSettings (online) + sanitizeSettings + startGame. No duplication between local/online setup screens.
+- 2026-06-10 Removed bot difficulty: single strategy (former hard); deleted Difficulty type/params, easy random branch, GameSettings.botDifficulty, setup selectors, difficultyLabel, "bots" i18n key. tsc clean, 38 tests green. See DECISIONS.
+- 2026-06-10 Added ScoringRules.requireMorePointsToWin (default true): finalizeDeal keeps playing on an exact tie at target instead of awarding via contract; toggle "+ de points pour gagner" on local+online setup, online GameSettings + sanitize. tsc clean, 38 tests green.
+- 2026-06-10 DealOverlay: added cardPoints (raw trick pts) display per team in end-of-deal popup; new i18n key cardPoints (fr/en).
+- 2026-06-10 Added TA/SA enable switch (default OFF) in local+online settings; ScoringRules.allowToutAtoutSansAtout filters bidOptions/BiddingPanel/bots and is enforced in validateBid. tsc clean, 38 tests green.
+- 2026-06-10 Added Tout Atout / Sans Atout contracts: TrumpMode type, mode-aware cards/trick/scoring (TA normalized /162, TA belote per suit, SA no trump/no belote), 6 bid buttons, bot TA/SA bidding. Refreshed 5 stale scoring tests to current rules; suite green (38) + tsc clean.

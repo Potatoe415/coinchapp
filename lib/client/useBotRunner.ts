@@ -6,8 +6,8 @@ import type { Seat } from "@/lib/coinche";
 import type { GameView } from "@/lib/server/view";
 import { chooseClientAction, type BotAction } from "./bot";
 
-const BID_DELAY_MS = 700;
-const PLAY_DELAY_MS = 450;
+/** Simulated thinking time before each bot move. Configurable. */
+const BOT_THINKING_MS = 700;
 /** Must match the CSS trick-collect animation duration. */
 const COLLECT_DELAY_MS = 1500;
 
@@ -36,7 +36,7 @@ export function useBotRunner(gameId: string, gv: GameView | null, refetch: () =>
 
     let cancelled = false;
     const trickJustCompleted = view.phase === "playing" && view.currentTrick.cards.length === 0 && view.lastTrick !== null;
-    const delay = view.phase === "bidding" ? BID_DELAY_MS : trickJustCompleted ? COLLECT_DELAY_MS : PLAY_DELAY_MS;
+    const delay = trickJustCompleted ? COLLECT_DELAY_MS : BOT_THINKING_MS;
     const timer = window.setTimeout(async () => {
       busyRef.current = true;
       try {

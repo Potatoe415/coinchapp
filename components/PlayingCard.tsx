@@ -35,7 +35,7 @@ export function PlayingCard({ card, size = "md", dimmed, playable, onClick, data
         "relative overflow-hidden rounded-lg border-2 border-[var(--card-ink)] bg-[var(--card-face)] font-black shadow-[0_2px_0_rgba(32,40,58,0.65)] select-none",
         sizeStyle.card,
         red ? "text-[var(--accent-red)]" : "text-[var(--card-ink)]",
-        dimmed ? "opacity-40 saturate-50" : "",
+        dimmed ? "brightness-50 grayscale" : "",
         playable ? "ring-4 ring-[var(--ring-strong)] cursor-pointer" : "",
         interactive && !playable ? "cursor-not-allowed" : "",
         "transition-transform",
@@ -60,15 +60,11 @@ export function CardBack({ size = "md", dataId }: { size?: keyof typeof SIZES; d
     <div
       data-id={dataId}
       className={[
-        "relative overflow-hidden rounded-lg border-[3px] border-[var(--card-ink)] bg-[var(--card-back)] shadow-[0_2px_0_rgba(32,40,58,0.75)]",
+        "relative overflow-hidden rounded-lg border border-[var(--card-ink)] bg-[var(--card-back)] shadow-[0_2px_0_rgba(32,40,58,0.75)]",
         sizeStyle.card,
       ].join(" ")}
     >
-      <div className="absolute inset-[3px] rounded-md border-2 border-[var(--card-back-line)] bg-[var(--surface-soft)]" />
-      <div className="absolute inset-y-[7px] left-[7px] w-[3px] rounded-full bg-[var(--accent-cyan)]" />
-      <div className="absolute inset-y-[7px] right-[7px] w-[3px] rounded-full bg-[var(--foreground)]" />
-      <div className="absolute inset-x-[10px] top-[10px] h-[2px] rounded-full bg-[var(--accent-cyan)]/80" />
-      <div className="absolute inset-x-[10px] top-[15px] h-[2px] rounded-full bg-[var(--accent-cyan)]/50" />
+      <div className="absolute inset-[4px] rounded-sm border-2 border-[var(--card-back-line)]/60" />
     </div>
   );
 }
