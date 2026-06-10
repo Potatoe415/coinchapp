@@ -12,6 +12,7 @@ import {
   teamForSeat,
   touchGame,
 } from "./repo";
+import type { LoadedGame } from "./repo";
 
 const TARGET_OPTIONS = [500, 1000, 1500, 2000];
 const ROOM_CODE_REGEX = /^[A-Z0-9]{3}$/;
@@ -89,6 +90,18 @@ export async function createGame(input: {
   return { gameId, roomCode };
 }
 
+/** Pick a seat for a joining human: a free seat first, otherwise a bot to replace. */
+function pickJoinSeat(loaded: LoadedGame): { seat: number; mode: "insert" | "replace" } | null {
+  const taken = new Set(loaded.players.map((p) => p.seat));
+  const freeSeat = [0, 1, 2, 3].find((s) => !taken.has(s));
+  if (freeSeat !== undefined) return { seat: freeSeat, mode: "insert" };
+  const botSeat = loaded.players
+    .filter((p) => p.is_bot)
+    .map((p) => p.seat)
+    .sort((a, b) => a - b)[0];
+  return botSeat === undefined ? null : { seat: botSeat, mode: "replace" };
+}
+
 export async function joinGame(input: {
   roomCode: string;
   displayName: string;
@@ -102,21 +115,29 @@ export async function joinGame(input: {
   const existingSeat = seatOf(uid, loaded.players);
   if (existingSeat !== null) return { gameId: loaded.game.id, seat: existingSeat };
 
-  const taken = new Set(loaded.players.map((p) => p.seat));
-  const freeSeat = [0, 1, 2, 3].find((s) => !taken.has(s));
-  if (freeSeat === undefined) throw new Error("game_full");
+  const target = pickJoinSeat(loaded);
+  if (!target) throw new Error("game_full");
 
   const supabase = getServiceClient();
-  await supabase.from("game_players").insert({
-    game_id: loaded.game.id,
-    seat: freeSeat,
-    user_id: uid,
-    display_name: cleanName(input.displayName, `Joueur ${freeSeat + 1}`),
-    is_bot: false,
-    team: teamForSeat(freeSeat),
-  });
+  const name = cleanName(input.displayName, `Joueur ${target.seat + 1}`);
+  if (target.mode === "insert") {
+    await supabase.from("game_players").insert({
+      game_id: loaded.game.id,
+      seat: target.seat,
+      user_id: uid,
+      display_name: name,
+      is_bot: false,
+      team: teamForSeat(target.seat),
+    });
+  } else {
+    await supabase
+      .from("game_players")
+      .update({ user_id: uid, display_name: name, is_bot: false })
+      .eq("game_id", loaded.game.id)
+      .eq("seat", target.seat);
+  }
   await touchGame(loaded.game);
-  return { gameId: loaded.game.id, seat: freeSeat };
+  return { gameId: loaded.game.id, seat: target.seat };
 }
 
 export async function fillWithBots(gameId: string): Promise<void> {

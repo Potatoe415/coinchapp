@@ -28,6 +28,8 @@ export function Lobby({ gv, onChange }: { gv: GameView; onChange: () => Promise<
   const bySeat = new Map(players.map((p) => [p.seat, p]));
   const full = gv.players.length === 4;
   const isMember = gv.mySeat !== null;
+  // A newcomer can still join a full lobby by taking over a bot seat.
+  const canJoin = gv.players.filter((p) => !p.isBot).length < 4;
 
   // Drop the optimistic view once the server confirms (version bumps on swap).
   useEffect(() => {
@@ -158,7 +160,7 @@ export function Lobby({ gv, onChange }: { gv: GameView; onChange: () => Promise<
           />
           <button
             data-id="lobby-join-button"
-            disabled={busy || full}
+            disabled={busy || !canJoin}
             onClick={() => act(() => joinGame({ roomCode: gv.roomCode, displayName: name }))}
             className="rounded-lg bg-[var(--accent-cyan)] px-4 py-2 font-bold text-[var(--surface)] disabled:opacity-50"
           >
