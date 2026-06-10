@@ -1,10 +1,19 @@
 "use client";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useI18n } from "@/lib/client/i18n";
 import { fillWithBots, joinGame, startGame, swapSeats } from "@/lib/server/actions-lobby";
-import type { GameView } from "@/lib/server/view";
+import type { GameView, LobbyPlayer } from "@/lib/server/view";
+
+/** Local optimistic swap of the occupants of two seats (team follows seat parity). */
+function swapPlayers(players: LobbyPlayer[], from: number, to: number): LobbyPlayer[] {
+  return players.map((p) => {
+    if (p.seat === from) return { ...p, seat: to, team: to % 2 === 0 ? "A" : "B" };
+    if (p.seat === to) return { ...p, seat: from, team: from % 2 === 0 ? "A" : "B" };
+    return p;
+  });
+}
 
 export function Lobby({ gv, onChange }: { gv: GameView; onChange: () => Promise<void> }) {
   const { t } = useI18n();
@@ -12,10 +21,18 @@ export function Lobby({ gv, onChange }: { gv: GameView; onChange: () => Promise<
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [selectedSeat, setSelectedSeat] = useState<number | null>(null);
+  const [optimisticPlayers, setOptimisticPlayers] = useState<LobbyPlayer[] | null>(null);
   const seats = [0, 1, 2, 3];
-  const bySeat = new Map(gv.players.map((p) => [p.seat, p]));
+  const players = optimisticPlayers ?? gv.players;
+  const bySeat = new Map(players.map((p) => [p.seat, p]));
   const full = gv.players.length === 4;
   const isMember = gv.mySeat !== null;
+
+  // Drop the optimistic view once the server confirms (version bumps on swap).
+  useEffect(() => {
+    setOptimisticPlayers(null);
+  }, [gv.version]);
 
   async function copyInviteLink() {
     const url = `${window.location.origin}/join/${gv.roomCode}`;
@@ -28,24 +45,37 @@ export function Lobby({ gv, onChange }: { gv: GameView; onChange: () => Promise<
     setTimeout(() => setCopied(false), 2000);
   }
 
-  async function act(fn: () => Promise<unknown>) {
+  async function act(fn: () => Promise<unknown>): Promise<boolean> {
     setBusy(true);
     setError(null);
     try {
       await fn();
       await onChange();
+      return true;
     } catch (e) {
       setError(e instanceof Error ? e.message : t("error"));
+      return false;
     } finally {
       setBusy(false);
     }
   }
 
   function handleSeatTap(seat: number) {
-    if (!gv.isHost || busy) return;
-    const partner = seat % 2 === 0 ? seat + 1 : seat - 1;
-    if (seat === 0 || partner === 0) return;
-    void act(() => swapSeats(gv.gameId, seat, partner));
+    if (!gv.isHost || busy || seat === 0) return;
+    if (selectedSeat === null) {
+      setSelectedSeat(seat);
+      return;
+    }
+    if (selectedSeat === seat) {
+      setSelectedSeat(null);
+      return;
+    }
+    const from = selectedSeat;
+    setSelectedSeat(null);
+    setOptimisticPlayers(swapPlayers(players, from, seat));
+    void act(() => swapSeats(gv.gameId, from, seat)).then((ok) => {
+      if (!ok) setOptimisticPlayers(null);
+    });
   }
 
   return (
@@ -79,8 +109,9 @@ export function Lobby({ gv, onChange }: { gv: GameView; onChange: () => Promise<
       <ul className="grid grid-cols-2 gap-3" data-id="lobby-seats">
         {seats.map((seat) => {
           const player = bySeat.get(seat);
-          const partner = seat % 2 === 0 ? seat + 1 : seat - 1;
-          const canTap = gv.isHost && seat !== 0 && partner !== 0;
+          const canTap = gv.isHost && seat !== 0;
+          const isSelected = selectedSeat === seat;
+          const isTarget = selectedSeat !== null && selectedSeat !== seat && seat !== 0;
 
           return (
             <li
@@ -88,9 +119,13 @@ export function Lobby({ gv, onChange }: { gv: GameView; onChange: () => Promise<
               data-id={`lobby-seat-${seat}`}
               onClick={canTap ? () => handleSeatTap(seat) : undefined}
               className={`select-none rounded-xl px-4 py-3 ring-1 transition-all ${
-                player
-                  ? `bg-[var(--surface)] text-[var(--card-face)] ring-[var(--accent-cyan)]/25 ${canTap ? "cursor-pointer hover:ring-[var(--accent-cyan)]/60 active:scale-95" : ""}`
-                  : `bg-[rgba(32,40,58,0.08)] ring-[var(--surface)]/10 ${canTap ? "cursor-pointer hover:ring-[var(--accent-cyan)]/30 active:scale-95" : ""}`
+                isSelected
+                  ? "scale-[1.03] cursor-pointer bg-[var(--accent-cyan)] text-[var(--surface)] ring-2 ring-[var(--accent-cyan)]"
+                  : isTarget
+                  ? "cursor-pointer bg-[var(--surface)]/80 text-[var(--card-face)] ring-2 ring-[var(--accent-cyan)]"
+                  : player
+                  ? `bg-[var(--surface)] text-[var(--card-face)] ring-[var(--accent-cyan)]/25 ${canTap ? "cursor-pointer hover:ring-[var(--accent-cyan)]/60" : ""}`
+                  : `bg-[rgba(32,40,58,0.08)] ring-[var(--surface)]/10 ${canTap ? "cursor-pointer hover:ring-[var(--accent-cyan)]/30" : ""}`
               }`}
             >
               <p className="text-xs text-current/65">
@@ -105,6 +140,12 @@ export function Lobby({ gv, onChange }: { gv: GameView; onChange: () => Promise<
           );
         })}
       </ul>
+
+      {gv.isHost && selectedSeat !== null && (
+        <p className="text-center text-xs text-[var(--foreground)]/60" data-id="lobby-swap-hint">
+          {t("seat")} {selectedSeat + 1} {t("selected")} — {t("clickAnotherSeatToSwap")}
+        </p>
+      )}
 
       {!isMember ? (
         <div className="flex gap-3">

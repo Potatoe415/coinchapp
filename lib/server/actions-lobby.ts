@@ -152,14 +152,27 @@ export async function swapSeats(gameId: string, seatA: number, seatB: number): P
   const playerA = loaded.players.find((p) => p.seat === seatA);
   const playerB = loaded.players.find((p) => p.seat === seatB);
 
-  if (playerA) {
+  if (playerA && playerB) {
+    // Both seats occupied: swap occupants in place. Seat numbers stay fixed, so
+    // the unique (game_id, seat) constraint is never violated. Team stays tied
+    // to the seat, so it does not change.
+    await supabase
+      .from("game_players")
+      .update({ user_id: playerB.user_id, display_name: playerB.display_name, is_bot: playerB.is_bot, connected: playerB.connected })
+      .eq("game_id", gameId)
+      .eq("seat", seatA);
+    await supabase
+      .from("game_players")
+      .update({ user_id: playerA.user_id, display_name: playerA.display_name, is_bot: playerA.is_bot, connected: playerA.connected })
+      .eq("game_id", gameId)
+      .eq("seat", seatB);
+  } else if (playerA) {
     await supabase
       .from("game_players")
       .update({ seat: seatB, team: teamForSeat(seatB) })
       .eq("game_id", gameId)
       .eq("seat", seatA);
-  }
-  if (playerB) {
+  } else if (playerB) {
     await supabase
       .from("game_players")
       .update({ seat: seatA, team: teamForSeat(seatA) })
