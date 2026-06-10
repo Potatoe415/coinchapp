@@ -2,13 +2,14 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useI18n } from "@/lib/client/i18n";
-import { cardId, isTrump, RANKS, trumpStrength, type Card, type PlayedCard, type PlayerView, type TrumpMode } from "@/lib/coinche";
+import { cardId, isTrump, RANKS, teamOf, trumpStrength, type Bid, type Card, type PlayedCard, type PlayerView, type TrumpMode } from "@/lib/coinche";
 import type { GameView } from "@/lib/server/view";
-import { BiddingPanel, type BidPayload } from "./BiddingPanel";
+import { BiddingPanel, type BidPayload, type CurrentLiveBid } from "./BiddingPanel";
 import { EmojiButton, type EmojiReaction } from "./EmojiButton";
 import { GameHud } from "./GameHud";
 import { GameTableScene } from "./GameTableScene";
 import { playerName, relativeSeat } from "./gameTableHelpers";
+import { isRedSuit, trumpModeLabel } from "./labels";
 import { PlayingCard } from "./PlayingCard";
 
 export interface GameActions {
@@ -39,6 +40,25 @@ function computeBimKey(
   if (!winnerCard || !isTrump(winnerCard, trump)) return null;
   const hasNonTrumpAce = lastTrick.cards.some((c) => c.card.rank === "A" && !isTrump(c.card, trump));
   return hasNonTrumpAce ? lastTrickKey : null;
+}
+
+function deriveLiveBid(bids: Bid[]): { bid: Bid; coinched: boolean; surcoinched: boolean } | null {
+  let highest: Bid | undefined;
+  let coinched = false;
+  let surcoinched = false;
+  for (const b of bids) {
+    if (b.type === "bid") {
+      highest = b;
+      coinched = false;
+      surcoinched = false;
+    } else if (b.type === "coinche") {
+      coinched = true;
+    } else if (b.type === "surcoinche") {
+      surcoinched = true;
+    }
+  }
+  if (!highest) return null;
+  return { bid: highest, coinched, surcoinched };
 }
 
 type PendingPlayedCard = PlayedCard;
@@ -189,6 +209,8 @@ export function GameTable({ gv, actions, reactions }: { gv: GameView; actions: G
         )}
         <ActionDock
           view={view}
+          players={gv.players}
+          mySeat={mySeat}
           legalSet={legalSet}
           myTurnToPlay={myTurnToPlay}
           busy={busy}
@@ -295,6 +317,8 @@ function HandCard({
 
 function ActionDock({
   view,
+  players,
+  mySeat,
   legalSet,
   myTurnToPlay,
   busy,
@@ -303,6 +327,8 @@ function ActionDock({
   onCardClick,
 }: {
   view: PlayerView;
+  players?: GameView["players"];
+  mySeat: number;
   legalSet: Set<string>;
   myTurnToPlay: boolean;
   busy: boolean;
@@ -313,7 +339,7 @@ function ActionDock({
   const [previewTrump, setPreviewTrump] = useState<TrumpMode | null>(null);
   return (
     <section className="absolute inset-x-0 bottom-0 z-20 px-0 pb-1" data-id="action-area">
-      <BiddingStatus view={view} onBid={onBid} onSuitChange={setPreviewTrump} />
+      <BiddingStatus view={view} players={players} mySeat={mySeat} onBid={onBid} onSuitChange={setPreviewTrump} />
       <HandFan
         hand={view.myHand}
         trump={view.trump ?? previewTrump}
@@ -329,19 +355,39 @@ function ActionDock({
 
 function BiddingStatus({
   view,
+  players,
+  mySeat,
   onBid,
   onSuitChange,
 }: {
   view: PlayerView;
+  players?: GameView["players"];
+  mySeat: number;
   onBid: (payload: BidPayload) => Promise<void> | void;
   onSuitChange: (suit: TrumpMode | null) => void;
 }) {
-  const { t } = useI18n();
+  const { locale } = useI18n();
   if (view.phase !== "bidding") return null;
   if (!view.bidOptions) return null;
+  const derived = deriveLiveBid(view.bids);
+  const currentLiveBid: CurrentLiveBid | null = derived
+    ? {
+        label: `${derived.bid.value} ${trumpModeLabel(derived.bid.suit!, locale)}${derived.surcoinched ? " ×4" : derived.coinched ? " ×2" : ""}`,
+        isRed:
+          derived.bid.suit !== undefined &&
+          derived.bid.suit !== "TA" &&
+          derived.bid.suit !== "SA" &&
+          isRedSuit(derived.bid.suit),
+        bidderName:
+          derived.bid.seat === mySeat
+            ? "Toi"
+            : (players?.find((player) => player.seat === derived.bid.seat)?.displayName ?? null),
+        bidderTeam: teamOf(derived.bid.seat),
+      }
+    : null;
   return (
     <div className="mx-3 mb-2 rounded-2xl bg-[var(--surface-overlay)] p-3 shadow-xl">
-      <BiddingPanel options={view.bidOptions} onBid={onBid} onSuitChange={onSuitChange} />
+      <BiddingPanel options={view.bidOptions} currentLiveBid={currentLiveBid} onBid={onBid} onSuitChange={onSuitChange} />
     </div>
   );
 }

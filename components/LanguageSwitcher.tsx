@@ -1,9 +1,14 @@
 "use client";
 
+import { usePathname } from "next/navigation";
 import { useI18n } from "@/lib/client/i18n";
 
 export function LanguageSwitcher() {
+  const pathname = usePathname();
   const { locale, setLocale } = useI18n();
+  const isInStartedGame = pathname === "/local/play" || pathname.startsWith("/game/");
+
+  if (isInStartedGame) return null;
 
   return (
     <label

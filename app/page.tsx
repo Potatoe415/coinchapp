@@ -92,13 +92,18 @@ export default function Home() {
         </div>
       </div>
 
-      <button
-        data-id="reset-browser-data-button"
-        onClick={resetBrowserData}
-        className="mt-auto self-center rounded-lg border border-gray-500 bg-transparent px-4 py-2 text-sm font-medium text-gray-400 transition hover:border-gray-400 hover:text-gray-300 active:scale-95"
-      >
-        Reset
-      </button>
+      <div className="mt-auto flex items-center gap-3 self-center" data-id="home-footer-actions">
+        <button
+          data-id="reset-browser-data-button"
+          onClick={resetBrowserData}
+          className="rounded-lg border border-gray-500 bg-transparent px-4 py-2 text-sm font-medium text-gray-400 transition hover:border-gray-400 hover:text-gray-300 active:scale-95"
+        >
+          Reset
+        </button>
+        <span className="text-sm font-medium text-gray-500" data-id="app-version-label">
+          V0.8.1
+        </span>
+      </div>
     </main>
   );
 }

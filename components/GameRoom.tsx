@@ -60,15 +60,12 @@ export function GameRoom({ gameId }: { gameId: string }) {
   const actions: GameActions = {
     onBid: async (payload: BidPayload) => {
       await placeBid(gameId, payload);
-      await refetch();
     },
     onPlay: async (card: Card) => {
       await playCard(gameId, card);
-      await refetch();
     },
     onNextDeal: async () => {
       await nextDeal(gameId);
-      await refetch();
     },
     onBecomeHost: async () => {
       await becomeHost(gameId);
