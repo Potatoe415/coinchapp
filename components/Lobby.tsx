@@ -12,7 +12,8 @@ export function Lobby({ gv, onChange }: { gv: GameView; onChange: () => Promise<
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const [selectedSeat, setSelectedSeat] = useState<number | null>(null);
+  const [dragSeat, setDragSeat] = useState<number | null>(null);
+  const [overSeat, setOverSeat] = useState<number | null>(null);
   const seats = [0, 1, 2, 3];
   const bySeat = new Map(gv.players.map((p) => [p.seat, p]));
   const full = gv.players.length === 4;
@@ -40,6 +41,24 @@ export function Lobby({ gv, onChange }: { gv: GameView; onChange: () => Promise<
     } finally {
       setBusy(false);
     }
+  }
+
+  function handleDragOver(e: React.DragEvent, seat: number) {
+    if (seat === 0 || seat === dragSeat) return;
+    e.preventDefault();
+    setOverSeat(seat);
+  }
+
+  function handleDragLeave(e: React.DragEvent, seat: number) {
+    if ((e.currentTarget as Node).contains(e.relatedTarget as Node)) return;
+    setOverSeat((prev) => (prev === seat ? null : prev));
+  }
+
+  function handleDrop(seat: number) {
+    if (dragSeat === null || seat === 0 || dragSeat === seat) return;
+    void act(() => swapSeats(gv.gameId, dragSeat, seat));
+    setDragSeat(null);
+    setOverSeat(null);
   }
 
   return (
@@ -73,34 +92,30 @@ export function Lobby({ gv, onChange }: { gv: GameView; onChange: () => Promise<
       <ul className="grid grid-cols-2 gap-3" data-id="lobby-seats">
         {seats.map((seat) => {
           const player = bySeat.get(seat);
-          const isSelected = selectedSeat === seat;
-          const isSwapTarget = selectedSeat !== null && selectedSeat !== seat;
-
-          function handleSeatClick() {
-            if (!gv.isHost || busy) return;
-            if (selectedSeat === null) {
-              setSelectedSeat(seat);
-            } else if (selectedSeat === seat) {
-              setSelectedSeat(null);
-            } else {
-              act(() => swapSeats(gv.gameId, selectedSeat, seat));
-              setSelectedSeat(null);
-            }
-          }
+          const isLocked = seat === 0;
+          const canDrag = gv.isHost && !isLocked && !!player;
+          const canDrop = gv.isHost && !isLocked && dragSeat !== null && dragSeat !== seat;
+          const isDragging = dragSeat === seat;
+          const isOver = overSeat === seat;
 
           return (
             <li
               key={seat}
               data-id={`lobby-seat-${seat}`}
-              onClick={gv.isHost ? handleSeatClick : undefined}
-              className={`rounded-xl px-4 py-3 ring-1 transition-all ${
-                isSelected
-                  ? "bg-[var(--accent-cyan)] text-[var(--surface)] ring-[var(--accent-cyan)] scale-[1.03]"
-                  : isSwapTarget
-                  ? "cursor-pointer ring-2 ring-[var(--accent-cyan)] bg-[var(--surface)]/80 text-[var(--card-face)]"
+              draggable={canDrag}
+              onDragStart={canDrag ? () => setDragSeat(seat) : undefined}
+              onDragEnd={() => { setDragSeat(null); setOverSeat(null); }}
+              onDragOver={canDrop ? (e) => handleDragOver(e, seat) : undefined}
+              onDragLeave={canDrop ? (e) => handleDragLeave(e, seat) : undefined}
+              onDrop={canDrop ? () => handleDrop(seat) : undefined}
+              className={`select-none rounded-xl px-4 py-3 ring-1 transition-all ${
+                isOver
+                  ? "scale-[1.03] bg-[var(--surface)]/80 text-[var(--card-face)] ring-2 ring-[var(--accent-cyan)]"
+                  : isDragging
+                  ? "opacity-40 bg-[var(--surface)] text-[var(--card-face)] ring-[var(--accent-cyan)]/60"
                   : player
-                  ? `bg-[var(--surface)] text-[var(--card-face)] ring-[var(--accent-cyan)]/25 ${gv.isHost ? "cursor-pointer hover:ring-[var(--accent-cyan)]/60" : ""}`
-                  : `bg-[rgba(32,40,58,0.08)] ring-[var(--surface)]/10 ${gv.isHost ? "cursor-pointer hover:ring-[var(--accent-cyan)]/30" : ""}`
+                  ? `bg-[var(--surface)] text-[var(--card-face)] ring-[var(--accent-cyan)]/25 ${canDrag ? "cursor-grab active:cursor-grabbing" : ""}`
+                  : "bg-[rgba(32,40,58,0.08)] ring-[var(--surface)]/10"
               }`}
             >
               <p className="text-xs text-current/65">
@@ -115,11 +130,6 @@ export function Lobby({ gv, onChange }: { gv: GameView; onChange: () => Promise<
           );
         })}
       </ul>
-      {gv.isHost && selectedSeat !== null && (
-        <p className="text-center text-xs text-[var(--foreground)]/60" data-id="lobby-swap-hint">
-          {t("seat")} {selectedSeat + 1} {t("selected")} — {t("clickAnotherSeatToSwap")}
-        </p>
-      )}
 
       {!isMember ? (
         <div className="flex gap-3">
@@ -139,7 +149,7 @@ export function Lobby({ gv, onChange }: { gv: GameView; onChange: () => Promise<
             {t("join")}
           </button>
         </div>
-      ) : (
+      ) : gv.isHost ? (
         <div className="flex flex-col gap-3">
           <button
             data-id="lobby-fill-bots"
@@ -158,6 +168,10 @@ export function Lobby({ gv, onChange }: { gv: GameView; onChange: () => Promise<
             {full ? t("startGame") : t("waitingFourPlayers")}
           </button>
         </div>
+      ) : (
+        <p className="text-center text-sm text-[var(--foreground)]/50" data-id="lobby-waiting-host">
+          {t("waitingForHost")}
+        </p>
       )}
     </main>
   );
