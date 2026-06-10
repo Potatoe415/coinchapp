@@ -14,6 +14,7 @@ export function Lobby({ gv, onChange }: { gv: GameView; onChange: () => Promise<
   const [copied, setCopied] = useState(false);
   const [dragSeat, setDragSeat] = useState<number | null>(null);
   const [overSeat, setOverSeat] = useState<number | null>(null);
+  const [selectedSeat, setSelectedSeat] = useState<number | null>(null);
   const seats = [0, 1, 2, 3];
   const bySeat = new Map(gv.players.map((p) => [p.seat, p]));
   const full = gv.players.length === 4;
@@ -40,6 +41,18 @@ export function Lobby({ gv, onChange }: { gv: GameView; onChange: () => Promise<
       setError(e instanceof Error ? e.message : t("error"));
     } finally {
       setBusy(false);
+    }
+  }
+
+  function handleSeatTap(seat: number) {
+    if (!gv.isHost || busy || seat === 0) return;
+    if (selectedSeat === null) {
+      setSelectedSeat(seat);
+    } else if (selectedSeat === seat) {
+      setSelectedSeat(null);
+    } else {
+      void act(() => swapSeats(gv.gameId, selectedSeat, seat));
+      setSelectedSeat(null);
     }
   }
 
@@ -95,27 +108,33 @@ export function Lobby({ gv, onChange }: { gv: GameView; onChange: () => Promise<
           const isLocked = seat === 0;
           const canDrag = gv.isHost && !isLocked && !!player;
           const canDrop = gv.isHost && !isLocked && dragSeat !== null && dragSeat !== seat;
+          const canTap = gv.isHost && !isLocked;
           const isDragging = dragSeat === seat;
           const isOver = overSeat === seat;
+          const isSelected = selectedSeat === seat;
+          const isTapTarget = selectedSeat !== null && selectedSeat !== seat && !isLocked;
 
           return (
             <li
               key={seat}
               data-id={`lobby-seat-${seat}`}
               draggable={canDrag}
-              onDragStart={canDrag ? () => setDragSeat(seat) : undefined}
+              onDragStart={canDrag ? () => { setDragSeat(seat); setSelectedSeat(null); } : undefined}
               onDragEnd={() => { setDragSeat(null); setOverSeat(null); }}
               onDragOver={canDrop ? (e) => handleDragOver(e, seat) : undefined}
               onDragLeave={canDrop ? (e) => handleDragLeave(e, seat) : undefined}
               onDrop={canDrop ? () => handleDrop(seat) : undefined}
+              onClick={canTap ? () => handleSeatTap(seat) : undefined}
               className={`select-none rounded-xl px-4 py-3 ring-1 transition-all ${
-                isOver
-                  ? "scale-[1.03] bg-[var(--surface)]/80 text-[var(--card-face)] ring-2 ring-[var(--accent-cyan)]"
+                isOver || isTapTarget
+                  ? "scale-[1.03] bg-[var(--surface)]/80 text-[var(--card-face)] ring-2 ring-[var(--accent-cyan)] cursor-pointer"
+                  : isSelected
+                  ? "bg-[var(--accent-cyan)] text-[var(--surface)] ring-[var(--accent-cyan)] scale-[1.03]"
                   : isDragging
                   ? "opacity-40 bg-[var(--surface)] text-[var(--card-face)] ring-[var(--accent-cyan)]/60"
                   : player
-                  ? `bg-[var(--surface)] text-[var(--card-face)] ring-[var(--accent-cyan)]/25 ${canDrag ? "cursor-grab active:cursor-grabbing" : ""}`
-                  : "bg-[rgba(32,40,58,0.08)] ring-[var(--surface)]/10"
+                  ? `bg-[var(--surface)] text-[var(--card-face)] ring-[var(--accent-cyan)]/25 ${canDrag ? "cursor-grab active:cursor-grabbing" : canTap ? "cursor-pointer" : ""}`
+                  : `bg-[rgba(32,40,58,0.08)] ring-[var(--surface)]/10 ${canTap ? "cursor-pointer" : ""}`
               }`}
             >
               <p className="text-xs text-current/65">
@@ -130,6 +149,12 @@ export function Lobby({ gv, onChange }: { gv: GameView; onChange: () => Promise<
           );
         })}
       </ul>
+
+      {gv.isHost && selectedSeat !== null && (
+        <p className="text-center text-xs text-[var(--foreground)]/60" data-id="lobby-swap-hint">
+          {t("seat")} {selectedSeat + 1} {t("selected")} — {t("clickAnotherSeatToSwap")}
+        </p>
+      )}
 
       {!isMember ? (
         <div className="flex gap-3">
