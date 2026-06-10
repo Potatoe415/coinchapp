@@ -40,69 +40,51 @@ async function resetBrowserData() {
   window.location.reload();
 }
 
-const SUIT_SYMBOLS = ["♠", "♥", "♦", "♣"];
-
 export default function Home() {
   const router = useRouter();
-  const { locale, t } = useI18n();
+  const { t } = useI18n();
 
   return (
     <main
-      className="mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-between px-6 py-12"
+      className="relative mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-between overflow-hidden"
       data-id="home-screen"
+      style={{
+        backgroundImage: "url('/splashscreen.jpg')",
+        backgroundSize: "cover",
+        backgroundPosition: "center top",
+      }}
     >
-      <div className="flex flex-1 flex-col items-center justify-start gap-6 pt-8 text-center">
-        <div className="flex gap-4 text-4xl" data-id="splash-suits" aria-hidden="true">
-          {SUIT_SYMBOLS.map((s) => (
-            <span
-              key={s}
-              className={s === "♥" || s === "♦" ? "text-[var(--accent-red)]" : "text-[var(--card-ink)]"}
-            >
-              {s}
-            </span>
-          ))}
-        </div>
 
-        <div data-id="splash-title">
-          <h1 className="text-6xl font-black tracking-tight text-[var(--surface)]">Coinche</h1>
-          <p className="mt-2 text-sm text-[var(--foreground)]/70">
-            {locale === "fr"
-              ? "Jouez en local contre des bots, ou à 4 en ligne."
-              : "Play local against bots, or online with 4 players."}
-          </p>
-        </div>
+      <div className="relative z-10 flex w-full flex-col items-center gap-3 px-6 pt-[25vh]" data-id="splash-actions">
+        <button
+          data-id="play-local-button"
+          onClick={() => router.push("/local")}
+          className="w-full rounded-2xl bg-[var(--accent-yellow)] px-4 py-5 text-lg font-black text-[var(--surface)] shadow-lg"
+        >
+          {t("playLocal")}
+          <span className="mt-0.5 block text-xs font-medium text-[var(--surface)]/80">
+            {t("localOfflineNote")}
+          </span>
+        </button>
 
-        <div className="mt-6 flex w-full flex-col gap-3" data-id="splash-actions">
-          <button
-            data-id="play-local-button"
-            onClick={() => router.push("/local")}
-            className="rounded-2xl bg-[var(--accent-yellow)] px-4 py-5 text-lg font-black text-[var(--surface)] shadow-lg"
-          >
-            {t("playLocal")}
-            <span className="mt-0.5 block text-xs font-medium text-[var(--surface)]/80">
-              {t("localOfflineNote")}
-            </span>
-          </button>
-
-          <button
-            data-id="play-online-button"
-            onClick={() => router.push("/online?target=1000")}
-            className="rounded-2xl bg-[var(--accent-cyan)] px-4 py-5 text-lg font-black text-[var(--surface)] shadow-lg"
-          >
-            {t("playOnline")}
-          </button>
-        </div>
+        <button
+          data-id="play-online-button"
+          onClick={() => router.push("/online?target=1000")}
+          className="w-full rounded-2xl bg-[var(--accent-cyan)] px-4 py-5 text-lg font-black text-[var(--surface)] shadow-lg"
+        >
+          {t("playOnline")}
+        </button>
       </div>
 
-      <div className="mt-auto flex items-center gap-3 self-center" data-id="home-footer-actions">
+      <div className="relative z-10 mt-auto mb-4 flex items-center gap-3 self-center" data-id="home-footer-actions">
         <button
           data-id="reset-browser-data-button"
           onClick={resetBrowserData}
-          className="rounded-lg border border-gray-500 bg-transparent px-4 py-2 text-sm font-medium text-gray-400 transition hover:border-gray-400 hover:text-gray-300 active:scale-95"
+          className="rounded-lg border border-white/40 bg-transparent px-4 py-2 text-sm font-medium text-white/70 transition hover:border-white/60 hover:text-white/90 active:scale-95"
         >
           Reset
         </button>
-        <span className="text-sm font-medium text-gray-500" data-id="app-version-label">
+        <span className="text-sm font-medium text-white/60" data-id="app-version-label">
           V0.8.3
         </span>
       </div>
