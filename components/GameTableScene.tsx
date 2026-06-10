@@ -9,10 +9,10 @@ import { playerName, seatTeam } from "./gameTableHelpers";
 import { PlayerBadge } from "./PlayerBadge";
 import { CardBack, PlayingCard } from "./PlayingCard";
 
-function isBotThinking(gv: GameView, view: PlayerView, seat: number): boolean {
+function isSeatThinking(view: PlayerView, seat: number): boolean {
   if (view.phase !== "bidding" && view.phase !== "playing") return false;
   if (view.turn !== seat) return false;
-  return gv.players.find((p) => p.seat === seat)?.isBot === true;
+  return true;
 }
 
 export type TableSeats = {
@@ -75,7 +75,7 @@ function TopOpponent({ gv, view, seat, reaction }: { gv: GameView; view: PlayerV
           team={seatTeam(seat)}
           isTurn={view.turn === seat}
           isDealer={view.dealer === seat}
-          isThinking={isBotThinking(gv, view, seat)}
+          isThinking={isSeatThinking(view, seat)}
           reaction={reaction}
           dataId={`player-seat-${seat}`}
         />
@@ -112,7 +112,7 @@ function SideOpponent({
           team={seatTeam(seat)}
           isTurn={view.turn === seat}
           isDealer={view.dealer === seat}
-          isThinking={isBotThinking(gv, view, seat)}
+          isThinking={isSeatThinking(view, seat)}
           reaction={reaction}
           orientation="vertical"
           dataId={`player-seat-${seat}`}

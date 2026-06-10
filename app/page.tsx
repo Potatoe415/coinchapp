@@ -101,7 +101,7 @@ export default function Home() {
           Reset
         </button>
         <span className="text-sm font-medium text-gray-500" data-id="app-version-label">
-          V0.8.1
+          V0.8.2
         </span>
       </div>
     </main>

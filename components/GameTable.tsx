@@ -308,7 +308,7 @@ function HandCard({
   // When it's my turn: let PlayingCard render a <button> and handle the click.
   // When it's not my turn (pre-selection mode): PlayingCard renders a <div> (no onClick →
   // not disabled), and the outer div captures the click.
-  const playCardClick = myTurnToPlay && !busy ? () => onCardClick(card) : undefined;
+  const playCardClick = myTurnToPlay ? () => onCardClick(card) : undefined;
   const preselectClick = !myTurnToPlay ? () => onCardClick(card) : undefined;
 
   return (
