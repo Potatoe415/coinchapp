@@ -22,6 +22,7 @@ export default function LocalSetupPage() {
       capotFailedDefensePoints: setup.capotFailedDefensePoints,
       allowSpecialBids: String(setup.allowToutAtoutSansAtout),
       requireMorePointsToWin: String(setup.requireMorePointsToWin),
+      botPunch: setup.botPunch,
     });
     router.push(`/local/play?${params.toString()}`);
   }

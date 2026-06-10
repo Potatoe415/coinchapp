@@ -5,5 +5,14 @@ export { applyBid, bidOptions, validateBid, BID_VALUES, CAPOT_VALUE, GENERALE_VA
 export { legalCards, isLegalPlay, applyPlay, trickWinner } from "./trick";
 export { computeDealResult, finalizeDeal, detectBelote, computeBelote } from "./scoring";
 export { submitBid, submitPlay, startNextDeal } from "./engine";
-export { chooseBid, chooseCard, advanceBots } from "./bot";
+export {
+  chooseBid,
+  chooseCard,
+  advanceBots,
+  decideBid,
+  BOT_PUNCH_LEVELS,
+  PUNCH_CONTRIBUTION,
+  type BidDecision,
+  type BotPunch,
+} from "./bot";
 export { redact, type PlayerView } from "./redact";

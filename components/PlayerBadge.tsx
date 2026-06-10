@@ -1,4 +1,5 @@
 import type { Team } from "@/lib/coinche";
+import type { EmojiReaction } from "./EmojiButton";
 
 export interface PlayerBadgeProps {
   name: string;
@@ -6,6 +7,7 @@ export interface PlayerBadgeProps {
   isTurn: boolean;
   isDealer: boolean;
   isThinking?: boolean;
+  reaction?: EmojiReaction;
   dataId?: string;
   orientation?: "horizontal" | "vertical";
 }
@@ -16,6 +18,7 @@ export function PlayerBadge({
   isTurn,
   isDealer,
   isThinking = false,
+  reaction,
   dataId,
   orientation = "horizontal",
 }: PlayerBadgeProps) {
@@ -33,6 +36,11 @@ export function PlayerBadge({
           {name}
           {isDealer && <span className="mt-1 text-[10px]">D</span>}
         </div>
+        {reaction && (
+          <span key={reaction.id} className="emoji-react text-xl leading-none" data-id="player-emoji-reaction">
+            {reaction.emoji}
+          </span>
+        )}
       </div>
     );
   }
@@ -44,6 +52,11 @@ export function PlayerBadge({
         {name}
         {isDealer && <span className="ml-1 align-middle text-[10px]">D</span>}
       </div>
+      {reaction && (
+        <span key={reaction.id} className="emoji-react text-2xl leading-none" data-id="player-emoji-reaction">
+          {reaction.emoji}
+        </span>
+      )}
     </div>
   );
 }

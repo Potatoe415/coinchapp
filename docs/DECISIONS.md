@@ -106,3 +106,37 @@ Context: User wants a single bot level equivalent to the current hardest, with n
 Rationale: `medium` and `hard` were already identical in code; only `easy` differed (random). One level keeps the engine/UI simpler and matches the product directive.
 Consequences: `GameSettings` no longer carries `botDifficulty` (existing game rows keep a harmless stale key in their `settings` jsonb). The home link and local URL no longer pass a difficulty param.
 Alternatives_Rejected: Hardcoding difficulty to "hard" while keeping the type/UI (leaves dead `easy` branch and a constant setting).
+
+---
+
+## 2026-06-10 - Calibrated, shared bot bidding (`decideBid`)
+
+Decision: Bidding for both bot brains now goes through a single `decideBid(hand, allowed, minValue)` in `lib/coinche/bot.ts` (exported via the package index). It estimates the best mode, lifts the hand score by a fixed `PARTNER_CONTRIBUTION = 12` (partner + 10 de der), rounds to a contract step, and opens when the result reaches `max(80, minValue)`, capped at 160 (never auto-bids capot/générale). The client bot (`lib/client/bot.ts`) deleted its duplicate `trumpPotential`/`toutAtoutPotential`/`sansAtoutPotential`/`hasBelote`/`highestBid` helpers and calls `decideBid`. `evaluateSuit` now also adds a 20-point belote bonus.
+Context: Bots almost never announced. The opening threshold compared a single-hand strength heuristic against the full contract value (80+), which an 8-card hand rarely reaches alone, so every seat passed.
+Rationale: A contract only needs the team (two hands) to reach the announced value, so the bidder's own hand should be judged against ~hand + partner share, not the whole contract. A 4000-deal simulation tuned `PARTNER_CONTRIBUTION`: 12 yields a contract on the first auction ~100% of the time, avg contract ~84, distribution skewed to 80-90 with a tail to 110-120. Higher values (e.g. 22) over-bid (avg ~89) and risk failed contracts; 0 caused frequent redeals.
+Consequences: Bidding logic lives in one place (engine layer); the client reuses it, removing duplication. Bot bid values are now meaningful (stronger hands bid higher). Local (`useLocalGame` -> `advanceBots`) and online (host-driven `chooseClientAction`) bots bid identically.
+Alternatives_Rejected: Per-brain threshold tweaks (keeps two near-identical heuristics, violates DRY); lowering only the raw threshold without a partner model (loses hand-strength differentiation in the bid value).
+
+## 2026-06-10 - Bot ISMCTS runs in a Web Worker; local solo uses it too
+
+Decision: The client bot brain (`chooseClientAction`) now runs in a dedicated Web Worker via `lib/client/botWorker.ts`, driven by a new `useBotWorker()` hook (`lib/client/useBotWorker.ts`) that exposes `decide(view): Promise<BotAction>`, matches replies by request id, and falls back to a main-thread call when Workers are unavailable (SSR/tests/old browsers). Both runners use it: `useBotRunner` (online host) awaits `decide` instead of calling `chooseClientAction` inline; `useLocalGame` (offline solo) switched from the weak engine bot (`chooseBid`/`chooseCard`) to the same strong bot via the worker, applying the result with a small `applyBotAction` helper. The bid heuristic (`decideBid`) and the ISMCTS algorithm/budget (800ms / 2000 iterations) are unchanged.
+Context: The time-boxed ISMCTS search (up to 800ms) ran on the main thread, freezing the UI during bot turns. Separately, the local solo game still used the cheapest-winner engine bot, so the calibrated ISMCTS bot was never exercised offline.
+Rationale: A Worker keeps the heavy rollout loop off the render thread; `performance.now()` and `Math.random` are both available there, and `PlayerView`/`BotAction` are plain serialisable objects, so no engine change was needed. Reusing `chooseClientAction` in both the worker and the fallback avoids a second strategy. In `useLocalGame` the search overlaps the minimum thinking delay via `Promise.all`, so perceived latency is unchanged.
+Consequences: Local bot play is now non-deterministic (ISMCTS uses `Math.random`); the `?seed=` param still fixes the deal but not bot decisions. Worker bundling relies on the Next/Turbopack `new Worker(new URL("./botWorker.ts", import.meta.url), { type: "module" })` pattern (verified by `next build`).
+Alternatives_Rejected: Keeping ISMCTS on the main thread with smaller budgets (degrades strength, still janky); a shared singleton worker module instead of a per-hook instance (more lifecycle edge cases for little gain at this scale).
+
+## 2026-06-10 - Re-calibrated bot bidding (PARTNER_CONTRIBUTION 12 -> 26)
+
+Decision: Raised `PARTNER_CONTRIBUTION` in `lib/coinche/bot.ts` from 12 to 26. Supersedes the earlier "12" calibration.
+Context: Bots almost never opened in real play (user saw ~1 in 5 deals) and bid low when they did. A 4000-deal simulation (manual auction + weak play-out) confirmed 12 only reaches a contract 60.5% of the time, avg value 84.6.
+Rationale: Sweep results - 12: 60.5%/84.6/94.2% make; 20: 90.8%/88.1/90.2%; 26: 99.1%/92.5/86.0%; 32: 100%/98.2/81.6%; 40: 100%/106.3/72.4% (contractRate/avgValue/makeRate). 26 is the knee of the curve: a contract on ~99% of deals and a higher average (92.5) while keeping an ~86% make rate under weak play - and the real game now plays attack with the stronger ISMCTS, so true make rate is higher.
+Consequences: Bots open on nearly every deal and bid more meaningfully. Slightly more failed contracts than at 12, accepted as the explicit product direction ("bid more, higher"). The make-rate figure is a conservative proxy (both teams played the weak cheapest-winner bot in the sim).
+Alternatives_Rejected: 20 (still ~9% redeals, barely higher bids); 32+ (over-bids, make rate drops below ~82% even before accounting for human defenders).
+
+## 2026-06-10 - Bot punch setting (low/med/high)
+
+Decision: Added a pre-game "bot level" (punch) setting with three levels exposed as a slider in GameSettingsPanel. It maps to the bid heuristic''s partner-contribution: low=20, med=26 (default), high=32 (PUNCH_CONTRIBUTION in lib/coinche/bot.ts). decideBid takes an optional partnerContribution; the client bot reads BotOptions.punch; useBotWorker(punch) applies it on the main-thread bidding path (bidding never uses the worker). Local threads it via URL param -> LocalGame -> useLocalGame; online stores it in games.settings.botPunch and the host reads it from GameView.settings in useBotRunner. botPunch is bot config, not a scoring rule, so it is NOT passed to createInitialState/GameState.
+Context: User wanted to choose bot aggressiveness before starting; the single PARTNER_CONTRIBUTION constant only allowed one fixed level.
+Rationale: Punch only affects bidding, which runs on the main thread, so no worker/protocol change was needed. Storing it in settings (not GameState) keeps the pure engine unchanged and reuses the existing settings plumbing (sanitizeSettings validates against BOT_PUNCH_LEVELS, defaults "med"). Values come from the earlier 4000-deal sweep (contractRate/avgValue): 20->91%/88, 26->99%/92.5, 32->100%/98.
+Consequences: games.settings jsonb gains an optional botPunch key (no migration; absent = "med"). The setting is read by whichever client runs the bots (host online, the single client locally).
+Alternatives_Rejected: A numeric slider over raw contribution (leaks an internal constant, harder to label); adding botPunch to GameState (pollutes the pure engine and every state-build path for a pure UI/bot knob).

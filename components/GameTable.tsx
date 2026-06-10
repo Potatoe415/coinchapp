@@ -5,6 +5,7 @@ import { useI18n } from "@/lib/client/i18n";
 import { cardId, isTrump, RANKS, trumpStrength, type Card, type PlayedCard, type PlayerView, type TrumpMode } from "@/lib/coinche";
 import type { GameView } from "@/lib/server/view";
 import { BiddingPanel, type BidPayload } from "./BiddingPanel";
+import { EmojiButton, type EmojiReaction } from "./EmojiButton";
 import { GameHud } from "./GameHud";
 import { GameTableScene } from "./GameTableScene";
 import { playerName, relativeSeat } from "./gameTableHelpers";
@@ -18,9 +19,27 @@ export interface GameActions {
   onBecomeHost?: () => Promise<void> | void;
   /** Local only: restart the game from scratch with same settings. */
   onReset?: () => void;
+  /** Local only: re-deal the current hand (no card played yet). */
+  onReshuffle?: () => void;
+  /** Send an emoji reaction visible to all players. */
+  onSendEmoji?: (emoji: string) => void;
 }
 
 const SUIT_ORDER: Record<string, number> = { S: 0, H: 1, C: 2, D: 3 };
+
+/** Returns `lastTrickKey` when the last trick had a non-trump ace beaten by a trump. */
+function computeBimKey(
+  view: { lastTrick: import("@/lib/coinche").Trick | null; trump: import("@/lib/coinche").TrumpMode | null },
+  lastTrickKey: string | null,
+): string | null {
+  const { lastTrick, trump } = view;
+  if (!lastTrick || !lastTrickKey || !trump || trump === "SA" || trump === "TA") return null;
+  if (lastTrick.winner === undefined) return null;
+  const winnerCard = lastTrick.cards.find((c) => c.seat === lastTrick.winner)?.card;
+  if (!winnerCard || !isTrump(winnerCard, trump)) return null;
+  const hasNonTrumpAce = lastTrick.cards.some((c) => c.card.rank === "A" && !isTrump(c.card, trump));
+  return hasNonTrumpAce ? lastTrickKey : null;
+}
 
 type PendingPlayedCard = PlayedCard;
 
@@ -35,29 +54,43 @@ function sortHand(hand: Card[], trump: TrumpMode | null): Card[] {
   });
 }
 
-export function GameTable({ gv, actions }: { gv: GameView; actions: GameActions }) {
+export function GameTable({ gv, actions, reactions }: { gv: GameView; actions: GameActions; reactions?: Map<number, EmojiReaction> }) {
   const view = gv.view!;
   const mySeat = gv.mySeat!;
   const [busy, setBusy] = useState(false);
   const [pendingPlayed, setPendingPlayed] = useState<PendingPlayedCard | null>(null);
   const [preSelected, setPreSelected] = useState<string | null>(null);
+  const [emojiOn, setEmojiOn] = useState(true);
+
+  useEffect(() => {
+    if (localStorage.getItem("coinchapp-emoji") === "false") setEmojiOn(false);
+  }, []);
+
+  function toggleEmoji() {
+    setEmojiOn((v) => {
+      localStorage.setItem("coinchapp-emoji", String(!v));
+      return !v;
+    });
+  }
   const legalSet = new Set(view.legalCards.map(cardId));
   const myTurnToPlay = view.phase === "playing" && view.turn === mySeat;
 
-  // Clear pre-selection when a new deal starts (hand changes).
-  const handKey = view.myHand.map(cardId).join(",");
-  const prevHandKey = useRef(handKey);
-  useEffect(() => {
-    if (prevHandKey.current !== handKey) {
-      prevHandKey.current = handKey;
-      setPreSelected(null);
-    }
-  }, [handKey]);
-
-  // Auto-play pre-selected card when it becomes our turn.
   const onPlayRef = useRef<(card: Card) => Promise<void>>(async () => {});
+
+  // Auto-play only when it's the very last card in hand.
+  const handCount = view.myHand.length;
+  const legalCount = view.legalCards.length;
   useEffect(() => {
-    if (!myTurnToPlay || preSelected === null) return;
+    if (!myTurnToPlay || busy || handCount !== 1) return;
+    const card = view.myHand[0];
+    const timer = window.setTimeout(() => void onPlayRef.current(card), 700);
+    return () => window.clearTimeout(timer);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [myTurnToPlay, busy, handCount]);
+
+  // Auto-play pre-selected card when it becomes our turn (skip if last-card auto-play handles it).
+  useEffect(() => {
+    if (!myTurnToPlay || busy || preSelected === null || handCount === 1) return;
     const card = view.myHand.find((c) => cardId(c) === preSelected);
     if (card && legalSet.has(preSelected)) {
       void onPlayRef.current(card);
@@ -65,7 +98,7 @@ export function GameTable({ gv, actions }: { gv: GameView; actions: GameActions 
       setPreSelected(null);
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [myTurnToPlay]);
+  }, [myTurnToPlay, busy]);
   const seats = {
     top: relativeSeat(mySeat, 2),
     left: relativeSeat(mySeat, 3),
@@ -86,6 +119,7 @@ export function GameTable({ gv, actions }: { gv: GameView; actions: GameActions 
     ? view.lastTrick.cards.map((played) => `${played.seat}:${cardId(played.card)}`).join("|")
     : null;
   const lastTrickWinner = view.lastTrick?.winner ?? null;
+  const bimTrickKey = computeBimKey(view, lastTrickKey);
 
   async function onPlay(card: Card) {
     if (!myTurnToPlay || !legalSet.has(cardId(card)) || busy) return;
@@ -102,10 +136,10 @@ export function GameTable({ gv, actions }: { gv: GameView; actions: GameActions 
   onPlayRef.current = onPlay;
 
   function onCardClick(card: Card) {
-    if (busy) return;
     if (myTurnToPlay) {
-      void onPlay(card);
+      if (!busy) void onPlay(card);
     } else if (view.phase === "playing") {
+      // Pre-selection is always allowed (even while bots are playing).
       const id = cardId(card);
       setPreSelected((prev) => (prev === id ? null : id));
     }
@@ -121,6 +155,8 @@ export function GameTable({ gv, actions }: { gv: GameView; actions: GameActions 
         view={view}
         players={gv.players}
         onReset={actions.onReset}
+        onReshuffle={actions.onReshuffle}
+        emojiControls={actions.onSendEmoji ? { enabled: emojiOn, onToggle: toggleEmoji } : undefined}
         host={
           actions.onBecomeHost
             ? {
@@ -141,8 +177,16 @@ export function GameTable({ gv, actions }: { gv: GameView; actions: GameActions 
           lastTrickBySeat={lastTrickBySeat}
           lastTrickKey={lastTrickKey}
           lastTrickWinner={lastTrickWinner}
+          bimTrickKey={bimTrickKey}
+          reactions={reactions}
           onNextDeal={actions.onNextDeal}
         />
+        {emojiOn && actions.onSendEmoji && (
+          <EmojiButton
+            myReaction={reactions?.get(mySeat)}
+            onSelect={actions.onSendEmoji}
+          />
+        )}
         <ActionDock
           view={view}
           legalSet={legalSet}
@@ -223,19 +267,26 @@ function HandCard({
   const isDimmed = myTurnToPlay && !legalSet.has(cardId(card));
   const lift = isPreSelected ? "translateY(-28px)" : isPlayable ? "translateY(-14px)" : "none";
 
+  // When it's my turn: let PlayingCard render a <button> and handle the click.
+  // When it's not my turn (pre-selection mode): PlayingCard renders a <div> (no onClick →
+  // not disabled), and the outer div captures the click.
+  const playCardClick = myTurnToPlay && !busy ? () => onCardClick(card) : undefined;
+  const preselectClick = !myTurnToPlay ? () => onCardClick(card) : undefined;
+
   return (
     <div
       className="absolute bottom-0 transition-transform duration-150"
       style={{ left: index * HAND_STEP, zIndex: isPreSelected ? 60 + index : isPlayable ? 50 + index : index, transform: lift }}
+      onClick={preselectClick}
     >
-      <div className={isPreSelected ? "rounded-lg ring-2 ring-[var(--accent-yellow)] ring-offset-1 ring-offset-transparent" : undefined}>
+      <div className={isPreSelected ? "rounded-lg ring-2 ring-[var(--accent-yellow)]" : undefined}>
         <PlayingCard
           card={card}
           size="lg"
           dataId={`hand-card-${cardId(card)}`}
           playable={isPlayable}
           dimmed={isDimmed}
-          onClick={() => !busy && onCardClick(card)}
+          onClick={playCardClick}
         />
       </div>
     </div>
@@ -287,13 +338,7 @@ function BiddingStatus({
 }) {
   const { t } = useI18n();
   if (view.phase !== "bidding") return null;
-  if (!view.bidOptions) {
-    return (
-      <p className="mx-6 mb-3 rounded-full bg-[var(--surface-overlay)] py-2 text-center text-sm font-bold text-[var(--card-face)]/85">
-        {t("biddingInProgress")}
-      </p>
-    );
-  }
+  if (!view.bidOptions) return null;
   return (
     <div className="mx-3 mb-2 rounded-2xl bg-[var(--surface-overlay)] p-3 shadow-xl">
       <BiddingPanel options={view.bidOptions} onBid={onBid} onSuitChange={onSuitChange} />

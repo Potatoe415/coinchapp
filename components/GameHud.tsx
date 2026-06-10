@@ -6,7 +6,7 @@ import { useI18n } from "@/lib/client/i18n";
 import type { Bid, PlayerView, Trick } from "@/lib/coinche";
 import { nextSeat, teamOf } from "@/lib/coinche";
 import type { LobbyPlayer } from "@/lib/server/view";
-import { formatContract, trumpModeLabel } from "./labels";
+import { formatContract, isRedSuit, trumpModeLabel } from "./labels";
 import { PlayingCard } from "./PlayingCard";
 
 export interface HostControls {
@@ -15,9 +15,15 @@ export interface HostControls {
   onBecomeHost: () => Promise<void> | void;
 }
 
-export function GameHud({ view, host, onReset, players }: { view: PlayerView; host?: HostControls; onReset?: () => void; players?: LobbyPlayer[] }) {
+export interface EmojiControls {
+  enabled: boolean;
+  onToggle: () => void;
+}
+
+export function GameHud({ view, host, onReset, onReshuffle, emojiControls, players }: { view: PlayerView; host?: HostControls; onReset?: () => void; onReshuffle?: () => void; emojiControls?: EmojiControls; players?: LobbyPlayer[] }) {
   const { locale, t } = useI18n();
   const [panelOpen, setPanelOpen] = useState(false);
+  const noCardPlayed = view.tricks.length === 0 && view.currentTrick.cards.length === 0;
   return (
     <header className="absolute inset-x-0 top-4 z-30 px-3" data-id="game-header">
       <div className="flex items-start justify-between">
@@ -46,7 +52,7 @@ export function GameHud({ view, host, onReset, players }: { view: PlayerView; ho
             }}
             data-id="game-contract"
           >
-            {view.trump ? formatContract(view.contract, locale) : t("bidding")}
+            {view.trump ? formatContract(view.contract, locale) : t("biddingInProgress")}
           </p>
           {view.phase === "bidding" && (() => {
             const firstSeat = nextSeat(view.dealer);
@@ -59,7 +65,7 @@ export function GameHud({ view, host, onReset, players }: { view: PlayerView; ho
               </p>
             ) : null;
           })()}
-          {view.phase === "bidding" && <LiveBid bids={view.bids} locale={locale} />}
+          {view.phase === "bidding" && <LiveBid bids={view.bids} locale={locale} mySeat={view.mySeat} players={players} />}
         </div>
         <GameInfoButton label={t("gameInfo")} onClick={() => setPanelOpen(true)} />
       </div>
@@ -67,6 +73,8 @@ export function GameHud({ view, host, onReset, players }: { view: PlayerView; ho
         <GameInfoPanel
           host={host}
           onReset={onReset}
+          onReshuffle={noCardPlayed ? onReshuffle : undefined}
+          emojiControls={emojiControls}
           lastTrick={view.lastTrick}
           onClose={() => setPanelOpen(false)}
         />
@@ -78,11 +86,15 @@ export function GameHud({ view, host, onReset, players }: { view: PlayerView; ho
 function GameInfoPanel({
   host,
   onReset,
+  onReshuffle,
+  emojiControls,
   lastTrick,
   onClose,
 }: {
   host?: HostControls;
   onReset?: () => void;
+  onReshuffle?: () => void;
+  emojiControls?: EmojiControls;
   lastTrick: Trick | null;
   onClose: () => void;
 }) {
@@ -115,7 +127,36 @@ function GameInfoPanel({
           </div>
         )}
 
+        {emojiControls && (
+          <div className="mb-3 flex items-center justify-between" data-id="emoji-toggle-row">
+            <span className="text-sm text-[var(--card-face)]/80">Réactions emoji</span>
+            <button
+              data-id="emoji-toggle-button"
+              onClick={emojiControls.onToggle}
+              aria-pressed={emojiControls.enabled}
+              className={`relative h-7 w-12 shrink-0 rounded-full transition-colors duration-200 ${
+                emojiControls.enabled ? "bg-[var(--accent-green)]" : "bg-[var(--card-face)]/20"
+              }`}
+            >
+              <span
+                className={`absolute left-0.5 top-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform duration-200 ${
+                  emojiControls.enabled ? "translate-x-5" : "translate-x-0"
+                }`}
+              />
+            </button>
+          </div>
+        )}
+
         {host && <HostRow host={host} onClose={onClose} />}
+        {onReshuffle && (
+          <button
+            data-id="game-info-reshuffle-button"
+            onClick={() => { onReshuffle(); onClose(); }}
+            className="mt-2 w-full rounded-lg bg-[var(--accent-yellow)]/80 py-2 font-bold text-[var(--surface)]"
+          >
+            Nouvelle donne
+          </button>
+        )}
         {onReset && (
           <button
             data-id="game-info-reset-button"
@@ -228,21 +269,32 @@ function deriveLiveBid(bids: Bid[]): { bid: Bid; coinched: boolean; surcoinched:
   return { bid: highest, coinched, surcoinched };
 }
 
-function LiveBid({ bids, locale }: { bids: Bid[]; locale: import("@/lib/client/i18n").Locale }) {
+function LiveBid({ bids, locale, mySeat, players }: { bids: Bid[]; locale: import("@/lib/client/i18n").Locale; mySeat: import("@/lib/coinche").Seat; players?: LobbyPlayer[] }) {
   const derived = deriveLiveBid(bids);
   if (!derived) return null;
   const { bid, coinched, surcoinched } = derived;
   const team = teamOf(bid.seat);
   const mult = surcoinched ? " ×4" : coinched ? " ×2" : "";
-  const label = `${bid.value} ${trumpModeLabel(bid.suit!, locale)}${mult}`;
+  const bidLabel = `${bid.value} ${trumpModeLabel(bid.suit!, locale)}${mult}`;
+  const bidderName = bid.seat === mySeat ? "Toi" : (players?.find((p) => p.seat === bid.seat)?.displayName ?? null);
   return (
-    <p
-      className="mt-1 rounded-full px-4 py-0.5 text-sm font-black text-[var(--card-face)]"
-      style={{ background: team === "A" ? "var(--team-a)" : "var(--team-b)" }}
-      data-id="game-live-bid"
-    >
-      {label}
-    </p>
+    <div className="mt-1 flex items-baseline gap-2" data-id="game-live-bid">
+      <span
+        className={`rounded-md bg-[var(--card-face)] px-3 py-0.5 text-2xl font-black shadow-sm ${
+          bid.suit && bid.suit !== "TA" && bid.suit !== "SA" && isRedSuit(bid.suit)
+            ? "text-[var(--accent-red)]"
+            : "text-[var(--card-ink)]"
+        }`}
+        data-id="game-live-bid-value"
+      >
+        {bidLabel}
+      </span>
+      {bidderName && (
+        <span className="text-sm font-bold" style={{ color: team === "A" ? "var(--team-a)" : "var(--team-b)" }}>
+          {bidderName}
+        </span>
+      )}
+    </div>
   );
 }
 

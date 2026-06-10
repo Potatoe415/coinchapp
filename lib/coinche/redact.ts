@@ -39,6 +39,8 @@ export interface PlayerView {
   scoringRules: ScoringRules;
   lastDeal: DealResult | null;
   winner: Team | null;
+  /** Belote/Rebelote announcements made so far this deal. */
+  beloteAnnounced: ("belote" | "rebelote")[];
 }
 
 function tricksWon(state: GameState): { A: number; B: number } {
@@ -73,5 +75,6 @@ export function redact(state: GameState, seat: Seat): PlayerView {
     scoringRules: state.scoringRules,
     lastDeal: state.lastDeal ?? null,
     winner: state.winner ?? null,
+    beloteAnnounced: state.belote.announced,
   };
 }

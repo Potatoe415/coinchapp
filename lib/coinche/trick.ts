@@ -1,5 +1,5 @@
 import { cardStrength, nextSeat, sameCard, teamOf, trumpStrength } from "./cards";
-import type { Card, GameState, PlayedCard, Seat, Suit, Trick, TrumpMode } from "./types";
+import type { BeloteState, Card, GameState, PlayedCard, Seat, Suit, Trick, TrumpMode } from "./types";
 
 /** Seat currently winning the given (partial) trick. */
 export function trickWinner(cards: PlayedCard[], trump: TrumpMode | null): Seat {
@@ -84,6 +84,18 @@ export function isLegalPlay(state: GameState, seat: Seat, card: Card): boolean {
   return legalCards(state, seat).some((c) => sameCard(c, card));
 }
 
+/** If playing card triggers a belote/rebelote call, append to announced. Single-suit trump only. */
+function announceBelote(state: GameState, seat: Seat, card: Card): BeloteState {
+  const trump = state.trump;
+  if (!trump || trump === "SA" || trump === "TA") return state.belote;
+  if (card.suit !== trump || (card.rank !== "K" && card.rank !== "Q")) return state.belote;
+  if (state.belote.team !== teamOf(seat)) return state.belote;
+  const count = state.belote.announced.length;
+  if (count >= 2) return state.belote;
+  const label = count === 0 ? ("belote" as const) : ("rebelote" as const);
+  return { ...state.belote, announced: [...state.belote.announced, label] };
+}
+
 /** Apply a card play. Resolves the trick when complete and advances the turn. */
 export function applyPlay(state: GameState, seat: Seat, card: Card): GameState {
   if (state.phase !== "playing") throw new Error("not_playing");
@@ -96,12 +108,14 @@ export function applyPlay(state: GameState, seat: Seat, card: Card): GameState {
   const hands = state.hands.map((h, i) =>
     i === seat ? h.filter((c) => !sameCard(c, card)) : h,
   );
+  const belote = announceBelote(state, seat, card);
   const trickCards: PlayedCard[] = [...state.currentTrick.cards, { seat, card }];
 
   if (trickCards.length < 4) {
     return {
       ...state,
       hands,
+      belote,
       currentTrick: { ...state.currentTrick, cards: trickCards },
       turn: nextSeat(seat),
     };
@@ -118,6 +132,7 @@ export function applyPlay(state: GameState, seat: Seat, card: Card): GameState {
   return {
     ...state,
     hands,
+    belote,
     tricks,
     currentTrick: { leader: winner, cards: [] },
     turn: winner,

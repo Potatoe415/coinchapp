@@ -60,11 +60,11 @@ export function CardBack({ size = "md", dataId }: { size?: keyof typeof SIZES; d
     <div
       data-id={dataId}
       className={[
-        "relative overflow-hidden rounded-lg border border-[var(--card-ink)] bg-[var(--card-back)] shadow-[0_2px_0_rgba(32,40,58,0.75)]",
+        "relative overflow-hidden rounded-lg border-[0.5px] border-[var(--card-ink)] bg-[var(--card-back)] shadow-[0_2px_0_rgba(32,40,58,0.75)]",
         sizeStyle.card,
       ].join(" ")}
     >
-      <div className="absolute inset-[4px] rounded-sm border-2 border-[var(--card-back-line)]/60" />
+      <div className="absolute inset-[4px] rounded-sm border-[0.5px] border-[var(--card-back-line)]/60" />
     </div>
   );
 }

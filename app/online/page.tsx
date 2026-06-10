@@ -95,6 +95,7 @@ export default function OnlinePage() {
                   capotFailedDefensePoints: Number(setup.capotFailedDefensePoints) || 250,
                   allowToutAtoutSansAtout: setup.allowToutAtoutSansAtout,
                   requireMorePointsToWin: setup.requireMorePointsToWin,
+                  botPunch: setup.botPunch,
                 },
               }),
             )

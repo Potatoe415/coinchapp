@@ -4,10 +4,12 @@ import { useEffect, useRef } from "react";
 import { submitBotMove, type BotMove } from "@/lib/server/actions-game";
 import type { Seat } from "@/lib/coinche";
 import type { GameView } from "@/lib/server/view";
-import { chooseClientAction, type BotAction } from "./bot";
+import type { BotPunch } from "@/lib/coinche";
+import type { BotAction } from "./bot";
+import { useBotWorker } from "./useBotWorker";
 
 /** Simulated thinking time before each bot move. Configurable. */
-const BOT_THINKING_MS = 700;
+const BOT_THINKING_MS = 500;
 /** Must match the CSS trick-collect animation duration. */
 const COLLECT_DELAY_MS = 1500;
 
@@ -24,6 +26,7 @@ function toMove(action: BotAction): BotMove {
  */
 export function useBotRunner(gameId: string, gv: GameView | null, refetch: () => Promise<void>): void {
   const busyRef = useRef(false);
+  const decide = useBotWorker(gv?.settings.botPunch as BotPunch | undefined);
 
   useEffect(() => {
     if (!gv || !gv.isHost || !gv.view) return;
@@ -40,7 +43,9 @@ export function useBotRunner(gameId: string, gv: GameView | null, refetch: () =>
     const timer = window.setTimeout(async () => {
       busyRef.current = true;
       try {
-        await submitBotMove(gameId, turn as Seat, toMove(chooseClientAction(botView)));
+        const action = await decide(botView);
+        if (cancelled) return;
+        await submitBotMove(gameId, turn as Seat, toMove(action));
         if (!cancelled) await refetch();
       } catch {
         // Host may have changed or another tick already advanced the state;
@@ -54,5 +59,5 @@ export function useBotRunner(gameId: string, gv: GameView | null, refetch: () =>
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [gameId, gv, refetch]);
+  }, [gameId, gv, refetch, decide]);
 }

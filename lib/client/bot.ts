@@ -1,5 +1,5 @@
-import { cardPoints, SUITS, teamOf } from "@/lib/coinche";
-import type { Bid, Card, PlayerView, Rank, Suit, TrumpMode } from "@/lib/coinche";
+import { decideBid, PUNCH_CONTRIBUTION, teamOf } from "@/lib/coinche";
+import type { BotPunch, Card, PlayerView, TrumpMode } from "@/lib/coinche";
 import { buildDeterminizer, simulateRootMove } from "./botSim";
 
 /**
@@ -19,16 +19,13 @@ export interface BotOptions {
   maxIterations?: number;
   /** Injectable RNG for deterministic tests. */
   rng?: () => number;
+  /** Bidding aggressiveness; defaults to the heuristic's "med" level. */
+  punch?: BotPunch;
 }
 
 const DEFAULT_TIME_BUDGET_MS = 800;
 const DEFAULT_MAX_ITERATIONS = 2000;
-const MIN_BID = 80;
-const MAX_BID = 160;
 const UCB_C = Math.SQRT2;
-
-/** Sure-trick value of a trump honor; other trumps contribute nothing certain. */
-const SURE_TRUMP_POINTS: Partial<Record<Rank, number>> = { J: 20, "9": 14, A: 11, "10": 10 };
 
 interface RootStat {
   wins: number;
@@ -37,77 +34,17 @@ interface RootStat {
 
 export function chooseClientAction(view: PlayerView, options: BotOptions = {}): BotAction {
   if (view.turn !== view.mySeat) throw new Error("not_your_turn");
-  if (view.phase === "bidding") return chooseBidAction(view);
+  if (view.phase === "bidding") return chooseBidAction(view, options);
   if (view.phase === "playing") return choosePlayAction(view, options);
   throw new Error("no_action_available");
 }
 
-function hasBelote(hand: Card[], suit: Suit): boolean {
-  let king = false;
-  let queen = false;
-  for (const card of hand) {
-    if (card.suit !== suit) continue;
-    if (card.rank === "K") king = true;
-    else if (card.rank === "Q") queen = true;
-  }
-  return king && queen;
-}
-
-/** Heuristic potential of the hand if `suit` were trump (no simulation). */
-function trumpPotential(hand: Card[], suit: Suit): number {
-  let points = 0;
-  for (const card of hand) {
-    if (card.suit === suit) points += SURE_TRUMP_POINTS[card.rank] ?? 0;
-    else if (card.rank === "A") points += 11;
-    else if (card.rank === "10") points += 5;
-  }
-  return hasBelote(hand, suit) ? points + 20 : points;
-}
-
-function highestBid(bids: Bid[]): number {
-  let highest = 0;
-  for (const bid of bids) {
-    if (bid.type === "bid" && bid.value !== undefined) highest = bid.value;
-  }
-  return highest;
-}
-
-/** Tout atout potential, normalized to the /162 scale; jacks and nines dominate. */
-function toutAtoutPotential(hand: Card[]): number {
-  let raw = 0;
-  for (const card of hand) raw += cardPoints(card, "TA");
-  const jacks = hand.filter((c) => c.rank === "J").length;
-  const nines = hand.filter((c) => c.rank === "9").length;
-  return Math.round(raw * (162 / 214)) + jacks * 5 + nines * 3;
-}
-
-/** Sans atout potential: aces and tens carry the hand, no cutting. */
-function sansAtoutPotential(hand: Card[]): number {
-  let points = 0;
-  for (const card of hand) points += cardPoints(card, "SA");
-  const aces = hand.filter((c) => c.rank === "A").length;
-  const tens = hand.filter((c) => c.rank === "10").length;
-  return points + aces * 4 + tens * 2;
-}
-
-function chooseBidAction(view: PlayerView): BotAction {
-  const allowed = view.bidOptions?.suits ?? [];
-  let best: { mode: TrumpMode; points: number } = { mode: "H", points: -1 };
-  for (const suit of SUITS) {
-    const points = trumpPotential(view.myHand, suit);
-    if (points > best.points) best = { mode: suit, points };
-  }
-  if (allowed.includes("TA")) {
-    const ta = toutAtoutPotential(view.myHand);
-    if (ta > best.points) best = { mode: "TA", points: ta };
-  }
-  if (allowed.includes("SA")) {
-    const sa = sansAtoutPotential(view.myHand);
-    if (sa > best.points) best = { mode: "SA", points: sa };
-  }
-  const value = Math.min(MAX_BID, Math.round(best.points / 10) * 10);
-  if (best.points >= MIN_BID && value > highestBid(view.bids)) {
-    return { action: "BID", value, suit: best.mode };
+function chooseBidAction(view: PlayerView, options: BotOptions): BotAction {
+  const bid = view.bidOptions;
+  const contribution = options.punch ? PUNCH_CONTRIBUTION[options.punch] : undefined;
+  const decision = decideBid(view.myHand, bid?.suits ?? [], bid?.minValue ?? null, contribution);
+  if (decision.shouldBid) {
+    return { action: "BID", value: decision.value, suit: decision.mode };
   }
   return { action: "PASS" };
 }

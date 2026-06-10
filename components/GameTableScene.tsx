@@ -1,9 +1,10 @@
 "use client";
 
-import React from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { cardId, type Card, type PlayerView } from "@/lib/coinche";
 import type { GameView } from "@/lib/server/view";
 import { DealOverlay } from "./DealOverlay";
+import type { EmojiReaction } from "./EmojiButton";
 import { playerName, seatTeam } from "./gameTableHelpers";
 import { PlayerBadge } from "./PlayerBadge";
 import { CardBack, PlayingCard } from "./PlayingCard";
@@ -29,6 +30,8 @@ export function GameTableScene({
   lastTrickBySeat,
   lastTrickKey,
   lastTrickWinner,
+  bimTrickKey,
+  reactions,
   onNextDeal,
 }: {
   gv: GameView;
@@ -38,6 +41,8 @@ export function GameTableScene({
   lastTrickBySeat: Map<number, Card> | null;
   lastTrickKey: string | null;
   lastTrickWinner: number | null;
+  bimTrickKey: string | null;
+  reactions?: Map<number, EmojiReaction>;
   onNextDeal: () => Promise<void> | void;
 }) {
   return (
@@ -46,19 +51,21 @@ export function GameTableScene({
         className="absolute inset-x-[11%] bottom-[19%] top-[29%] rounded-[3rem] bg-[rgba(255,250,242,0.08)] shadow-[inset_0_0_55px_rgba(22,200,240,0.22)] ring-[10px] ring-[rgba(242,196,79,0.18)]"
         data-id="central-felt"
       />
-      <TopOpponent gv={gv} view={view} seat={seats.top} />
-      <SideOpponent gv={gv} view={view} seat={seats.left} side="left" />
-      <SideOpponent gv={gv} view={view} seat={seats.right} side="right" />
+      <TopOpponent gv={gv} view={view} seat={seats.top} reaction={reactions?.get(seats.top)} />
+      <SideOpponent gv={gv} view={view} seat={seats.left} side="left" reaction={reactions?.get(seats.left)} />
+      <SideOpponent gv={gv} view={view} seat={seats.right} side="right" reaction={reactions?.get(seats.right)} />
       <PlayedCardStage seats={seats} trickBySeat={trickBySeat} />
       {lastTrickBySeat && lastTrickKey && (
         <CompletedTrickHold key={lastTrickKey} seats={seats} trickBySeat={lastTrickBySeat} winner={lastTrickWinner} />
       )}
+      <BeloteFlash announced={view.beloteAnnounced} />
+      <BimFlash bimTrickKey={bimTrickKey} />
       <DealOverlay view={view} onNextDeal={onNextDeal} />
     </section>
   );
 }
 
-function TopOpponent({ gv, view, seat }: { gv: GameView; view: PlayerView; seat: number }) {
+function TopOpponent({ gv, view, seat, reaction }: { gv: GameView; view: PlayerView; seat: number; reaction?: EmojiReaction }) {
   return (
     <div className="absolute left-1/2 top-[13%] flex -translate-x-1/2 flex-col items-center" data-id="table-top">
       <CardBackFanH count={view.handCounts[seat]} />
@@ -69,6 +76,7 @@ function TopOpponent({ gv, view, seat }: { gv: GameView; view: PlayerView; seat:
           isTurn={view.turn === seat}
           isDealer={view.dealer === seat}
           isThinking={isBotThinking(gv, view, seat)}
+          reaction={reaction}
           dataId={`player-seat-${seat}`}
         />
       </div>
@@ -81,11 +89,13 @@ function SideOpponent({
   view,
   seat,
   side,
+  reaction,
 }: {
   gv: GameView;
   view: PlayerView;
   seat: number;
   side: "left" | "right";
+  reaction?: EmojiReaction;
 }) {
   const sideClass = side === "left" ? "left-0 flex-row" : "right-0 flex-row-reverse";
   const handShiftClass = side === "left" ? "-translate-x-3/4" : "translate-x-3/4";
@@ -103,6 +113,7 @@ function SideOpponent({
           isTurn={view.turn === seat}
           isDealer={view.dealer === seat}
           isThinking={isBotThinking(gv, view, seat)}
+          reaction={reaction}
           orientation="vertical"
           dataId={`player-seat-${seat}`}
         />
@@ -210,6 +221,65 @@ function CompletedTrickHold({
         flyX={flyX}
         flyY={flyY}
       />
+    </div>
+  );
+}
+
+function BimFlash({ bimTrickKey }: { bimTrickKey: string | null }) {
+  const [visible, setVisible] = useState(false);
+  const prevKey = useRef<string | null>(null);
+
+  useEffect(() => {
+    if (!bimTrickKey) { prevKey.current = null; return; }
+    if (bimTrickKey === prevKey.current) return;
+    prevKey.current = bimTrickKey;
+    setVisible(true);
+    const t = window.setTimeout(() => setVisible(false), 1900);
+    return () => clearTimeout(t);
+  }, [bimTrickKey]);
+
+  if (!visible) return null;
+  return (
+    <div
+      className="pointer-events-none absolute inset-0 z-30 flex items-center justify-center"
+      data-id="bim-flash"
+    >
+      <span
+        className="bim-flash select-none text-[7rem] font-black leading-none tracking-tight"
+        style={{
+          color: "#fff",
+          textShadow:
+            "0 0 40px #ff3b30, 0 0 80px #ff6b00, 3px 3px 0 #000, -3px 3px 0 #000, 3px -3px 0 #000, -3px -3px 0 #000",
+        }}
+      >
+        BIM&nbsp;!
+      </span>
+    </div>
+  );
+}
+
+function BeloteFlash({ announced }: { announced: ("belote" | "rebelote")[] }) {
+  const [flash, setFlash] = useState<"belote" | "rebelote" | null>(null);
+  const prevLen = useRef(0);
+  const len = announced.length;
+
+  useEffect(() => {
+    if (len === 0) { prevLen.current = 0; return; }
+    if (len > prevLen.current) {
+      const label = announced[len - 1];
+      prevLen.current = len;
+      setFlash(label);
+      const t = window.setTimeout(() => setFlash(null), 2200);
+      return () => clearTimeout(t);
+    }
+  }, [len, announced]);
+
+  if (!flash) return null;
+  return (
+    <div className="pointer-events-none absolute inset-x-0 top-[44%] z-30 flex justify-center" data-id="belote-flash">
+      <span className="belote-flash rounded-full bg-black/50 px-6 py-2 text-3xl font-extrabold tracking-widest text-[var(--accent-yellow)] shadow-xl">
+        {flash === "belote" ? "Belote !" : "Rebelote !"}
+      </span>
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import type { GameState } from "@/lib/coinche";
+import type { BotPunch, GameState } from "@/lib/coinche";
 
 export interface GameSettings {
   targetPoints: number;
@@ -9,6 +9,8 @@ export interface GameSettings {
   capotFailedDefensePoints?: number;
   allowToutAtoutSansAtout?: boolean;
   requireMorePointsToWin?: boolean;
+  /** Bot bidding aggressiveness. Defaults to "med" when absent. */
+  botPunch?: BotPunch;
 }
 
 export type GameStatus = "lobby" | "playing" | "finished";

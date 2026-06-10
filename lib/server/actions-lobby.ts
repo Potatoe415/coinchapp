@@ -1,6 +1,6 @@
 "use server";
 
-import { beginNextDeal, createInitialState } from "@/lib/coinche";
+import { beginNextDeal, BOT_PUNCH_LEVELS, createInitialState } from "@/lib/coinche";
 import { getServiceClient, getUserId } from "@/lib/supabase/server";
 import type { GameRow, GameSettings } from "@/lib/supabase/types";
 import {
@@ -33,6 +33,7 @@ function sanitizeSettings(input: Partial<GameSettings>): GameSettings {
     capotFailedDefensePoints: sanitizePoints(input.capotFailedDefensePoints, 250),
     allowToutAtoutSansAtout: input.allowToutAtoutSansAtout === true,
     requireMorePointsToWin: input.requireMorePointsToWin !== false,
+    botPunch: BOT_PUNCH_LEVELS.includes(input.botPunch ?? "med") ? (input.botPunch ?? "med") : "med",
   };
 }
 
@@ -137,6 +138,34 @@ export async function fillWithBots(gameId: string): Promise<void> {
       team: teamForSeat(seat),
     }));
   if (rows.length > 0) await supabase.from("game_players").insert(rows);
+  await touchGame(loaded.game);
+}
+
+export async function swapSeats(gameId: string, seatA: number, seatB: number): Promise<void> {
+  const uid = await requireUser();
+  const loaded = await loadGame(gameId);
+  if (loaded.game.status !== "lobby") throw new Error("already_started");
+  if (loaded.game.host_user_id !== uid) throw new Error("not_host");
+  if (seatA === seatB) return;
+
+  const supabase = getServiceClient();
+  const playerA = loaded.players.find((p) => p.seat === seatA);
+  const playerB = loaded.players.find((p) => p.seat === seatB);
+
+  if (playerA) {
+    await supabase
+      .from("game_players")
+      .update({ seat: seatB, team: teamForSeat(seatB) })
+      .eq("game_id", gameId)
+      .eq("seat", seatA);
+  }
+  if (playerB) {
+    await supabase
+      .from("game_players")
+      .update({ seat: seatA, team: teamForSeat(seatA) })
+      .eq("game_id", gameId)
+      .eq("seat", seatB);
+  }
   await touchGame(loaded.game);
 }
 

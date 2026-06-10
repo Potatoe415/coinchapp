@@ -3,13 +3,12 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   beginNextDeal,
-  chooseBid,
-  chooseCard,
   createInitialState,
   redact,
   startNextDeal,
   submitBid,
   submitPlay,
+  type BotPunch,
   type Card,
   type GameState,
   type ScoringRules,
@@ -17,13 +16,15 @@ import {
 } from "@/lib/coinche";
 import type { GameActions } from "@/components/GameTable";
 import type { GameView } from "@/lib/server/view";
+import type { BotAction } from "./bot";
+import { useBotWorker } from "./useBotWorker";
 
 const BOTS = [false, true, true, true];
 const NAMES = ["Vous", "Adam", "Jane", "Lea"];
 /** Must match the CSS trick-collect animation duration. */
 const COLLECT_DELAY_MS = 1500;
 /** Simulated thinking time before each bot move. Configurable. */
-export const BOT_THINKING_MS = 700;
+export const BOT_THINKING_MS = 500;
 
 function seededRng(seed: number): () => number {
   let state = seed >>> 0;
@@ -44,12 +45,22 @@ function startState(targetPoints: number, seed: number, scoringRules: ScoringRul
   return beginNextDeal(createInitialState(targetPoints, scoringRules), seededRng(seed));
 }
 
+/** Apply a bot's decided action (heuristic bid or ISMCTS card) to the state. */
+function applyBotAction(state: GameState, seat: Seat, action: BotAction): GameState {
+  if (action.action === "PLAY") return submitPlay(state, seat, action.card);
+  if (action.action === "BID") {
+    return submitBid(state, { seat, type: "bid", value: action.value, suit: action.suit });
+  }
+  return submitBid(state, { seat, type: "pass" });
+}
+
 /** Fully offline single-player game: you are seat 0, the rest are bots.
  *  Runs the pure rules engine in the browser, no network. */
 export function useLocalGame(
   targetPoints: number,
   seed: number,
   scoringRules: ScoringRules,
+  botPunch: BotPunch,
 ): { gv: GameView; actions: GameActions } {
   const stateRef = useRef<GameState | null>(null);
   if (!stateRef.current) {
@@ -58,22 +69,21 @@ export function useLocalGame(
   const [, setTick] = useState(0);
   const busyRef = useRef(false);
   const tick = useCallback(() => setTick((n) => n + 1), []);
+  const decide = useBotWorker(botPunch);
 
-  /** Advance bot seats one move at a time, waiting before each move to show the thinking indicator. */
+  /** Advance bot seats one move at a time. The ISMCTS search runs in a Web
+   *  Worker and overlaps the minimum thinking delay, so the UI never blocks. */
   const runBots = useCallback(async () => {
     if (busyRef.current) return;
     busyRef.current = true;
     try {
       let guard = 0;
       while (guard++ < 64) {
-        const s = stateRef.current!;
-        if ((s.phase !== "bidding" && s.phase !== "playing") || !BOTS[s.turn]) break;
-        await wait(BOT_THINKING_MS);
-        const prev = s;
-        const next =
-          s.phase === "bidding"
-            ? submitBid(s, chooseBid(s))
-            : submitPlay(s, s.turn as Seat, chooseCard(s));
+        const prev = stateRef.current!;
+        if ((prev.phase !== "bidding" && prev.phase !== "playing") || !BOTS[prev.turn]) break;
+        const seat = prev.turn as Seat;
+        const [action] = await Promise.all([decide(redact(prev, seat)), wait(BOT_THINKING_MS)]);
+        const next = applyBotAction(prev, seat, action);
         stateRef.current = next;
         tick();
         if (next.tricks.length > prev.tricks.length) {
@@ -83,7 +93,7 @@ export function useLocalGame(
     } finally {
       busyRef.current = false;
     }
-  }, [tick]);
+  }, [tick, decide]);
 
   /** Trigger bots on mount to handle any initial bot turns (e.g. bot bids first after the dealer). */
   useEffect(() => {
@@ -108,6 +118,11 @@ export function useLocalGame(
     },
     onNextDeal: async () => {
       stateRef.current = startNextDeal(stateRef.current!);
+      tick();
+      await runBots();
+    },
+    onReshuffle: async () => {
+      stateRef.current = beginNextDeal(stateRef.current!, Math.random);
       tick();
       await runBots();
     },

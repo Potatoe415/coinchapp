@@ -1,6 +1,7 @@
 "use client";
 
 import { useI18n } from "@/lib/client/i18n";
+import { BOT_PUNCH_LEVELS, type BotPunch } from "@/lib/coinche";
 import { ParamPresetPicker } from "./ParamPresetPicker";
 import type { ParamPreset } from "@/lib/client/useParamPresets";
 
@@ -13,6 +14,7 @@ export interface GameSetupValues {
   capotFailedDefensePoints: string;
   allowToutAtoutSansAtout: boolean;
   requireMorePointsToWin: boolean;
+  botPunch: BotPunch;
 }
 
 export const DEFAULT_GAME_SETUP: GameSetupValues = {
@@ -24,9 +26,11 @@ export const DEFAULT_GAME_SETUP: GameSetupValues = {
   capotFailedDefensePoints: "250",
   allowToutAtoutSansAtout: false,
   requireMorePointsToWin: true,
+  botPunch: "med",
 };
 
 const TARGETS = [500, 1000, 1500, 2000];
+const PUNCH_LABEL_KEY = { low: "punchLow", med: "punchMed", high: "punchHigh" } as const;
 
 interface ToggleProps {
   checked: boolean;
@@ -200,6 +204,32 @@ export function GameSettingsPanel({ values, onChange, idPrefix, title }: Props) 
             dataId={`${idPrefix}-require-more-points-switch`}
           />
         </label>
+        <div className="flex flex-col gap-1.5 text-sm" data-id={`${idPrefix}-bot-punch-row`}>
+          <div className="flex items-center justify-between">
+            <span className="text-[var(--card-face)]/75">{t("botLevel")}</span>
+            <span
+              className="font-bold text-[var(--accent-yellow)]"
+              data-id={`${idPrefix}-bot-punch-value`}
+            >
+              {t(PUNCH_LABEL_KEY[values.botPunch])}
+            </span>
+          </div>
+          <input
+            type="range"
+            min={0}
+            max={BOT_PUNCH_LEVELS.length - 1}
+            step={1}
+            value={BOT_PUNCH_LEVELS.indexOf(values.botPunch)}
+            onChange={(e) => set("botPunch", BOT_PUNCH_LEVELS[Number(e.target.value)])}
+            data-id={`${idPrefix}-bot-punch-slider`}
+            className="w-full accent-[var(--accent-yellow)]"
+          />
+          <div className="flex justify-between text-xs text-[var(--card-face)]/50">
+            <span>{t("punchLow")}</span>
+            <span>{t("punchMed")}</span>
+            <span>{t("punchHigh")}</span>
+          </div>
+        </div>
       </div>
     </section>
   );

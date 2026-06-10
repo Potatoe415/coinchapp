@@ -36,7 +36,7 @@ Fields:
 | id | uuid | Yes | Primary key |
 | room_code | text | Yes | Unique join code |
 | status | text | Yes | lobby / playing / finished |
-| settings | jsonb | Yes | `GameSettings`: targetPoints, countContractOnlyIfMade, failedContractDefensePoints, zeroPointsForNonContractingTeamWhenContractMade, capotMadePoints, capotFailedDefensePoints, allowToutAtoutSansAtout, requireMorePointsToWin |
+| settings | jsonb | Yes | `GameSettings`: targetPoints, countContractOnlyIfMade, failedContractDefensePoints, zeroPointsForNonContractingTeamWhenContractMade, capotMadePoints, capotFailedDefensePoints, allowToutAtoutSansAtout, requireMorePointsToWin, botPunch ("low"\|"med"\|"high", default "med"; bot bidding aggressiveness, not part of GameState) |
 | state | jsonb | No | Full `GameState` (hidden hands). Server-only. |
 | version | integer | Yes | Incremented on each change (realtime tick) |
 | host_user_id | uuid | No | User id of the client that runs the bots. Set to creator on create; reassigned by `becomeHost`. |

@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { useI18n } from "@/lib/client/i18n";
-import { fillWithBots, joinGame, startGame } from "@/lib/server/actions-lobby";
+import { fillWithBots, joinGame, startGame, swapSeats } from "@/lib/server/actions-lobby";
 import type { GameView } from "@/lib/server/view";
 
 export function Lobby({ gv, onChange }: { gv: GameView; onChange: () => Promise<void> }) {
@@ -12,6 +12,7 @@ export function Lobby({ gv, onChange }: { gv: GameView; onChange: () => Promise<
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+  const [selectedSeat, setSelectedSeat] = useState<number | null>(null);
   const seats = [0, 1, 2, 3];
   const bySeat = new Map(gv.players.map((p) => [p.seat, p]));
   const full = gv.players.length === 4;
@@ -72,14 +73,34 @@ export function Lobby({ gv, onChange }: { gv: GameView; onChange: () => Promise<
       <ul className="grid grid-cols-2 gap-3" data-id="lobby-seats">
         {seats.map((seat) => {
           const player = bySeat.get(seat);
+          const isSelected = selectedSeat === seat;
+          const isSwapTarget = selectedSeat !== null && selectedSeat !== seat;
+
+          function handleSeatClick() {
+            if (!gv.isHost || busy) return;
+            if (selectedSeat === null) {
+              setSelectedSeat(seat);
+            } else if (selectedSeat === seat) {
+              setSelectedSeat(null);
+            } else {
+              act(() => swapSeats(gv.gameId, selectedSeat, seat));
+              setSelectedSeat(null);
+            }
+          }
+
           return (
             <li
               key={seat}
               data-id={`lobby-seat-${seat}`}
-              className={`rounded-xl px-4 py-3 ring-1 ${
-                player
-                  ? "bg-[var(--surface)] text-[var(--card-face)] ring-[var(--accent-cyan)]/25"
-                  : "bg-[rgba(32,40,58,0.08)] ring-[var(--surface)]/10"
+              onClick={gv.isHost ? handleSeatClick : undefined}
+              className={`rounded-xl px-4 py-3 ring-1 transition-all ${
+                isSelected
+                  ? "bg-[var(--accent-cyan)] text-[var(--surface)] ring-[var(--accent-cyan)] scale-[1.03]"
+                  : isSwapTarget
+                  ? "cursor-pointer ring-2 ring-[var(--accent-cyan)] bg-[var(--surface)]/80 text-[var(--card-face)]"
+                  : player
+                  ? `bg-[var(--surface)] text-[var(--card-face)] ring-[var(--accent-cyan)]/25 ${gv.isHost ? "cursor-pointer hover:ring-[var(--accent-cyan)]/60" : ""}`
+                  : `bg-[rgba(32,40,58,0.08)] ring-[var(--surface)]/10 ${gv.isHost ? "cursor-pointer hover:ring-[var(--accent-cyan)]/30" : ""}`
               }`}
             >
               <p className="text-xs text-current/65">
@@ -94,6 +115,11 @@ export function Lobby({ gv, onChange }: { gv: GameView; onChange: () => Promise<
           );
         })}
       </ul>
+      {gv.isHost && selectedSeat !== null && (
+        <p className="text-center text-xs text-[var(--foreground)]/60" data-id="lobby-swap-hint">
+          {t("seat")} {selectedSeat + 1} {t("selected")} — {t("clickAnotherSeatToSwap")}
+        </p>
+      )}
 
       {!isMember ? (
         <div className="flex gap-3">
