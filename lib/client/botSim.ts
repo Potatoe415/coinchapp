@@ -1,4 +1,4 @@
-import { buildDeck, cardId, legalCards, submitPlay, teamOf } from "@/lib/coinche";
+import { buildDeck, cardId, DEFAULT_SCORING_RULES, legalCards, submitPlay, teamOf } from "@/lib/coinche";
 import type { Card, GameState, PlayerView, Seat, Suit, Team, Trick } from "@/lib/coinche";
 
 /** Upper bound on plays in a single rollout (8 tricks * 4 seats). */
@@ -65,6 +65,7 @@ function baseTemplate(view: PlayerView): GameState {
     belote: { team: null, announced: [] },
     scores: view.scores,
     targetPoints: view.targetPoints,
+    scoringRules: DEFAULT_SCORING_RULES,
   };
 }
 

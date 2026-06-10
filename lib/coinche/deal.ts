@@ -1,7 +1,14 @@
 import { buildDeck, nextSeat } from "./cards";
-import type { Card, GameState } from "./types";
+import type { Card, GameState, ScoringRules } from "./types";
 
 export type Rng = () => number;
+export const DEFAULT_SCORING_RULES: ScoringRules = {
+  countContractOnlyIfMade: false,
+  failedContractDefensePoints: 160,
+  zeroPointsForNonContractingTeamWhenContractMade: false,
+  capotMadePoints: 250,
+  capotFailedDefensePoints: 250,
+};
 
 /** Fisher-Yates shuffle with an injectable RNG (deterministic in tests). */
 export function shuffle<T>(items: T[], rng: Rng = Math.random): T[] {
@@ -28,7 +35,7 @@ export function dealHands(deck: Card[]): Card[][] {
   return hands;
 }
 
-export function createInitialState(targetPoints: number): GameState {
+export function createInitialState(targetPoints: number, scoringRules: Partial<ScoringRules> = {}): GameState {
   return {
     phase: "lobby",
     dealer: 3,
@@ -42,6 +49,7 @@ export function createInitialState(targetPoints: number): GameState {
     belote: { team: null, announced: [] },
     scores: { A: 0, B: 0 },
     targetPoints,
+    scoringRules: { ...DEFAULT_SCORING_RULES, ...scoringRules },
     lastDeal: undefined,
     winner: undefined,
   };

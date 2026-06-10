@@ -37,6 +37,16 @@ export async function loadGame(gameId: string): Promise<LoadedGame> {
   return { game: game as GameRow, players: (players ?? []) as PlayerRow[] };
 }
 
+export async function findGameIdByCode(code: string): Promise<string | null> {
+  const supabase = getServiceClient();
+  const { data } = await supabase
+    .from("games")
+    .select("id")
+    .eq("room_code", code.toUpperCase())
+    .maybeSingle();
+  return data ? (data as { id: string }).id : null;
+}
+
 export async function findGameByCode(code: string): Promise<LoadedGame | null> {
   const supabase = getServiceClient();
   const { data: game } = await supabase

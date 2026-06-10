@@ -1,18 +1,23 @@
 "use client";
 
 import { useState } from "react";
+import { useI18n } from "@/lib/client/i18n";
 import { cardId, RANKS, type Card, type PlayedCard, type PlayerView } from "@/lib/coinche";
 import type { GameView } from "@/lib/server/view";
 import { BiddingPanel, type BidPayload } from "./BiddingPanel";
 import { GameHud } from "./GameHud";
 import { GameTableScene } from "./GameTableScene";
-import { relativeSeat } from "./gameTableHelpers";
+import { playerName, relativeSeat } from "./gameTableHelpers";
 import { PlayingCard } from "./PlayingCard";
 
 export interface GameActions {
   onBid: (payload: BidPayload) => Promise<void> | void;
   onPlay: (card: Card) => Promise<void> | void;
   onNextDeal: () => Promise<void> | void;
+  /** Online only: take over running the bots. */
+  onBecomeHost?: () => Promise<void> | void;
+  /** Local only: restart the game from scratch with same settings. */
+  onReset?: () => void;
 }
 
 const SUIT_ORDER: Record<string, number> = { S: 0, H: 1, C: 2, D: 3 };
@@ -48,7 +53,9 @@ export function GameTable({ gv, actions }: { gv: GameView; actions: GameActions 
     bottom: mySeat,
   };
   const trickCards = [...view.currentTrick.cards];
-  if (pendingPlayed && !trickCards.some((played) => played.seat === pendingPlayed.seat)) {
+  const pendingInLastTrick =
+    pendingPlayed !== null && (view.lastTrick?.cards.some((c) => c.seat === pendingPlayed.seat) ?? false);
+  if (pendingPlayed && !pendingInLastTrick && !trickCards.some((played) => played.seat === pendingPlayed.seat)) {
     trickCards.push(pendingPlayed);
   }
   const trickBySeat = new Map<number, Card>(trickCards.map((c: PlayedCard) => [c.seat, c.card]));
@@ -58,6 +65,7 @@ export function GameTable({ gv, actions }: { gv: GameView; actions: GameActions 
   const lastTrickKey = view.lastTrick
     ? view.lastTrick.cards.map((played) => `${played.seat}:${cardId(played.card)}`).join("|")
     : null;
+  const lastTrickWinner = view.lastTrick?.winner ?? null;
 
   async function onPlay(card: Card) {
     if (!myTurnToPlay || !legalSet.has(cardId(card)) || busy) return;
@@ -74,11 +82,23 @@ export function GameTable({ gv, actions }: { gv: GameView; actions: GameActions 
 
   return (
     <main
-      className="relative mx-auto flex min-h-svh w-full max-w-[460px] flex-1 overflow-hidden bg-felt text-white"
+      className="relative mx-auto flex min-h-svh w-full max-w-[460px] flex-1 overflow-hidden bg-felt text-[var(--card-face)]"
       data-id="game-table"
     >
-      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_42%,#31914f_0%,#287b42_48%,#24743c_100%)]" />
-      <GameHud view={view} />
+      <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_42%,#3aa59b_0%,#2f877f_48%,#276f69_100%)]" />
+      <GameHud
+        view={view}
+        onReset={actions.onReset}
+        host={
+          actions.onBecomeHost
+            ? {
+                isHost: gv.isHost,
+                hostName: gv.hostSeat !== null ? playerName(gv, gv.hostSeat) : null,
+                onBecomeHost: actions.onBecomeHost,
+              }
+            : undefined
+        }
+      />
       <GameTableScene
         gv={gv}
         view={view}
@@ -86,6 +106,7 @@ export function GameTable({ gv, actions }: { gv: GameView; actions: GameActions 
         trickBySeat={trickBySeat}
         lastTrickBySeat={lastTrickBySeat}
         lastTrickKey={lastTrickKey}
+        lastTrickWinner={lastTrickWinner}
         onNextDeal={actions.onNextDeal}
       />
       <ActionDock
@@ -208,16 +229,17 @@ function BiddingStatus({
   view: PlayerView;
   onBid: (payload: BidPayload) => Promise<void> | void;
 }) {
+  const { t } = useI18n();
   if (view.phase !== "bidding") return null;
   if (!view.bidOptions) {
     return (
-      <p className="mx-6 mb-3 rounded-full bg-black/35 py-2 text-center text-sm font-bold text-emerald-100/80">
-        Enchères en cours…
+      <p className="mx-6 mb-3 rounded-full bg-[var(--surface-overlay)] py-2 text-center text-sm font-bold text-[var(--card-face)]/85">
+        {t("biddingInProgress")}
       </p>
     );
   }
   return (
-    <div className="mx-3 mb-2 rounded-2xl bg-black/45 p-3 shadow-xl">
+    <div className="mx-3 mb-2 rounded-2xl bg-[var(--surface-overlay)] p-3 shadow-xl">
       <BiddingPanel options={view.bidOptions} onBid={onBid} />
     </div>
   );

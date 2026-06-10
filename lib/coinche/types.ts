@@ -17,7 +17,7 @@ export type BidType = "pass" | "bid" | "coinche" | "surcoinche";
 export interface Bid {
   seat: Seat;
   type: BidType;
-  /** Contract value for a "bid": 80,90,...,160 or 250 (capot). */
+  /** Contract value for a "bid": 80,90,...,160, 250 (capot) or 500 (generale). */
   value?: number;
   /** Trump suit for a "bid". */
   suit?: Suit;
@@ -60,6 +60,19 @@ export interface DealResult {
   gained: { A: number; B: number };
 }
 
+export interface ScoringRules {
+  /** If contract is made, attackers only score contract value (no overtrick points). */
+  countContractOnlyIfMade: boolean;
+  /** If contract fails, defenders score this many points (default 160). */
+  failedContractDefensePoints: number;
+  /** If contract is made, defenders score 0 card points (belote still applies). */
+  zeroPointsForNonContractingTeamWhenContractMade: boolean;
+  /** Points attacker scores when an announced capot is made (default 250). */
+  capotMadePoints: number;
+  /** Points defense scores when an announced capot fails (default 250). */
+  capotFailedDefensePoints: number;
+}
+
 export interface GameState {
   phase: Phase;
   dealer: Seat;
@@ -74,6 +87,7 @@ export interface GameState {
   belote: BeloteState;
   scores: { A: number; B: number };
   targetPoints: number;
+  scoringRules: ScoringRules;
   lastDeal?: DealResult;
   winner?: Team;
   /** Set when every seat passed: the caller must redeal. */

@@ -1,19 +1,40 @@
 @import "tailwindcss";
 
 :root {
-  --background: #0f1c14;
-  --foreground: #f2f5f3;
-  --felt: #1f7a4d;
-  --felt-dark: #155c39;
-  --team-a: #e0556b;
-  --team-b: #3aa6d6;
+  --background: #ffedd8;
+  --foreground: #2a2538;
+  --surface: #4c2d62;
+  --surface-soft: #6a3f88;
+  --surface-overlay: rgba(42, 25, 56, 0.74);
+  --felt: #2f7a73;
+  --felt-dark: #25635d;
+  --accent-cyan: #11c8f2;
+  --accent-yellow: #f3c247;
+  --accent-green: #6cc75f;
+  --accent-orange: #ee9a3b;
+  --accent-red: #ee6e63;
+  --team-a: #f3c247;
+  --team-b: #11c8f2;
+  --card-face: #fffaf1;
+  --card-ink: #25233a;
+  --card-back: #4c2d62;
+  --card-back-line: #33d6ff;
+  --ring-strong: #ffd25d;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-surface: var(--surface);
+  --color-surface-soft: var(--surface-soft);
+  --color-surface-overlay: var(--surface-overlay);
   --color-felt: var(--felt);
   --color-felt-dark: var(--felt-dark);
+  --color-accent-cyan: var(--accent-cyan);
+  --color-accent-yellow: var(--accent-yellow);
+  --color-accent-green: var(--accent-green);
+  --color-accent-orange: var(--accent-orange);
+  --color-accent-red: var(--accent-red);
   --color-team-a: var(--team-a);
   --color-team-b: var(--team-b);
   --font-sans: var(--font-geist-sans);
@@ -22,19 +43,64 @@
 
 html,
 body {
-  background: var(--background);
+  background: radial-gradient(circle at 20% 10%, #fff5e7 0%, var(--background) 42%, #ffd8b6 100%);
   color: var(--foreground);
   font-family: var(--font-sans), system-ui, sans-serif;
   overscroll-behavior: none;
+}
+
+/*
+  Keep form controls readable across dark panels and browser-native dropdown menus.
+  Without this, some systems render light text on light option backgrounds.
+*/
+select,
+input,
+textarea {
+  color: var(--card-face);
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: rgba(255, 250, 241, 0.72);
+}
+
+select option {
+  color: var(--card-ink);
+  background: var(--card-face);
 }
 
 .played-card-enter {
   animation: played-card-enter 420ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
-.completed-trick-hold {
-  animation: completed-trick-hold 1200ms ease-out both;
+.trick-collect-card {
+  animation: trick-collect 1500ms cubic-bezier(0.4, 0, 0.6, 1) both;
+  will-change: transform, opacity;
   pointer-events: none;
+}
+
+@keyframes trick-collect {
+  0%,
+  55% {
+    opacity: 1;
+    transform: translate3d(0, 0, 0) scale(1) rotate(0deg);
+  }
+
+  76% {
+    opacity: 1;
+    transform: translate3d(var(--gather-x, 0px), var(--gather-y, 0px), 0)
+      scale(0.6) rotate(var(--gather-rot, 0deg));
+  }
+
+  100% {
+    opacity: 0;
+    transform: translate3d(
+        calc(var(--gather-x, 0px) + var(--fly-x, 0px)),
+        calc(var(--gather-y, 0px) + var(--fly-y, 0px)),
+        0
+      )
+      scale(0.25);
+  }
 }
 
 @keyframes played-card-enter {
@@ -54,13 +120,3 @@ body {
   }
 }
 
-@keyframes completed-trick-hold {
-  0%,
-  82% {
-    opacity: 1;
-  }
-
-  100% {
-    opacity: 0;
-  }
-}

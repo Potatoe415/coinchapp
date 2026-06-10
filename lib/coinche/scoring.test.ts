@@ -99,6 +99,32 @@ describe("computeDealResult", () => {
     expect(result.contractMade).toBe(false);
     expect(result.gained).toEqual({ A: 0, B: 410 });
   });
+
+  it("scores a made announced generale as 1000", () => {
+    const state = withContract(dealWithWinners([0, 0, 0, 0, 0, 0, 0, 0], "C"), {
+      seat: 0,
+      team: "A",
+      value: 500,
+      suit: "C",
+      coinche: 1,
+    });
+    const result = computeDealResult(state);
+    expect(result.contractMade).toBe(true);
+    expect(result.gained).toEqual({ A: 1000, B: 0 });
+  });
+
+  it("gives 660 to the defense when an announced generale fails", () => {
+    const state = withContract(dealWithWinners(alternating, "C"), {
+      seat: 0,
+      team: "A",
+      value: 500,
+      suit: "C",
+      coinche: 1,
+    });
+    const result = computeDealResult(state);
+    expect(result.contractMade).toBe(false);
+    expect(result.gained).toEqual({ A: 0, B: 660 });
+  });
 });
 
 describe("detectBelote", () => {

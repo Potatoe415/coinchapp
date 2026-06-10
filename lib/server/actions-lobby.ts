@@ -1,10 +1,9 @@
 "use server";
 
-import { advanceBots, beginNextDeal, createInitialState, type Difficulty } from "@/lib/coinche";
+import { beginNextDeal, createInitialState, type Difficulty } from "@/lib/coinche";
 import { getServiceClient, getUserId } from "@/lib/supabase/server";
 import type { GameRow, GameSettings } from "@/lib/supabase/types";
 import {
-  botSeats,
   findGameByCode,
   loadGame,
   persistGame,
@@ -18,6 +17,10 @@ const TARGET_OPTIONS = [500, 1000, 1500, 2000];
 const DIFFICULTIES: Difficulty[] = ["easy", "medium", "hard"];
 const ROOM_CODE_REGEX = /^[A-Z0-9]{3}$/;
 
+function sanitizePoints(val: number | undefined, fallback: number): number {
+  return Number.isFinite(val) && (val as number) >= 0 ? Math.floor(val as number) : fallback;
+}
+
 function sanitizeSettings(input: Partial<GameSettings>): GameSettings {
   const targetPoints = TARGET_OPTIONS.includes(input.targetPoints ?? 0)
     ? (input.targetPoints as number)
@@ -25,7 +28,12 @@ function sanitizeSettings(input: Partial<GameSettings>): GameSettings {
   const botDifficulty = DIFFICULTIES.includes(input.botDifficulty as Difficulty)
     ? (input.botDifficulty as Difficulty)
     : "medium";
-  return { targetPoints, botDifficulty };
+  return {
+    targetPoints,
+    botDifficulty,
+    capotMadePoints: sanitizePoints(input.capotMadePoints, 250),
+    capotFailedDefensePoints: sanitizePoints(input.capotFailedDefensePoints, 250),
+  };
 }
 
 function cleanName(name: string, fallback: string): string {
@@ -62,7 +70,7 @@ export async function createGame(input: {
 
   const { data, error } = await supabase
     .from("games")
-    .insert({ room_code: roomCode, status: "lobby", settings, version: 0 })
+    .insert({ room_code: roomCode, status: "lobby", settings, version: 0, host_user_id: uid })
     .select("id")
     .single();
   if (error || !data) throw new Error("create_failed");
@@ -139,7 +147,9 @@ export async function startGame(gameId: string): Promise<void> {
   if (loaded.players.length < 4) throw new Error("need_four_players");
 
   const settings = loaded.game.settings;
-  let state = beginNextDeal(createInitialState(settings.targetPoints));
-  state = advanceBots(state, botSeats(loaded.players), settings.botDifficulty);
+  const state = beginNextDeal(createInitialState(settings.targetPoints, {
+    capotMadePoints: settings.capotMadePoints,
+    capotFailedDefensePoints: settings.capotFailedDefensePoints,
+  }));
   await persistGame(loaded.game as GameRow, state, state.phase === "finished" ? "finished" : "playing");
 }

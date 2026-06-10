@@ -6,21 +6,21 @@ History lives in `docs/DECISIONS.md` (decisions) and `docs/BACKLOG.md` (tasks).
 ---
 
 Status: Vertical slice implemented. Builds and tests pass. Not yet deployed.
-Current_Goal: Add a client-side bot brain (heuristic bidding + ISMCTS play) runnable in the browser.
-Last_Action: Implemented `lib/client/bot.ts` + `lib/client/botSim.ts` and exposed completed `tricks` in `PlayerView`; tsc/lint/tests pass.
+Current_Goal: Stabilize UX for local/online flows and continue gameplay polish.
+Last_Action: Added configurable "Capot" and "Capot chuté" scoring params (default 250) to setup screens (local + online); scoring engine uses them; in-game panel shows the actual configured values.
 Next_Actions:
-- Wire `chooseClientAction` into the bot-turn handler so the UI submits the computed move via the existing Server Action.
-- Confirm whether TECH.md "Bots run server-side" should be updated to allow the client brain.
+- Reset/re-run 0001_init.sql in Supabase (now includes host_user_id) before testing online.
+- Manually verify online solo-vs-bots flow and host handoff across two profiles.
 - Resume the Supabase/Vercel deployment sequence.
 
 Open_Questions:
 - Manual Belote/Rebelote announcement vs current auto-detection?
 - Accounts/stats needed later?
-- Client-side bot conflicts with TECH.md "Bots run server-side" - keep both paths or migrate fully to client?
+- Trusted-runner: host can see opponent-bot hands in mixed games - acceptable long-term?
 
 Recent_Changes:
-- 2026-06-09 Added client-side bot brain (heuristic bid + time-boxed ISMCTS); `PlayerView` now exposes completed tricks.
-- 2026-06-09 Self-played cards now animate before move resolution; completed tricks stay visible for 1.2s.
-- 2026-06-09 Played-card animation now uses stronger CSS keyframes from each player's direction.
-- 2026-06-09 Fixed `/local` hydration mismatch by passing a deterministic seed into local game initialization.
-- 2026-06-09 Side opponent card backs are now horizontal; bidding slider lint issue fixed.
+- 2026-06-10 Capot/Capot chuté params (default 250) added to local+online setup screens; ScoringRules + scoring engine use them; in-game panel shows real values.
+- 2026-06-10 Added /join/[code] route (resolves room code -> game, redirects to lobby); Lobby "Copy invite link" copies /join/CODE; /online prefills code from ?code.
+- 2026-06-10 Online Lobby has a "Copy invite link" button (data-id="lobby-copy-invite") for one-click sharing/joining.
+- 2026-06-10 Added last-trick preview (4 overlapping xs cards, data-id="last-trick-preview") below the parameters button.
+- 2026-06-10 Added trick-collect animation: 4 cards gather toward table center then fly to the winning seat (pure CSS keyframes + custom props, no library).

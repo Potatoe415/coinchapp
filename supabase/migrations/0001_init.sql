@@ -4,6 +4,13 @@
 -- Actions) can read or write them. Clients only subscribe to game_events, a
 -- lightweight "something changed" tick table, then refetch a redacted view.
 
+-- DEV RESET: drop everything first so this file can be re-run from scratch.
+-- Dropping the tables also removes their policies and realtime publication
+-- membership. Do NOT run this against production data.
+drop table if exists public.game_events cascade;
+drop table if exists public.game_players cascade;
+drop table if exists public.games cascade;
+
 create extension if not exists pgcrypto;
 
 create table public.games (
@@ -13,6 +20,8 @@ create table public.games (
   settings jsonb not null default '{}'::jsonb,
   state jsonb,
   version integer not null default 0,
+  -- User id of the client that runs the bots ("host"); reassigned by becomeHost.
+  host_user_id uuid,
   created_at timestamptz not null default now()
 );
 

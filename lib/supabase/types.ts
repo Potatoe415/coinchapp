@@ -4,6 +4,8 @@ import type { GameState } from "@/lib/coinche";
 export interface GameSettings {
   targetPoints: number;
   botDifficulty: Difficulty;
+  capotMadePoints?: number;
+  capotFailedDefensePoints?: number;
 }
 
 export type GameStatus = "lobby" | "playing" | "finished";
@@ -15,6 +17,8 @@ export interface GameRow {
   settings: GameSettings;
   state: GameState | null;
   version: number;
+  /** User id of the client that runs the bots. Null until set on create. */
+  host_user_id: string | null;
   created_at: string;
 }
 

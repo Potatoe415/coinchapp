@@ -1,7 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import type { BidOptions, BidType, Suit } from "@/lib/coinche";
+import { useI18n } from "@/lib/client/i18n";
+import { CAPOT_VALUE, GENERALE_VALUE, type BidOptions, type BidType, type Suit } from "@/lib/coinche";
 import { SUIT_SYMBOL, isRedSuit } from "./labels";
 
 const SUITS: Suit[] = ["H", "D", "C", "S"];
@@ -11,8 +12,14 @@ export type BidPayload = { type: BidType; value?: number; suit?: Suit };
 function valueChoices(min: number): number[] {
   const values: number[] = [];
   for (let v = min; v <= 160; v += 10) values.push(v);
-  values.push(250);
+  values.push(CAPOT_VALUE, GENERALE_VALUE);
   return values;
+}
+
+function formatBidValue(value: number, t: (key: "capot" | "generale") => string): string {
+  if (value === CAPOT_VALUE) return t("capot");
+  if (value === GENERALE_VALUE) return t("generale");
+  return String(value);
 }
 
 export function BiddingPanel({
@@ -22,11 +29,13 @@ export function BiddingPanel({
   options: BidOptions;
   onBid: (payload: BidPayload) => Promise<void> | void;
 }) {
+  const { t } = useI18n();
   const choices = useMemo(
     () => (options.minValue !== null ? valueChoices(options.minValue) : []),
     [options.minValue],
   );
   const [selectedValue, setSelectedValue] = useState(options.minValue ?? 80);
+  const [selectedSuit, setSelectedSuit] = useState<Suit | null>(null);
   const [busy, setBusy] = useState(false);
   const value = choices.includes(selectedValue) ? selectedValue : (choices[0] ?? selectedValue);
   const sliderIndex = Math.max(0, choices.indexOf(value));
@@ -45,9 +54,9 @@ export function BiddingPanel({
       {options.minValue !== null && (
         <>
           <div className="flex flex-col items-center gap-1" data-id="bid-value-display-wrap">
-            <span className="text-sm text-emerald-100/70">Annonce</span>
-            <span className="text-2xl font-black text-emerald-200" data-id="bid-value-display">
-              {value === 250 ? "Capot" : value}
+            <span className="text-sm text-[var(--card-face)]/70">{t("bid")}</span>
+            <span className="text-2xl font-black text-[var(--accent-yellow)]" data-id="bid-value-display">
+              {formatBidValue(value, t)}
             </span>
           </div>
           <div className="flex justify-center gap-2">
@@ -56,9 +65,13 @@ export function BiddingPanel({
                 key={suit}
                 data-id={`bid-suit-${suit}`}
                 disabled={busy}
-                onClick={() => send({ type: "bid", value, suit })}
-                className={`h-12 w-12 rounded-lg bg-white text-2xl font-bold disabled:opacity-50 ${
-                  isRedSuit(suit) ? "text-rose-600" : "text-neutral-900"
+                onClick={() => setSelectedSuit(suit)}
+                className={`h-12 w-12 rounded-lg text-2xl font-bold disabled:opacity-50 transition-all ${
+                  isRedSuit(suit) ? "text-[var(--accent-red)]" : "text-[var(--card-ink)]"
+                } ${
+                  selectedSuit === suit
+                    ? "bg-[var(--card-face)] ring-2 ring-[var(--ring-strong)] scale-110"
+                    : "bg-[var(--card-face)]/70"
                 }`}
               >
                 {SUIT_SYMBOL[suit]}
@@ -74,11 +87,13 @@ export function BiddingPanel({
               step={1}
               value={sliderIndex}
               onChange={(e) => setSelectedValue(choices[Number(e.target.value)] ?? choices[0])}
-              className="h-2 w-full cursor-pointer appearance-none rounded-full bg-gradient-to-r from-sky-400 via-emerald-400 to-amber-300"
+              className="h-2 w-full cursor-pointer appearance-none rounded-full bg-gradient-to-r from-[var(--accent-cyan)] via-[var(--accent-green)] to-[var(--accent-yellow)]"
             />
-            <div className="mt-1 flex justify-between text-xs font-bold text-emerald-100/60">
+            <div className="mt-1 flex justify-between text-xs font-bold text-[var(--card-face)]/60">
               <span data-id="bid-slider-min">{choices[0] ?? options.minValue}</span>
-              <span data-id="bid-slider-max">{choices[choices.length - 1] === 250 ? "Capot" : choices[choices.length - 1]}</span>
+              <span data-id="bid-slider-max">
+                {choices[choices.length - 1] ? formatBidValue(choices[choices.length - 1], t) : options.minValue}
+              </span>
             </div>
           </div>
         </>
@@ -89,9 +104,19 @@ export function BiddingPanel({
             data-id="bid-pass-button"
             disabled={busy}
             onClick={() => send({ type: "pass" })}
-            className="rounded-lg bg-white/10 px-5 py-2 font-bold disabled:opacity-50"
+            className="rounded-lg bg-[var(--card-face)]/14 px-5 py-2 font-bold disabled:opacity-50"
           >
-            Passer
+            {t("pass")}
+          </button>
+        )}
+        {options.minValue !== null && (
+          <button
+            data-id="bid-confirm-button"
+            disabled={busy || selectedSuit === null}
+            onClick={() => selectedSuit && send({ type: "bid", value, suit: selectedSuit })}
+            className="rounded-lg bg-[var(--accent-green)] px-5 py-2 font-bold text-[var(--surface)] disabled:opacity-40"
+          >
+            {t("confirmBid")}
           </button>
         )}
         {options.canCoinche && (
@@ -99,9 +124,9 @@ export function BiddingPanel({
             data-id="bid-coinche-button"
             disabled={busy}
             onClick={() => send({ type: "coinche" })}
-            className="rounded-lg bg-amber-400 px-5 py-2 font-bold text-amber-950 disabled:opacity-50"
+            className="rounded-lg bg-[var(--accent-yellow)] px-5 py-2 font-bold text-[var(--surface)] disabled:opacity-50"
           >
-            Coincher
+            {t("coinche")}
           </button>
         )}
         {options.canSurcoinche && (
@@ -109,9 +134,9 @@ export function BiddingPanel({
             data-id="bid-surcoinche-button"
             disabled={busy}
             onClick={() => send({ type: "surcoinche" })}
-            className="rounded-lg bg-rose-400 px-5 py-2 font-bold text-rose-950 disabled:opacity-50"
+            className="rounded-lg bg-[var(--accent-red)] px-5 py-2 font-bold text-[var(--surface)] disabled:opacity-50"
           >
-            Surcoincher
+            {t("surcoinche")}
           </button>
         )}
       </div>

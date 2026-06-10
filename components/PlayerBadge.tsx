@@ -17,14 +17,14 @@ export function PlayerBadge({
   dataId,
   orientation = "horizontal",
 }: PlayerBadgeProps) {
-  const teamClass = team === "A" ? "bg-team-a" : "bg-team-b";
-  const turnClass = isTurn ? "ring-4 ring-amber-300" : "ring-2 ring-black/15";
+  const teamClass = team === "A" ? "text-team-a" : "text-team-b";
+  const turnClass = isTurn ? "underline decoration-2 underline-offset-2" : "";
 
   if (orientation === "vertical") {
     return (
       <div data-id={dataId} className="flex items-center drop-shadow-lg">
         <div
-          className={`rounded-full px-1.5 py-3 text-lg font-black uppercase leading-none ${teamClass} ${turnClass}`}
+          className={`px-1 py-2 text-lg font-black uppercase leading-none ${teamClass} ${turnClass}`}
           style={{ writingMode: "vertical-rl" }}
         >
           {name}
@@ -36,7 +36,7 @@ export function PlayerBadge({
 
   return (
     <div data-id={dataId} className="flex flex-col items-center gap-0.5 drop-shadow-lg">
-      <div className={`rounded-full px-3 py-1 text-xl font-black uppercase leading-none ${teamClass} ${turnClass}`}>
+      <div className={`px-1 py-0.5 text-xl font-black uppercase leading-none ${teamClass} ${turnClass}`}>
         {name}
         {isDealer && <span className="ml-1 align-middle text-[10px]">D</span>}
       </div>

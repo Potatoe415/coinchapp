@@ -1,15 +1,19 @@
 "use client";
 
 import Link from "next/link";
+import { useI18n } from "@/lib/client/i18n";
+import { useBotRunner } from "@/lib/client/useBotRunner";
 import { useGameView } from "@/lib/client/useGameView";
-import { nextDeal, placeBid, playCard } from "@/lib/server/actions-game";
+import { becomeHost, nextDeal, placeBid, playCard } from "@/lib/server/actions-game";
 import type { Card } from "@/lib/coinche";
 import { Lobby } from "./Lobby";
 import { GameTable, type GameActions } from "./GameTable";
 import type { BidPayload } from "./BiddingPanel";
 
 export function GameRoom({ gameId }: { gameId: string }) {
+  const { t } = useI18n();
   const { view, loading, error, refetch } = useGameView(gameId);
+  useBotRunner(gameId, view, refetch);
 
   const actions: GameActions = {
     onBid: async (payload: BidPayload) => {
@@ -24,19 +28,23 @@ export function GameRoom({ gameId }: { gameId: string }) {
       await nextDeal(gameId);
       await refetch();
     },
+    onBecomeHost: async () => {
+      await becomeHost(gameId);
+      await refetch();
+    },
   };
 
   if (loading) {
-    return <Centered>Chargement…</Centered>;
+    return <Centered>{t("loading")}</Centered>;
   }
   if (error || !view) {
     return (
       <Centered>
-        <p className="mb-3 text-rose-300" data-id="game-error">
-          {error ?? "Partie introuvable"}
+        <p className="mb-3 text-[var(--accent-red)]" data-id="game-error">
+          {error ?? t("gameNotFound")}
         </p>
-        <Link href="/" className="rounded-lg bg-emerald-400 px-4 py-2 font-bold text-emerald-950">
-          Retour à l’accueil
+        <Link href="/" className="rounded-lg bg-[var(--accent-yellow)] px-4 py-2 font-bold text-[var(--surface)]">
+          {t("backHome")}
         </Link>
       </Centered>
     );
@@ -50,10 +58,10 @@ export function GameRoom({ gameId }: { gameId: string }) {
     return (
       <Centered>
         <p className="mb-3" data-id="game-spectator-notice">
-          Cette partie est en cours et vous n’y participez pas.
+          {t("gameInProgressSpectator")}
         </p>
-        <Link href="/" className="rounded-lg bg-emerald-400 px-4 py-2 font-bold text-emerald-950">
-          Retour à l’accueil
+        <Link href="/" className="rounded-lg bg-[var(--accent-yellow)] px-4 py-2 font-bold text-[var(--surface)]">
+          {t("backHome")}
         </Link>
       </Centered>
     );

@@ -39,13 +39,14 @@ Fields:
 | settings | jsonb | Yes | `{ targetPoints, botDifficulty }` |
 | state | jsonb | No | Full `GameState` (hidden hands). Server-only. |
 | version | integer | Yes | Incremented on each change (realtime tick) |
+| host_user_id | uuid | No | User id of the client that runs the bots. Set to creator on create; reassigned by `becomeHost`. |
 | created_at | timestamptz | Yes | |
 
 Access_Rules:
 - RLS enabled, no policies -> only service_role (Server Actions) can read/write.
 
 Sensitive_Data:
-- `state.hands` contains every player's cards. Never exposed to clients.
+- `state.hands` contains every player's cards. Human hands are never exposed; the redacted view sent to the host additionally includes the bot seats' hands (`botViews`) so the host can run them.
 
 ### Entity: game_players
 
@@ -108,6 +109,6 @@ Rules:
 
 ## 2026-06-09 - Initial schema
 
-Change: Added games, game_players, game_events with RLS and realtime publication.
-Reason: Authoritative server-side Coinche state with leak-proof realtime sync.
-Impact: Authoritative state stored as jsonb in games.state; clients get redacted views only.
+Change: Added games (incl. `host_user_id`), game_players, game_events with RLS and realtime publication.
+Reason: Authoritative server-side Coinche state with leak-proof realtime sync; `host_user_id` records which member runs the client-side bots.
+Impact: Authoritative state stored as jsonb in games.state; clients get redacted views only (host also gets bot seats' hands via `botViews`).

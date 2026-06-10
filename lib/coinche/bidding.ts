@@ -3,7 +3,8 @@ import { detectBelote } from "./scoring";
 import type { Bid, Contract, GameState, Suit } from "./types";
 
 export const CAPOT_VALUE = 250;
-export const BID_VALUES = [80, 90, 100, 110, 120, 130, 140, 150, 160, CAPOT_VALUE];
+export const GENERALE_VALUE = 500;
+export const BID_VALUES = [80, 90, 100, 110, 120, 130, 140, 150, 160, CAPOT_VALUE, GENERALE_VALUE];
 
 interface Derived {
   highest?: Bid;
@@ -131,7 +132,7 @@ export function bidOptions(state: GameState): BidOptions {
   const { highest, coinched, surcoinched } = derive(state.bids);
   const locked = coinched || surcoinched;
   const floor = highest?.value ?? 70;
-  const minValue = locked || floor >= CAPOT_VALUE ? null : nextBidValue(floor);
+  const minValue = locked || floor >= GENERALE_VALUE ? null : nextBidValue(floor);
   return {
     canPass: true,
     minValue,
@@ -142,5 +143,5 @@ export function bidOptions(state: GameState): BidOptions {
 }
 
 function nextBidValue(floor: number): number {
-  return BID_VALUES.find((v) => v > floor) ?? CAPOT_VALUE;
+  return BID_VALUES.find((v) => v > floor) ?? GENERALE_VALUE;
 }

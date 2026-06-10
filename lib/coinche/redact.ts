@@ -8,6 +8,7 @@ import type {
   GameState,
   Phase,
   Seat,
+  ScoringRules,
   Suit,
   Team,
   Trick,
@@ -35,6 +36,7 @@ export interface PlayerView {
   tricksWon: { A: number; B: number };
   scores: { A: number; B: number };
   targetPoints: number;
+  scoringRules: ScoringRules;
   lastDeal: DealResult | null;
   winner: Team | null;
 }
@@ -68,6 +70,7 @@ export function redact(state: GameState, seat: Seat): PlayerView {
     tricksWon: tricksWon(state),
     scores: state.scores,
     targetPoints: state.targetPoints,
+    scoringRules: state.scoringRules,
     lastDeal: state.lastDeal ?? null,
     winner: state.winner ?? null,
   };
