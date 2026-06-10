@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { useI18n } from "@/lib/client/i18n";
-import { cardId, isTrump, RANKS, teamOf, trumpStrength, type Bid, type Card, type PlayedCard, type PlayerView, type TrumpMode } from "@/lib/coinche";
+import { CAPOT_VALUE, cardId, GENERALE_VALUE, isTrump, RANKS, teamOf, trumpStrength, type Bid, type Card, type PlayedCard, type PlayerView, type TrumpMode } from "@/lib/coinche";
 import type { GameView } from "@/lib/server/view";
 import { BiddingPanel, type BidPayload, type CurrentLiveBid } from "./BiddingPanel";
 import { EmojiButton, type EmojiReaction } from "./EmojiButton";
@@ -147,7 +147,8 @@ export function GameTable({ gv, actions, reactions }: { gv: GameView; actions: G
   };
   const trickCards = [...view.currentTrick.cards];
   const pendingInLastTrick =
-    pendingPlayed !== null && (view.lastTrick?.cards.some((c) => c.seat === pendingPlayed.seat) ?? false);
+    pendingPlayed !== null &&
+    (view.lastTrick?.cards.some((c) => c.seat === pendingPlayed.seat && cardId(c.card) === pendingCardId) ?? false);
   if (pendingPlayed && !pendingInLastTrick && !trickCards.some((played) => played.seat === pendingPlayed.seat)) {
     trickCards.push(pendingPlayed);
   }
@@ -412,8 +413,56 @@ function BiddingStatus({
       }
     : null;
   return (
-    <div className="mx-3 mb-2 rounded-2xl bg-[var(--surface-overlay)] p-3 shadow-xl">
+    <div className="mx-3 mb-2 rounded-2xl bg-[var(--surface-overlay)] p-3 shadow-xl" data-id="bidding-status-panel">
+      <BidHistory bids={view.bids} players={players} mySeat={mySeat} />
       <BiddingPanel options={view.bidOptions} currentLiveBid={currentLiveBid} onBid={onBid} onSuitChange={onSuitChange} />
+    </div>
+  );
+}
+
+function BidHistory({
+  bids,
+  players,
+  mySeat,
+}: {
+  bids: Bid[];
+  players?: GameView["players"];
+  mySeat: number;
+}) {
+  const { locale } = useI18n();
+  if (bids.length === 0) return null;
+  return (
+    <div className="mb-2 max-h-24 overflow-y-auto" data-id="bid-history">
+      {bids.map((bid, i) => {
+        const isMe = bid.seat === mySeat;
+        const name = isMe
+          ? "Toi"
+          : (players?.find((p) => p.seat === bid.seat)?.displayName ?? `J${bid.seat + 1}`);
+        const teamColor = teamOf(bid.seat) === "A" ? "var(--team-a)" : "var(--team-b)";
+        let label: string;
+        let labelClass: string;
+        if (bid.type === "pass") {
+          label = "Passe";
+          labelClass = "text-[var(--card-face)]/40";
+        } else if (bid.type === "bid") {
+          const isRed = bid.suit === "H" || bid.suit === "D";
+          const val = bid.value === CAPOT_VALUE ? "Capot" : bid.value === GENERALE_VALUE ? "Générale" : String(bid.value);
+          label = `${val}${bid.suit ? ` ${trumpModeLabel(bid.suit, locale)}` : ""}`;
+          labelClass = `font-bold ${isRed ? "text-[var(--accent-red)]" : "text-[var(--card-face)]"}`;
+        } else if (bid.type === "coinche") {
+          label = "Coinche";
+          labelClass = "font-bold text-[var(--accent-yellow)]";
+        } else {
+          label = "Surcoinche";
+          labelClass = "font-bold text-[var(--accent-red)]";
+        }
+        return (
+          <div key={i} className="flex items-center justify-between gap-2 px-1 py-0.5" data-id={`bid-history-row-${i}`}>
+            <span className="text-xs font-bold" style={{ color: teamColor }}>{name}</span>
+            <span className={`text-xs ${labelClass}`}>{label}</span>
+          </div>
+        );
+      })}
     </div>
   );
 }

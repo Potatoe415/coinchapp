@@ -36,6 +36,8 @@ async function resetBrowserData() {
         ),
     );
   }
+
+  window.location.reload();
 }
 
 const SUIT_SYMBOLS = ["♠", "♥", "♦", "♣"];
@@ -101,7 +103,7 @@ export default function Home() {
           Reset
         </button>
         <span className="text-sm font-medium text-gray-500" data-id="app-version-label">
-          V0.8.2
+          V0.8.3
         </span>
       </div>
     </main>
