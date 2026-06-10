@@ -12,9 +12,6 @@ export function Lobby({ gv, onChange }: { gv: GameView; onChange: () => Promise<
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
-  const [dragSeat, setDragSeat] = useState<number | null>(null);
-  const [overSeat, setOverSeat] = useState<number | null>(null);
-  const [selectedSeat, setSelectedSeat] = useState<number | null>(null);
   const seats = [0, 1, 2, 3];
   const bySeat = new Map(gv.players.map((p) => [p.seat, p]));
   const full = gv.players.length === 4;
@@ -45,33 +42,10 @@ export function Lobby({ gv, onChange }: { gv: GameView; onChange: () => Promise<
   }
 
   function handleSeatTap(seat: number) {
-    if (!gv.isHost || busy || seat === 0) return;
-    if (selectedSeat === null) {
-      setSelectedSeat(seat);
-    } else if (selectedSeat === seat) {
-      setSelectedSeat(null);
-    } else {
-      void act(() => swapSeats(gv.gameId, selectedSeat, seat));
-      setSelectedSeat(null);
-    }
-  }
-
-  function handleDragOver(e: React.DragEvent, seat: number) {
-    if (seat === 0 || seat === dragSeat) return;
-    e.preventDefault();
-    setOverSeat(seat);
-  }
-
-  function handleDragLeave(e: React.DragEvent, seat: number) {
-    if ((e.currentTarget as Node).contains(e.relatedTarget as Node)) return;
-    setOverSeat((prev) => (prev === seat ? null : prev));
-  }
-
-  function handleDrop(seat: number) {
-    if (dragSeat === null || seat === 0 || dragSeat === seat) return;
-    void act(() => swapSeats(gv.gameId, dragSeat, seat));
-    setDragSeat(null);
-    setOverSeat(null);
+    if (!gv.isHost || busy) return;
+    const partner = seat % 2 === 0 ? seat + 1 : seat - 1;
+    if (seat === 0 || partner === 0) return;
+    void act(() => swapSeats(gv.gameId, seat, partner));
   }
 
   return (
@@ -105,36 +79,18 @@ export function Lobby({ gv, onChange }: { gv: GameView; onChange: () => Promise<
       <ul className="grid grid-cols-2 gap-3" data-id="lobby-seats">
         {seats.map((seat) => {
           const player = bySeat.get(seat);
-          const isLocked = seat === 0;
-          const canDrag = gv.isHost && !isLocked && !!player;
-          const canDrop = gv.isHost && !isLocked && dragSeat !== null && dragSeat !== seat;
-          const canTap = gv.isHost && !isLocked;
-          const isDragging = dragSeat === seat;
-          const isOver = overSeat === seat;
-          const isSelected = selectedSeat === seat;
-          const isTapTarget = selectedSeat !== null && selectedSeat !== seat && !isLocked;
+          const partner = seat % 2 === 0 ? seat + 1 : seat - 1;
+          const canTap = gv.isHost && seat !== 0 && partner !== 0;
 
           return (
             <li
               key={seat}
               data-id={`lobby-seat-${seat}`}
-              draggable={canDrag}
-              onDragStart={canDrag ? () => { setDragSeat(seat); setSelectedSeat(null); } : undefined}
-              onDragEnd={() => { setDragSeat(null); setOverSeat(null); }}
-              onDragOver={canDrop ? (e) => handleDragOver(e, seat) : undefined}
-              onDragLeave={canDrop ? (e) => handleDragLeave(e, seat) : undefined}
-              onDrop={canDrop ? () => handleDrop(seat) : undefined}
               onClick={canTap ? () => handleSeatTap(seat) : undefined}
               className={`select-none rounded-xl px-4 py-3 ring-1 transition-all ${
-                isOver || isTapTarget
-                  ? "scale-[1.03] bg-[var(--surface)]/80 text-[var(--card-face)] ring-2 ring-[var(--accent-cyan)] cursor-pointer"
-                  : isSelected
-                  ? "bg-[var(--accent-cyan)] text-[var(--surface)] ring-[var(--accent-cyan)] scale-[1.03]"
-                  : isDragging
-                  ? "opacity-40 bg-[var(--surface)] text-[var(--card-face)] ring-[var(--accent-cyan)]/60"
-                  : player
-                  ? `bg-[var(--surface)] text-[var(--card-face)] ring-[var(--accent-cyan)]/25 ${canDrag ? "cursor-grab active:cursor-grabbing" : canTap ? "cursor-pointer" : ""}`
-                  : `bg-[rgba(32,40,58,0.08)] ring-[var(--surface)]/10 ${canTap ? "cursor-pointer" : ""}`
+                player
+                  ? `bg-[var(--surface)] text-[var(--card-face)] ring-[var(--accent-cyan)]/25 ${canTap ? "cursor-pointer hover:ring-[var(--accent-cyan)]/60 active:scale-95" : ""}`
+                  : `bg-[rgba(32,40,58,0.08)] ring-[var(--surface)]/10 ${canTap ? "cursor-pointer hover:ring-[var(--accent-cyan)]/30 active:scale-95" : ""}`
               }`}
             >
               <p className="text-xs text-current/65">
@@ -149,12 +105,6 @@ export function Lobby({ gv, onChange }: { gv: GameView; onChange: () => Promise<
           );
         })}
       </ul>
-
-      {gv.isHost && selectedSeat !== null && (
-        <p className="text-center text-xs text-[var(--foreground)]/60" data-id="lobby-swap-hint">
-          {t("seat")} {selectedSeat + 1} {t("selected")} — {t("clickAnotherSeatToSwap")}
-        </p>
-      )}
 
       {!isMember ? (
         <div className="flex gap-3">
