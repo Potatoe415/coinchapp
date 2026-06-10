@@ -8,11 +8,6 @@ import type { BotPunch } from "@/lib/coinche";
 import type { BotAction } from "./bot";
 import { useBotWorker } from "./useBotWorker";
 
-/** Simulated thinking time before each bot move. Configurable. */
-const BOT_THINKING_MS = 500;
-/** Must match the CSS trick-collect animation duration. */
-const COLLECT_DELAY_MS = 1500;
-
 function toMove(action: BotAction): BotMove {
   if (action.action === "PLAY") return { kind: "play", card: action.card };
   if (action.action === "BID") return { kind: "bid", type: "bid", value: action.value, suit: action.suit };
@@ -38,9 +33,7 @@ export function useBotRunner(gameId: string, gv: GameView | null, refetch: () =>
     if (!botView || busyRef.current) return;
 
     let cancelled = false;
-    const trickJustCompleted = view.phase === "playing" && view.currentTrick.cards.length === 0 && view.lastTrick !== null;
-    const delay = trickJustCompleted ? COLLECT_DELAY_MS : BOT_THINKING_MS;
-    const timer = window.setTimeout(async () => {
+    void (async () => {
       busyRef.current = true;
       try {
         const action = await decide(botView);
@@ -53,11 +46,10 @@ export function useBotRunner(gameId: string, gv: GameView | null, refetch: () =>
       } finally {
         busyRef.current = false;
       }
-    }, delay);
+    })();
 
     return () => {
       cancelled = true;
-      window.clearTimeout(timer);
     };
   }, [gameId, gv, refetch, decide]);
 }

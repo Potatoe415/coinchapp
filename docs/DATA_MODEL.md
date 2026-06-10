@@ -112,3 +112,9 @@ Rules:
 Change: Added games (incl. `host_user_id`), game_players, game_events with RLS and realtime publication.
 Reason: Authoritative server-side Coinche state with leak-proof realtime sync; `host_user_id` records which member runs the client-side bots.
 Impact: Authoritative state stored as jsonb in games.state; clients get redacted views only (host also gets bot seats' hands via `botViews`).
+
+## 2026-06-10 - Online game TTL (48h)
+
+Change: Added migration `0002_games_ttl_48h.sql` with a `pg_cron` job (`cleanup-expired-games`) that deletes `games` rows older than 48 hours.
+Reason: Automatically remove stale online rooms from Supabase without manual cleanup.
+Impact: Expired games disappear from persistence; cascading FK deletion removes linked `game_players` and `game_events`.

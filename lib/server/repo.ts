@@ -8,6 +8,11 @@ export interface LoadedGame {
 }
 
 const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+const GAME_TTL_MS = 48 * 60 * 60 * 1000;
+
+function activeGameCutoffIso(): string {
+  return new Date(Date.now() - GAME_TTL_MS).toISOString();
+}
 
 export function randomRoomCode(length = 3): string {
   let code = "";
@@ -23,10 +28,12 @@ export function teamForSeat(seat: number): "A" | "B" {
 
 export async function loadGame(gameId: string): Promise<LoadedGame> {
   const supabase = getServiceClient();
+  const cutoffIso = activeGameCutoffIso();
   const { data: game, error } = await supabase
     .from("games")
     .select("*")
     .eq("id", gameId)
+    .gte("created_at", cutoffIso)
     .single();
   if (error || !game) throw new Error("game_not_found");
   const { data: players } = await supabase
@@ -39,20 +46,24 @@ export async function loadGame(gameId: string): Promise<LoadedGame> {
 
 export async function findGameIdByCode(code: string): Promise<string | null> {
   const supabase = getServiceClient();
+  const cutoffIso = activeGameCutoffIso();
   const { data } = await supabase
     .from("games")
     .select("id")
     .eq("room_code", code.toUpperCase())
+    .gte("created_at", cutoffIso)
     .maybeSingle();
   return data ? (data as { id: string }).id : null;
 }
 
 export async function findGameByCode(code: string): Promise<LoadedGame | null> {
   const supabase = getServiceClient();
+  const cutoffIso = activeGameCutoffIso();
   const { data: game } = await supabase
     .from("games")
     .select("*")
     .eq("room_code", code.toUpperCase())
+    .gte("created_at", cutoffIso)
     .maybeSingle();
   if (!game) return null;
   return loadGame((game as GameRow).id);

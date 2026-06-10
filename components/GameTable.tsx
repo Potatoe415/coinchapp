@@ -94,21 +94,28 @@ export function GameTable({ gv, actions, reactions }: { gv: GameView; actions: G
   }
   const legalSet = new Set(view.legalCards.map(cardId));
   const myTurnToPlay = view.phase === "playing" && view.turn === mySeat;
+  const pendingCardId = pendingPlayed ? cardId(pendingPlayed.card) : null;
+  const optimisticHand =
+    pendingPlayed && pendingPlayed.seat === mySeat
+      ? view.myHand.filter((card) => cardId(card) !== pendingCardId)
+      : view.myHand;
 
   const onPlayRef = useRef<(card: Card) => Promise<void>>(async () => {});
 
   useEffect(() => {
     if (!pendingPlayed) return;
+    const pendingId = cardId(pendingPlayed.card);
     const inCurrentTrick = view.currentTrick.cards.some(
-      (played) => played.seat === pendingPlayed.seat && cardId(played.card) === cardId(pendingPlayed.card),
+      (played) => played.seat === pendingPlayed.seat && cardId(played.card) === pendingId,
     );
     const inLastTrick = view.lastTrick?.cards.some(
-      (played) => played.seat === pendingPlayed.seat && cardId(played.card) === cardId(pendingPlayed.card),
+      (played) => played.seat === pendingPlayed.seat && cardId(played.card) === pendingId,
     ) ?? false;
-    if (inCurrentTrick || inLastTrick) {
+    const stillInHand = view.myHand.some((card) => cardId(card) === pendingId);
+    if ((inCurrentTrick || inLastTrick) && !stillInHand) {
       setPendingPlayed(null);
     }
-  }, [pendingPlayed, view.currentTrick.cards, view.lastTrick]);
+  }, [pendingPlayed, view.currentTrick.cards, view.lastTrick, view.myHand]);
 
   // Auto-play only when it's the very last card in hand.
   const handCount = view.myHand.length;
@@ -224,6 +231,7 @@ export function GameTable({ gv, actions, reactions }: { gv: GameView; actions: G
         )}
         <ActionDock
           view={view}
+          hand={optimisticHand}
           players={gv.players}
           mySeat={mySeat}
           legalSet={legalSet}
@@ -333,6 +341,7 @@ function HandCard({
 
 function ActionDock({
   view,
+  hand,
   players,
   mySeat,
   legalSet,
@@ -343,6 +352,7 @@ function ActionDock({
   onCardClick,
 }: {
   view: PlayerView;
+  hand: Card[];
   players?: GameView["players"];
   mySeat: number;
   legalSet: Set<string>;
@@ -357,7 +367,7 @@ function ActionDock({
     <section className="absolute inset-x-0 bottom-0 z-20 px-0 pb-1" data-id="action-area">
       <BiddingStatus view={view} players={players} mySeat={mySeat} onBid={onBid} onSuitChange={setPreviewTrump} />
       <HandFan
-        hand={view.myHand}
+        hand={hand}
         trump={view.trump ?? previewTrump}
         legalSet={legalSet}
         myTurnToPlay={myTurnToPlay}
