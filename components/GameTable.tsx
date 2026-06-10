@@ -97,6 +97,19 @@ export function GameTable({ gv, actions, reactions }: { gv: GameView; actions: G
 
   const onPlayRef = useRef<(card: Card) => Promise<void>>(async () => {});
 
+  useEffect(() => {
+    if (!pendingPlayed) return;
+    const inCurrentTrick = view.currentTrick.cards.some(
+      (played) => played.seat === pendingPlayed.seat && cardId(played.card) === cardId(pendingPlayed.card),
+    );
+    const inLastTrick = view.lastTrick?.cards.some(
+      (played) => played.seat === pendingPlayed.seat && cardId(played.card) === cardId(pendingPlayed.card),
+    ) ?? false;
+    if (inCurrentTrick || inLastTrick) {
+      setPendingPlayed(null);
+    }
+  }, [pendingPlayed, view.currentTrick.cards, view.lastTrick]);
+
   // Auto-play only when it's the very last card in hand.
   const handCount = view.myHand.length;
   const legalCount = view.legalCards.length;
@@ -148,8 +161,9 @@ export function GameTable({ gv, actions, reactions }: { gv: GameView; actions: G
     setPendingPlayed({ seat: mySeat, card });
     try {
       await actions.onPlay(card);
-    } finally {
+    } catch {
       setPendingPlayed(null);
+    } finally {
       setBusy(false);
     }
   }
@@ -174,6 +188,7 @@ export function GameTable({ gv, actions, reactions }: { gv: GameView; actions: G
       <GameHud
         view={view}
         players={gv.players}
+        infoCode={gv.roomCode}
         onReset={actions.onReset}
         onReshuffle={actions.onReshuffle}
         emojiControls={actions.onSendEmoji ? { enabled: emojiOn, onToggle: toggleEmoji } : undefined}
@@ -287,7 +302,8 @@ function HandCard({
 }) {
   const isPlayable = myTurnToPlay && legalSet.has(cardId(card));
   const isDimmed = myTurnToPlay && !legalSet.has(cardId(card));
-  const lift = isPreSelected ? "translateY(-28px)" : isPlayable ? "translateY(-14px)" : "none";
+  // Keep the hand visually stable while playing online: only explicit pre-selection lifts a card.
+  const lift = isPreSelected ? "translateY(-28px)" : "none";
 
   // When it's my turn: let PlayingCard render a <button> and handle the click.
   // When it's not my turn (pre-selection mode): PlayingCard renders a <div> (no onClick →

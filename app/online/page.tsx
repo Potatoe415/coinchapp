@@ -27,13 +27,13 @@ export default function OnlinePage() {
     }
   }, []);
 
-  async function run(action: () => Promise<{ gameId: string }>) {
+  async function run(action: () => Promise<{ gameId: string; roomCode?: string }>) {
     setBusy(true);
     setError(null);
     try {
       await ensureAnonAuth();
-      const { gameId } = await action();
-      router.push(`/game/${gameId}`);
+      const { gameId, roomCode } = await action();
+      router.push(`/game/${roomCode ?? gameId}`);
     } catch (e) {
       setError(e instanceof Error ? e.message : t("unknownError"));
       setBusy(false);
@@ -118,7 +118,12 @@ export default function OnlinePage() {
           <button
             data-id="join-game-button"
             disabled={busy || code.length !== ROOM_CODE_LENGTH}
-            onClick={() => run(() => joinGame({ roomCode: code, displayName: name }))}
+            onClick={() =>
+              run(async () => {
+                const joined = await joinGame({ roomCode: code, displayName: name });
+                return { ...joined, roomCode: code };
+              })
+            }
             className="flex-1 rounded-lg bg-[rgba(255,250,242,0.16)] px-4 py-3 font-bold disabled:opacity-50"
           >
             {t("join")}

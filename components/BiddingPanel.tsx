@@ -52,13 +52,6 @@ export function BiddingPanel({
   const value = choices.includes(selectedValue) ? selectedValue : (choices[0] ?? selectedValue);
   const sliderIndex = Math.max(0, choices.indexOf(value));
 
-  function bumpValue(step: number) {
-    if (!choices.length) return;
-    const next = value + step;
-    const candidate = choices.find((choice) => choice >= next) ?? choices[choices.length - 1];
-    setSelectedValue(candidate);
-  }
-
   async function send(payload: BidPayload) {
     setBusy(true);
     try {
@@ -94,29 +87,11 @@ export function BiddingPanel({
                 )}
               </div>
             )}
-            <span className="text-sm text-[var(--card-face)]/70">{t("bid")}</span>
+            <span className="text-sm text-[var(--card-face)]/70">ton annonce</span>
             <div className="flex items-center gap-2" data-id="bid-value-controls">
               <span className="text-2xl font-black text-[var(--accent-yellow)]" data-id="bid-value-display">
                 {formatBidValue(value, t)}
               </span>
-              <button
-                type="button"
-                data-id="bid-value-plus-ten-button"
-                disabled={busy}
-                onClick={() => bumpValue(10)}
-                className="rounded-md bg-[var(--card-face)]/14 px-2 py-1 text-xs font-bold disabled:opacity-50"
-              >
-                +10
-              </button>
-              <button
-                type="button"
-                data-id="bid-value-plus-twenty-button"
-                disabled={busy}
-                onClick={() => bumpValue(20)}
-                className="rounded-md bg-[var(--card-face)]/14 px-2 py-1 text-xs font-bold disabled:opacity-50"
-              >
-                +20
-              </button>
             </div>
           </div>
           <div className="flex flex-wrap justify-center gap-2">

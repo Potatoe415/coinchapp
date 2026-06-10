@@ -3,10 +3,10 @@
 import Link from "next/link";
 import { useState, type ReactNode } from "react";
 import { useI18n } from "@/lib/client/i18n";
-import type { Bid, PlayerView, Trick } from "@/lib/coinche";
-import { nextSeat, teamOf } from "@/lib/coinche";
+import type { PlayerView, Trick } from "@/lib/coinche";
+import { nextSeat } from "@/lib/coinche";
 import type { LobbyPlayer } from "@/lib/server/view";
-import { formatContract, isRedSuit, trumpModeLabel } from "./labels";
+import { formatContract } from "./labels";
 import { PlayingCard } from "./PlayingCard";
 
 export interface HostControls {
@@ -20,7 +20,23 @@ export interface EmojiControls {
   onToggle: () => void;
 }
 
-export function GameHud({ view, host, onReset, onReshuffle, emojiControls, players }: { view: PlayerView; host?: HostControls; onReset?: () => void; onReshuffle?: () => void; emojiControls?: EmojiControls; players?: LobbyPlayer[] }) {
+export function GameHud({
+  view,
+  host,
+  infoCode,
+  onReset,
+  onReshuffle,
+  emojiControls,
+  players,
+}: {
+  view: PlayerView;
+  host?: HostControls;
+  infoCode?: string;
+  onReset?: () => void;
+  onReshuffle?: () => void;
+  emojiControls?: EmojiControls;
+  players?: LobbyPlayer[];
+}) {
   const { locale, t } = useI18n();
   const [panelOpen, setPanelOpen] = useState(false);
   const noCardPlayed = view.tricks.length === 0 && view.currentTrick.cards.length === 0;
@@ -65,13 +81,13 @@ export function GameHud({ view, host, onReset, onReshuffle, emojiControls, playe
               </p>
             ) : null;
           })()}
-          {view.phase === "bidding" && <LiveBid bids={view.bids} locale={locale} mySeat={view.mySeat} players={players} />}
         </div>
         <GameInfoButton label={t("gameInfo")} onClick={() => setPanelOpen(true)} />
       </div>
       {panelOpen && (
         <GameInfoPanel
           host={host}
+          infoCode={infoCode}
           onReset={onReset}
           onReshuffle={noCardPlayed ? onReshuffle : undefined}
           emojiControls={emojiControls}
@@ -85,6 +101,7 @@ export function GameHud({ view, host, onReset, onReshuffle, emojiControls, playe
 
 function GameInfoPanel({
   host,
+  infoCode,
   onReset,
   onReshuffle,
   emojiControls,
@@ -92,6 +109,7 @@ function GameInfoPanel({
   onClose,
 }: {
   host?: HostControls;
+  infoCode?: string;
   onReset?: () => void;
   onReshuffle?: () => void;
   emojiControls?: EmojiControls;
@@ -111,6 +129,15 @@ function GameInfoPanel({
         onClick={(e) => e.stopPropagation()}
       >
         <p className="mb-4 text-center text-lg font-black text-[var(--card-face)]">{t("gameInfo")}</p>
+
+        {infoCode && (
+          <div className="mb-3 flex items-center justify-between" data-id="game-info-code-row">
+            <span className="text-sm text-[var(--card-face)]/80">No. Info partie</span>
+            <span className="rounded-md bg-[var(--card-face)]/10 px-2 py-1 text-sm font-black tracking-widest text-[var(--card-face)]" data-id="game-info-code-value">
+              {infoCode}
+            </span>
+          </div>
+        )}
 
         {lastTrick && lastTrick.cards.length === 4 && (
           <div className="mb-4" data-id="last-trick-section">
@@ -253,48 +280,6 @@ function GameInfoButton({ label, onClick }: { label: string; onClick: () => void
         <span className="h-7 w-2 rounded-full bg-[var(--accent-cyan)]" />
       </span>
     </button>
-  );
-}
-
-function deriveLiveBid(bids: Bid[]): { bid: Bid; coinched: boolean; surcoinched: boolean } | null {
-  let highest: Bid | undefined;
-  let coinched = false;
-  let surcoinched = false;
-  for (const b of bids) {
-    if (b.type === "bid") { highest = b; coinched = false; surcoinched = false; }
-    else if (b.type === "coinche") coinched = true;
-    else if (b.type === "surcoinche") surcoinched = true;
-  }
-  if (!highest) return null;
-  return { bid: highest, coinched, surcoinched };
-}
-
-function LiveBid({ bids, locale, mySeat, players }: { bids: Bid[]; locale: import("@/lib/client/i18n").Locale; mySeat: import("@/lib/coinche").Seat; players?: LobbyPlayer[] }) {
-  const derived = deriveLiveBid(bids);
-  if (!derived) return null;
-  const { bid, coinched, surcoinched } = derived;
-  const team = teamOf(bid.seat);
-  const mult = surcoinched ? " ×4" : coinched ? " ×2" : "";
-  const bidLabel = `${bid.value} ${trumpModeLabel(bid.suit!, locale)}${mult}`;
-  const bidderName = bid.seat === mySeat ? "Toi" : (players?.find((p) => p.seat === bid.seat)?.displayName ?? null);
-  return (
-    <div className="mt-1 flex items-baseline gap-2" data-id="game-live-bid">
-      <span
-        className={`rounded-md bg-[var(--card-face)] px-3 py-0.5 text-2xl font-black shadow-sm ${
-          bid.suit && bid.suit !== "TA" && bid.suit !== "SA" && isRedSuit(bid.suit)
-            ? "text-[var(--accent-red)]"
-            : "text-[var(--card-ink)]"
-        }`}
-        data-id="game-live-bid-value"
-      >
-        {bidLabel}
-      </span>
-      {bidderName && (
-        <span className="text-sm font-bold" style={{ color: team === "A" ? "var(--team-a)" : "var(--team-b)" }}>
-          {bidderName}
-        </span>
-      )}
-    </div>
   );
 }
 
