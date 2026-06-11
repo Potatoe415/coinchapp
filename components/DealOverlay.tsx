@@ -68,16 +68,13 @@ export function DealOverlay({
               >
                 {myTeam === result.contract.team
                   ? (iWon ? "Gagné!!!" : "Chuté!!!")
-                  : (iWon ? "Belle défense!!!" : "Ay Carmaba!!!")}
+                  : (iWon ? "Belle défense!!!" : "Ay Caramba!!!")}
               </h2>
               <p className="mt-1 text-sm text-[var(--card-face)]/70">
-                {formatText(t("contractByTeam"), {
+                {formatText(t(result.contractMade ? "contractMadeByTeam" : "contractFailedByTeam"), {
                   contract: formatContract(result.contract, locale),
                   team: result.contract.team,
                 })}
-              </p>
-              <p className={`mt-2 font-bold ${result.contractMade ? "text-[var(--accent-green)]" : "text-[var(--accent-red)]"}`}>
-                {result.contractMade ? t("contractMade") : t("contractFailed")}
                 {result.capot && ` · ${t("capot")}`}
               </p>
               <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
@@ -188,7 +185,7 @@ function ScoreCell({ team, cardPoints, gained, total }: { team: "A" | "B"; cardP
   return (
     <div className="rounded-lg bg-[rgba(255,250,242,0.12)] py-3 px-2" data-id={`deal-score-${team}`}>
       <p className="text-xs text-[var(--card-face)]/65">{t("team")} {team}</p>
-      <p className="mt-1 text-xs text-[var(--card-face)]/55">{t("cardPoints")} : {cardPoints}</p>
+      <p className="mt-1 text-xs text-[var(--card-face)]/55">{t("cardPoints")} : <span className="font-bold text-white">{cardPoints}</span></p>
       <p className="text-lg font-bold">+{gained}</p>
       <p className="text-xs text-[var(--card-face)]/65">{t("total")} {total}</p>
     </div>

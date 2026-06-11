@@ -95,7 +95,7 @@ export default function Home() {
           {t("rulesButton")}
         </button>
         <span className="text-sm font-medium text-white/60" data-id="app-version-label">
-          V0.8.3
+          V{process.env.NEXT_PUBLIC_APP_VERSION}
         </span>
       </div>
 
