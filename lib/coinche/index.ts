@@ -10,6 +10,7 @@ export {
   chooseCard,
   advanceBots,
   avoidCuttingPartner,
+  leadWinnersWhenTrumpsExhausted,
   decideBid,
   decideBidWithSupport,
   BOT_PUNCH_LEVELS,

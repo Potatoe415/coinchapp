@@ -1,5 +1,5 @@
 import { bidOptions } from "./bidding";
-import { cardPoints, cardStrength, isTrump, partnerOf, teamOf } from "./cards";
+import { cardId, cardPoints, cardStrength, isTrump, partnerOf, RANKS, teamOf } from "./cards";
 import { submitBid, submitPlay } from "./engine";
 import { legalCards, trickWinner } from "./trick";
 import type { Bid, Card, GameState, PlayedCard, Seat, Suit, TrumpMode } from "./types";
@@ -223,6 +223,47 @@ export function avoidCuttingPartner(
   if (teamOf(trickWinner(trick, trump)) !== teamOf(seat)) return legal;
   const discards = legal.filter((c) => !isTrump(c, trump));
   return discards.length > 0 ? discards : legal;
+}
+
+function trumpCount(cards: Card[], trump: TrumpMode | null): number {
+  let count = 0;
+  for (const card of cards) if (isTrump(card, trump)) count += 1;
+  return count;
+}
+
+/** A non-trump card no opponent can beat: every higher card of its suit is seen. */
+function isNonTrumpMaster(card: Card, seen: Set<string>, trump: TrumpMode | null): boolean {
+  const own = cardStrength(card, card.suit, trump);
+  for (const rank of RANKS) {
+    const higher = { suit: card.suit, rank };
+    if (cardStrength(higher, card.suit, trump) <= own) continue;
+    if (!seen.has(cardId(higher))) return false;
+  }
+  return true;
+}
+
+/**
+ * When leading in a single-suit trump contract and the other three players hold
+ * no trump left (all accounted for between this hand and played cards), there is
+ * nothing to draw: prefer cashing a non-trump master over pulling trumps. Falls
+ * back to `legal` when not leading, trumps remain, the mode is TA/SA, or no sure
+ * non-trump winner exists (then a trump lead is the safe trick).
+ */
+export function leadWinnersWhenTrumpsExhausted(
+  legal: Card[],
+  hand: Card[],
+  playedCards: Card[],
+  isLeading: boolean,
+  trump: TrumpMode | null,
+): Card[] {
+  if (!trump || trump === "SA" || trump === "TA" || !isLeading) return legal;
+  const outstanding = RANKS.length - trumpCount(hand, trump) - trumpCount(playedCards, trump);
+  if (outstanding > 0) return legal;
+  const nonTrump = legal.filter((c) => !isTrump(c, trump));
+  if (nonTrump.length === 0) return legal;
+  const seen = new Set([...playedCards, ...hand].map(cardId));
+  const hasMaster = nonTrump.some((c) => isNonTrumpMaster(c, seen, trump));
+  return hasMaster ? nonTrump : legal;
 }
 
 /** Single bot strategy: play the cheapest card that wins, else discard the weakest. */

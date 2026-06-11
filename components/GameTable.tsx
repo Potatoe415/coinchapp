@@ -29,26 +29,38 @@ export interface GameActions {
 const SUIT_ORDER: Record<string, number> = { S: 0, H: 1, C: 2, D: 3 };
 
 /**
- * Returns a stable key the moment an opponent's trump card lands on a non-trump ace
- * in the current (live) trick. The key is `${completedTricks}:${seat}:${cardId}` and
- * stays identical as subsequent cards are played in the same trick, so BimFlash fires
- * exactly once per cut event — immediately when the trump is played.
+ * Two triggers — both require the first card to be a non-trump Ace:
+ *   A) 2nd card is a trump  → BIM fires immediately (trickCards.length === 2)
+ *   B) 4th card is a trump AND cards 2 & 3 were not trumps → BIM at the last card
+ * Any other configuration never fires (c'est tout).
  */
 function computeBimKey(
   view: { trump: import("@/lib/coinche").TrumpMode | null; tricks: import("@/lib/coinche").Trick[] },
   trickCards: PlayedCard[],
-  mySeat: number,
 ): string | null {
   const { trump, tricks } = view;
   if (!trump || trump === "SA" || trump === "TA") return null;
   if (trickCards.length < 2) return null;
-  const hasNonTrumpAce = trickCards.some((c) => c.card.rank === "A" && !isTrump(c.card, trump));
-  if (!hasNonTrumpAce) return null;
-  const opponentTrump = trickCards.find(
-    (c) => isTrump(c.card, trump) && teamOf(c.seat as import("@/lib/coinche").Seat) !== teamOf(mySeat as import("@/lib/coinche").Seat),
-  );
-  if (!opponentTrump) return null;
-  return `${tricks.length}:${opponentTrump.seat}:${cardId(opponentTrump.card)}`;
+  const first = trickCards[0];
+  if (first.card.rank !== "A" || isTrump(first.card, trump)) return null;
+  const n = trickCards.length;
+  const idx = tricks.length;
+  // Trigger A: 2nd card immediately cuts the Ace
+  if (n === 2 && isTrump(trickCards[1].card, trump)) {
+    const c = trickCards[1];
+    return `${idx}:a:${c.seat}:${cardId(c.card)}`;
+  }
+  // Trigger B: 4th card cuts the Ace (cards 2 and 3 were not trumps)
+  if (
+    n === 4 &&
+    !isTrump(trickCards[1].card, trump) &&
+    !isTrump(trickCards[2].card, trump) &&
+    isTrump(trickCards[3].card, trump)
+  ) {
+    const c = trickCards[3];
+    return `${idx}:b:${c.seat}:${cardId(c.card)}`;
+  }
+  return null;
 }
 
 function deriveLiveBid(bids: Bid[]): { bid: Bid; coinched: boolean; surcoinched: boolean } | null {
@@ -187,7 +199,7 @@ export function GameTable({ gv, actions, reactions }: { gv: GameView; actions: G
     ? view.lastTrick.cards.map((played) => `${played.seat}:${cardId(played.card)}`).join("|")
     : null;
   const lastTrickWinner = view.lastTrick?.winner ?? null;
-  const bimTrickKey = computeBimKey(view, trickCards, mySeat);
+  const bimTrickKey = computeBimKey(view, trickCards);
 
   function onCardClick(card: Card) {
     if (myTurnToPlay) {
