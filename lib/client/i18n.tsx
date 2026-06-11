@@ -97,6 +97,7 @@ const TRANSLATIONS = {
     punchLow: "Prudent",
     punchMed: "Normal",
     punchHigh: "Agressif",
+    rulesButton: "Règles",
   },
   en: {
     backToDashboard: "Back to dashboard",
@@ -182,6 +183,7 @@ const TRANSLATIONS = {
     punchLow: "Low",
     punchMed: "Medium",
     punchHigh: "High",
+    rulesButton: "Rules",
   },
 } as const;
 

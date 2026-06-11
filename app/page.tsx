@@ -1,7 +1,9 @@
 "use client";
 
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/lib/client/i18n";
+import { RulesModal } from "@/components/RulesModal";
 
 async function resetBrowserData() {
   localStorage.clear();
@@ -43,6 +45,7 @@ async function resetBrowserData() {
 export default function Home() {
   const router = useRouter();
   const { t } = useI18n();
+  const [showRules, setShowRules] = useState(false);
 
   return (
     <main
@@ -84,10 +87,19 @@ export default function Home() {
         >
           Reset
         </button>
+        <button
+          data-id="rules-button"
+          onClick={() => setShowRules(true)}
+          className="rounded-lg border border-white/40 bg-transparent px-4 py-2 text-sm font-medium text-white/70 transition hover:border-white/60 hover:text-white/90 active:scale-95"
+        >
+          {t("rulesButton")}
+        </button>
         <span className="text-sm font-medium text-white/60" data-id="app-version-label">
           V0.8.3
         </span>
       </div>
+
+      {showRules && <RulesModal onClose={() => setShowRules(false)} />}
     </main>
   );
 }
