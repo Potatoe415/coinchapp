@@ -31,7 +31,9 @@ export function useBotWorker(punch?: BotPunch): (view: PlayerView) => Promise<Bo
   const pendingRef = useRef(new Map<number, Pending>());
   const nextIdRef = useRef(0);
   const punchRef = useRef(punch);
-  punchRef.current = punch;
+  useEffect(() => {
+    punchRef.current = punch;
+  }, [punch]);
 
   useEffect(() => {
     if (typeof Worker === "undefined") return;

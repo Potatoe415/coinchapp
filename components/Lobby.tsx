@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useI18n } from "@/lib/client/i18n";
 import { fillWithBots, joinGame, startGame, swapSeats } from "@/lib/server/actions-lobby";
 import type { GameView, LobbyPlayer } from "@/lib/server/view";
@@ -23,6 +23,12 @@ export function Lobby({ gv, onChange }: { gv: GameView; onChange: () => Promise<
   const [copied, setCopied] = useState(false);
   const [selectedSeat, setSelectedSeat] = useState<number | null>(null);
   const [optimisticPlayers, setOptimisticPlayers] = useState<LobbyPlayer[] | null>(null);
+  // Drop the optimistic view once the server confirms (version bumps on swap).
+  const [seenVersion, setSeenVersion] = useState(gv.version);
+  if (gv.version !== seenVersion) {
+    setSeenVersion(gv.version);
+    setOptimisticPlayers(null);
+  }
   const seats = [0, 1, 2, 3];
   const players = optimisticPlayers ?? gv.players;
   const bySeat = new Map(players.map((p) => [p.seat, p]));
@@ -30,11 +36,6 @@ export function Lobby({ gv, onChange }: { gv: GameView; onChange: () => Promise<
   const isMember = gv.mySeat !== null;
   // A newcomer can still join a full lobby by taking over a bot seat.
   const canJoin = gv.players.filter((p) => !p.isBot).length < 4;
-
-  // Drop the optimistic view once the server confirms (version bumps on swap).
-  useEffect(() => {
-    setOptimisticPlayers(null);
-  }, [gv.version]);
 
   async function copyInviteLink() {
     const url = `${window.location.origin}/join/${gv.roomCode}`;

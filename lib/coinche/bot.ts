@@ -1,5 +1,5 @@
 import { bidOptions } from "./bidding";
-import { cardPoints, cardStrength } from "./cards";
+import { cardPoints, cardStrength, partnerOf } from "./cards";
 import { submitBid, submitPlay } from "./engine";
 import { legalCards, trickWinner } from "./trick";
 import type { Bid, Card, GameState, Seat, Suit, TrumpMode } from "./types";
@@ -107,10 +107,74 @@ export function decideBid(
   return { shouldBid, value, mode: best.mode };
 }
 
+/** Hand holds the trump Jack or 9 of `suit` (the two strongest trumps). */
+function hasTrumpHonor(hand: Card[], suit: Suit): boolean {
+  return hand.some((c) => c.suit === suit && (c.rank === "J" || c.rank === "9"));
+}
+
+function aceCount(hand: Card[]): number {
+  return hand.filter((c) => c.rank === "A").length;
+}
+
+/**
+ * Extra value a bot adds to support a partner's standing suit bid:
+ * +10 when the partner opened 80/90 and we hold the trump Jack or 9;
+ * +10 per ace once the partner announced 90 or more. Tout/sans atout: no support.
+ */
+function partnerSupportRaise(hand: Card[], value: number, mode: TrumpMode): number {
+  if (mode === "TA" || mode === "SA") return 0;
+  let bonus = 0;
+  if ((value === 80 || value === 90) && hasTrumpHonor(hand, mode)) bonus += 10;
+  if (value >= 90) bonus += 10 * aceCount(hand);
+  return bonus;
+}
+
+/** Last standing "bid" (highest), or null if the auction has no bid yet. */
+function standingBid(bids: Bid[]): Bid | null {
+  let highest: Bid | null = null;
+  for (const bid of bids) {
+    if (bid.type === "bid" && bid.value !== undefined) highest = bid;
+  }
+  return highest;
+}
+
+/** Raise on top of a partner's standing bid, or null when no rule fires. */
+function supportDecision(
+  hand: Card[],
+  bids: Bid[],
+  seat: Seat,
+  minValue: number,
+): BidDecision | null {
+  const highest = standingBid(bids);
+  if (!highest || highest.seat !== partnerOf(seat) || highest.suit === undefined) return null;
+  const raise = partnerSupportRaise(hand, highest.value!, highest.suit);
+  if (raise === 0) return null;
+  const value = Math.min(MAX_AUTO_BID, highest.value! + raise);
+  if (value < minValue) return null;
+  return { shouldBid: true, value, mode: highest.suit };
+}
+
+/** Hand-only decision, upgraded by partner-support conventions when they apply. */
+export function decideBidWithSupport(
+  hand: Card[],
+  bids: Bid[],
+  seat: Seat,
+  allowed: TrumpMode[],
+  minValue: number | null,
+  partnerContribution?: number,
+): BidDecision {
+  const base = decideBid(hand, allowed, minValue, partnerContribution);
+  if (minValue === null) return base;
+  const support = supportDecision(hand, bids, seat, minValue);
+  if (!support) return base;
+  if (!base.shouldBid || support.value >= base.value) return support;
+  return base;
+}
+
 export function chooseBid(state: GameState): Bid {
   const seat = state.turn;
   const { minValue, suits } = bidOptions(state);
-  const decision = decideBid(state.hands[seat], suits, minValue);
+  const decision = decideBidWithSupport(state.hands[seat], state.bids, seat, suits, minValue);
   if (decision.shouldBid) {
     return { seat, type: "bid", value: decision.value, suit: decision.mode };
   }

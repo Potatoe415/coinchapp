@@ -1,4 +1,4 @@
-import { decideBid, PUNCH_CONTRIBUTION, teamOf } from "@/lib/coinche";
+import { decideBidWithSupport, PUNCH_CONTRIBUTION, teamOf } from "@/lib/coinche";
 import type { BotPunch, Card, PlayerView, TrumpMode } from "@/lib/coinche";
 import { buildDeterminizer, simulateRootMove } from "./botSim";
 
@@ -42,7 +42,14 @@ export function chooseClientAction(view: PlayerView, options: BotOptions = {}): 
 function chooseBidAction(view: PlayerView, options: BotOptions): BotAction {
   const bid = view.bidOptions;
   const contribution = options.punch ? PUNCH_CONTRIBUTION[options.punch] : undefined;
-  const decision = decideBid(view.myHand, bid?.suits ?? [], bid?.minValue ?? null, contribution);
+  const decision = decideBidWithSupport(
+    view.myHand,
+    view.bids,
+    view.mySeat,
+    bid?.suits ?? [],
+    bid?.minValue ?? null,
+    contribution,
+  );
   if (decision.shouldBid) {
     return { action: "BID", value: decision.value, suit: decision.mode };
   }

@@ -194,6 +194,8 @@ export function I18nProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const stored = window.localStorage.getItem(STORAGE_KEY);
+    // Post-hydration browser read: deferred to after mount to avoid an SSR/client mismatch.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (stored === "fr" || stored === "en") setLocale(stored);
   }, []);
 

@@ -20,8 +20,13 @@ export function DealOverlay({
   const shouldShow = !!result || finished;
 
   const [visible, setVisible] = useState(false);
+  const [prevShouldShow, setPrevShouldShow] = useState(shouldShow);
+  if (shouldShow !== prevShouldShow) {
+    setPrevShouldShow(shouldShow);
+    if (!shouldShow) setVisible(false);
+  }
   useEffect(() => {
-    if (!shouldShow) { setVisible(false); return; }
+    if (!shouldShow) return;
     const timer = window.setTimeout(() => setVisible(true), 2000);
     return () => window.clearTimeout(timer);
   }, [shouldShow]);

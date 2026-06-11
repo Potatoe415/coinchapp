@@ -22,9 +22,10 @@ export default function OnlinePage() {
 
   useEffect(() => {
     const fromUrl = new URLSearchParams(window.location.search).get("code");
-    if (fromUrl) {
-      setCode(fromUrl.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, ROOM_CODE_LENGTH));
-    }
+    if (!fromUrl) return;
+    // Post-hydration browser read: deferred to after mount to avoid an SSR/client mismatch.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setCode(fromUrl.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, ROOM_CODE_LENGTH));
   }, []);
 
   async function run(action: () => Promise<{ gameId: string; roomCode?: string }>) {

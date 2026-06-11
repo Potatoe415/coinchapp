@@ -28,18 +28,27 @@ export interface GameActions {
 
 const SUIT_ORDER: Record<string, number> = { S: 0, H: 1, C: 2, D: 3 };
 
-/** Returns `lastTrickKey` when the last trick had a non-trump ace beaten by a trump. */
+/**
+ * Returns a stable key the moment an opponent's trump card lands on a non-trump ace
+ * in the current (live) trick. The key is `${completedTricks}:${seat}:${cardId}` and
+ * stays identical as subsequent cards are played in the same trick, so BimFlash fires
+ * exactly once per cut event — immediately when the trump is played.
+ */
 function computeBimKey(
-  view: { lastTrick: import("@/lib/coinche").Trick | null; trump: import("@/lib/coinche").TrumpMode | null },
-  lastTrickKey: string | null,
+  view: { trump: import("@/lib/coinche").TrumpMode | null; tricks: import("@/lib/coinche").Trick[] },
+  trickCards: PlayedCard[],
+  mySeat: number,
 ): string | null {
-  const { lastTrick, trump } = view;
-  if (!lastTrick || !lastTrickKey || !trump || trump === "SA" || trump === "TA") return null;
-  if (lastTrick.winner === undefined) return null;
-  const winnerCard = lastTrick.cards.find((c) => c.seat === lastTrick.winner)?.card;
-  if (!winnerCard || !isTrump(winnerCard, trump)) return null;
-  const hasNonTrumpAce = lastTrick.cards.some((c) => c.card.rank === "A" && !isTrump(c.card, trump));
-  return hasNonTrumpAce ? lastTrickKey : null;
+  const { trump, tricks } = view;
+  if (!trump || trump === "SA" || trump === "TA") return null;
+  if (trickCards.length < 2) return null;
+  const hasNonTrumpAce = trickCards.some((c) => c.card.rank === "A" && !isTrump(c.card, trump));
+  if (!hasNonTrumpAce) return null;
+  const opponentTrump = trickCards.find(
+    (c) => isTrump(c.card, trump) && teamOf(c.seat as import("@/lib/coinche").Seat) !== teamOf(mySeat as import("@/lib/coinche").Seat),
+  );
+  if (!opponentTrump) return null;
+  return `${tricks.length}:${opponentTrump.seat}:${cardId(opponentTrump.card)}`;
 }
 
 function deriveLiveBid(bids: Bid[]): { bid: Bid; coinched: boolean; surcoinched: boolean } | null {
@@ -83,6 +92,8 @@ export function GameTable({ gv, actions, reactions }: { gv: GameView; actions: G
   const [emojiOn, setEmojiOn] = useState(true);
 
   useEffect(() => {
+    // Post-hydration browser read: deferred to after mount to avoid an SSR/client mismatch.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (localStorage.getItem("coinchapp-emoji") === "false") setEmojiOn(false);
   }, []);
 
@@ -99,27 +110,47 @@ export function GameTable({ gv, actions, reactions }: { gv: GameView; actions: G
     pendingPlayed && pendingPlayed.seat === mySeat
       ? view.myHand.filter((card) => cardId(card) !== pendingCardId)
       : view.myHand;
+  const handCount = view.myHand.length;
 
-  const onPlayRef = useRef<(card: Card) => Promise<void>>(async () => {});
-
-  useEffect(() => {
-    if (!pendingPlayed) return;
-    const pendingId = cardId(pendingPlayed.card);
-    const inCurrentTrick = view.currentTrick.cards.some(
-      (played) => played.seat === pendingPlayed.seat && cardId(played.card) === pendingId,
-    );
-    const inLastTrick = view.lastTrick?.cards.some(
-      (played) => played.seat === pendingPlayed.seat && cardId(played.card) === pendingId,
-    ) ?? false;
-    const stillInHand = view.myHand.some((card) => cardId(card) === pendingId);
-    if ((inCurrentTrick || inLastTrick) && !stillInHand) {
+  async function onPlay(card: Card) {
+    if (!myTurnToPlay || !legalSet.has(cardId(card)) || busy) return;
+    setPreSelected(null);
+    setBusy(true);
+    setPendingPlayed({ seat: mySeat, card });
+    try {
+      await actions.onPlay(card);
+    } catch {
       setPendingPlayed(null);
+    } finally {
+      setBusy(false);
     }
-  }, [pendingPlayed, view.currentTrick.cards, view.lastTrick, view.myHand]);
+  }
+
+  // Keep a ref to the latest onPlay so timeout/turn-driven auto-play uses fresh state.
+  const onPlayRef = useRef<(card: Card) => Promise<void>>(async () => {});
+  useEffect(() => {
+    onPlayRef.current = onPlay;
+  });
+
+  // Clear the optimistic pending card once the server view reflects the play.
+  if (pendingPlayed) {
+    const inCurrentTrick = view.currentTrick.cards.some(
+      (played) => played.seat === pendingPlayed.seat && cardId(played.card) === pendingCardId,
+    );
+    const inLastTrick =
+      view.lastTrick?.cards.some(
+        (played) => played.seat === pendingPlayed.seat && cardId(played.card) === pendingCardId,
+      ) ?? false;
+    const stillInHand = view.myHand.some((card) => cardId(card) === pendingCardId);
+    if ((inCurrentTrick || inLastTrick) && !stillInHand) setPendingPlayed(null);
+  }
+
+  // Drop a pre-selection that is no longer legal now that it is our turn.
+  if (myTurnToPlay && preSelected !== null && !legalSet.has(preSelected)) {
+    setPreSelected(null);
+  }
 
   // Auto-play only when it's the very last card in hand.
-  const handCount = view.myHand.length;
-  const legalCount = view.legalCards.length;
   useEffect(() => {
     if (!myTurnToPlay || busy || handCount !== 1) return;
     const card = view.myHand[0];
@@ -128,15 +159,11 @@ export function GameTable({ gv, actions, reactions }: { gv: GameView; actions: G
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [myTurnToPlay, busy, handCount]);
 
-  // Auto-play pre-selected card when it becomes our turn (skip if last-card auto-play handles it).
+  // Auto-play a legal pre-selected card when it becomes our turn.
   useEffect(() => {
     if (!myTurnToPlay || busy || preSelected === null || handCount === 1) return;
     const card = view.myHand.find((c) => cardId(c) === preSelected);
-    if (card && legalSet.has(preSelected)) {
-      void onPlayRef.current(card);
-    } else {
-      setPreSelected(null);
-    }
+    if (card && legalSet.has(preSelected)) void onPlayRef.current(card);
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [myTurnToPlay, busy]);
   const seats = {
@@ -160,22 +187,7 @@ export function GameTable({ gv, actions, reactions }: { gv: GameView; actions: G
     ? view.lastTrick.cards.map((played) => `${played.seat}:${cardId(played.card)}`).join("|")
     : null;
   const lastTrickWinner = view.lastTrick?.winner ?? null;
-  const bimTrickKey = computeBimKey(view, lastTrickKey);
-
-  async function onPlay(card: Card) {
-    if (!myTurnToPlay || !legalSet.has(cardId(card)) || busy) return;
-    setPreSelected(null);
-    setBusy(true);
-    setPendingPlayed({ seat: mySeat, card });
-    try {
-      await actions.onPlay(card);
-    } catch {
-      setPendingPlayed(null);
-    } finally {
-      setBusy(false);
-    }
-  }
-  onPlayRef.current = onPlay;
+  const bimTrickKey = computeBimKey(view, trickCards, mySeat);
 
   function onCardClick(card: Card) {
     if (myTurnToPlay) {
@@ -237,7 +249,6 @@ export function GameTable({ gv, actions, reactions }: { gv: GameView; actions: G
           mySeat={mySeat}
           legalSet={legalSet}
           myTurnToPlay={myTurnToPlay}
-          busy={busy}
           preSelected={preSelected}
           onBid={actions.onBid}
           onCardClick={onCardClick}
@@ -256,7 +267,6 @@ function HandFan({
   trump,
   legalSet,
   myTurnToPlay,
-  busy,
   preSelected,
   onCardClick,
 }: {
@@ -264,7 +274,6 @@ function HandFan({
   trump: TrumpMode | null;
   legalSet: Set<string>;
   myTurnToPlay: boolean;
-  busy: boolean;
   preSelected: string | null;
   onCardClick: (card: Card) => void;
 }) {
@@ -282,7 +291,6 @@ function HandFan({
             index={i}
             legalSet={legalSet}
             myTurnToPlay={myTurnToPlay}
-            busy={busy}
             isPreSelected={preSelected === cardId(card)}
             onCardClick={onCardClick}
           />
@@ -297,7 +305,6 @@ function HandCard({
   index,
   legalSet,
   myTurnToPlay,
-  busy,
   isPreSelected,
   onCardClick,
 }: {
@@ -305,7 +312,6 @@ function HandCard({
   index: number;
   legalSet: Set<string>;
   myTurnToPlay: boolean;
-  busy: boolean;
   isPreSelected: boolean;
   onCardClick: (card: Card) => void;
 }) {
@@ -347,7 +353,6 @@ function ActionDock({
   mySeat,
   legalSet,
   myTurnToPlay,
-  busy,
   preSelected,
   onBid,
   onCardClick,
@@ -358,7 +363,6 @@ function ActionDock({
   mySeat: number;
   legalSet: Set<string>;
   myTurnToPlay: boolean;
-  busy: boolean;
   preSelected: string | null;
   onBid: (payload: BidPayload) => Promise<void> | void;
   onCardClick: (card: Card) => void;
@@ -372,7 +376,6 @@ function ActionDock({
         trump={view.trump ?? previewTrump}
         legalSet={legalSet}
         myTurnToPlay={myTurnToPlay}
-        busy={busy}
         preSelected={preSelected}
         onCardClick={onCardClick}
       />

@@ -62,13 +62,16 @@ export function useLocalGame(
   scoringRules: ScoringRules,
   botPunch: BotPunch,
 ): { gv: GameView; actions: GameActions } {
-  const stateRef = useRef<GameState | null>(null);
-  if (!stateRef.current) {
-    stateRef.current = startState(targetPoints, seed, scoringRules);
-  }
-  const [, setTick] = useState(0);
+  const [state, setState] = useState<GameState>(() =>
+    startState(targetPoints, seed, scoringRules),
+  );
+  // Mirror of `state` for the async bot loop, kept in sync without waiting for a render.
+  const stateRef = useRef(state);
   const busyRef = useRef(false);
-  const tick = useCallback(() => setTick((n) => n + 1), []);
+  const commit = useCallback((next: GameState) => {
+    stateRef.current = next;
+    setState(next);
+  }, []);
   const decide = useBotWorker(botPunch);
 
   /** Advance bot seats one move at a time. The ISMCTS search runs in a Web
@@ -79,13 +82,12 @@ export function useLocalGame(
     try {
       let guard = 0;
       while (guard++ < 64) {
-        const prev = stateRef.current!;
+        const prev = stateRef.current;
         if ((prev.phase !== "bidding" && prev.phase !== "playing") || !BOTS[prev.turn]) break;
         const seat = prev.turn as Seat;
         const [action] = await Promise.all([decide(redact(prev, seat)), wait(BOT_THINKING_MS)]);
         const next = applyBotAction(prev, seat, action);
-        stateRef.current = next;
-        tick();
+        commit(next);
         if (next.tricks.length > prev.tricks.length) {
           await wait(COLLECT_DELAY_MS);
         }
@@ -93,7 +95,7 @@ export function useLocalGame(
     } finally {
       busyRef.current = false;
     }
-  }, [tick, decide]);
+  }, [commit, decide]);
 
   /** Trigger bots on mount to handle any initial bot turns (e.g. bot bids first after the dealer). */
   useEffect(() => {
@@ -102,33 +104,28 @@ export function useLocalGame(
 
   const actions: GameActions = {
     onBid: async (payload) => {
-      stateRef.current = submitBid(stateRef.current!, { seat: 0, ...payload });
-      tick();
+      commit(submitBid(stateRef.current, { seat: 0, ...payload }));
       await runBots();
     },
     onPlay: async (card: Card) => {
-      const prev = stateRef.current!;
+      const prev = stateRef.current;
       const next = submitPlay(prev, 0, card);
-      stateRef.current = next;
-      tick();
+      commit(next);
       if (next.tricks.length > prev.tricks.length) {
         await wait(COLLECT_DELAY_MS);
       }
       await runBots();
     },
     onNextDeal: async () => {
-      stateRef.current = startNextDeal(stateRef.current!);
-      tick();
+      commit(startNextDeal(stateRef.current));
       await runBots();
     },
     onReshuffle: async () => {
-      stateRef.current = beginNextDeal(stateRef.current!, Math.random);
-      tick();
+      commit(beginNextDeal(stateRef.current, Math.random));
       await runBots();
     },
   };
 
-  const state = stateRef.current!;
   const gv: GameView = {
     gameId: "local",
     roomCode: "LOCAL",

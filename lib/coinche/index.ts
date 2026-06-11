@@ -10,6 +10,7 @@ export {
   chooseCard,
   advanceBots,
   decideBid,
+  decideBidWithSupport,
   BOT_PUNCH_LEVELS,
   PUNCH_CONTRIBUTION,
   type BidDecision,
