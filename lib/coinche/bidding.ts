@@ -1,4 +1,4 @@
-import { nextSeat, teamOf } from "./cards";
+import { nextSeat, partnerOf, teamOf } from "./cards";
 import { computeBelote } from "./scoring";
 import type { Bid, Contract, GameState, TrumpMode } from "./types";
 
@@ -112,7 +112,14 @@ export function applyBid(state: GameState, bid: Bid): GameState {
   }
 
   // pass
-  if (d.coinched && !d.surcoinched) return completeBidding(state, bids, d);
+  if (d.coinched && !d.surcoinched) {
+    // Both members of the bidder's team get one chance to surcoinche.
+    // The highest bidder goes first; if they pass, offer the partner one turn.
+    if (bid.seat === d.highest!.seat) {
+      return { ...state, bids, turn: partnerOf(d.highest!.seat) };
+    }
+    return completeBidding(state, bids, d);
+  }
   if (d.highest) {
     if (trailingPasses(bids) >= 3) return completeBidding(state, bids, d);
     return { ...state, bids, turn: nextSeat(bid.seat) };

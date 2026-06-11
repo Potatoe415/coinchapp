@@ -45,13 +45,33 @@ describe("applyBid", () => {
     expect(state.contract?.coinche).toBe(4);
   });
 
-  it("ends the auction at coinche if the bidder passes the surcoinche", () => {
+  it("gives the partner a surcoinche turn after the bidder passes the coinche", () => {
     let state = biddingState();
     state = applyBid(state, { seat: 1, type: "bid", value: 90, suit: "D" });
     state = applyBid(state, { seat: 2, type: "coinche" });
     state = applyBid(state, { seat: 1, type: "pass" });
+    expect(state.phase).toBe("bidding");
+    expect(state.turn).toBe(3);
+  });
+
+  it("ends the auction at coinche when both bidder and partner pass the surcoinche", () => {
+    let state = biddingState();
+    state = applyBid(state, { seat: 1, type: "bid", value: 90, suit: "D" });
+    state = applyBid(state, { seat: 2, type: "coinche" });
+    state = applyBid(state, { seat: 1, type: "pass" });
+    state = applyBid(state, { seat: 3, type: "pass" });
     expect(state.phase).toBe("playing");
     expect(state.contract?.coinche).toBe(2);
+  });
+
+  it("allows the partner to surcoinche after the bidder passes", () => {
+    let state = biddingState();
+    state = applyBid(state, { seat: 1, type: "bid", value: 90, suit: "D" });
+    state = applyBid(state, { seat: 2, type: "coinche" });
+    state = applyBid(state, { seat: 1, type: "pass" });
+    state = applyBid(state, { seat: 3, type: "surcoinche" });
+    expect(state.phase).toBe("playing");
+    expect(state.contract?.coinche).toBe(4);
   });
 
   it("flags a redeal when everyone passes", () => {
