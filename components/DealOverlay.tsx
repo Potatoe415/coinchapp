@@ -34,10 +34,14 @@ export function DealOverlay({
   if (!visible) return null;
 
   const contractMade = result?.contractMade ?? true;
+  const myTeam = view.mySeat % 2 === 0 ? "A" : "B";
+  const iWon = result
+    ? (myTeam === result.contract.team) === result.contractMade
+    : true;
 
   return (
     <div className="absolute inset-0 z-20 flex items-center justify-center bg-[var(--surface-overlay)] px-6" data-id="deal-overlay">
-      {!finished && (contractMade ? <Fireworks /> : <Skulls />)}
+      {!finished && (iWon ? <Fireworks /> : <Skulls />)}
       <div className="relative z-10 w-full max-w-sm rounded-2xl bg-[var(--surface)] p-6 text-center text-[var(--card-face)] ring-1 ring-[var(--accent-cyan)]/30">
         {finished ? (
           <>
@@ -60,9 +64,11 @@ export function DealOverlay({
             <>
               <h2
                 data-id="deal-result-title"
-                className={`text-4xl font-black tracking-wide ${result.contractMade ? "text-[var(--accent-green)]" : "text-red-500"}`}
+                className={`text-4xl font-black tracking-wide ${iWon ? "text-[var(--accent-green)]" : "text-red-500"}`}
               >
-                {result.contractMade ? "Gagné!!!" : "Chuté!!!"}
+                {myTeam === result.contract.team
+                  ? (iWon ? "Gagné!!!" : "Chuté!!!")
+                  : (iWon ? "Belle défense!!!" : "Ay Carmaba!!!")}
               </h2>
               <p className="mt-1 text-sm text-[var(--card-face)]/70">
                 {formatText(t("contractByTeam"), {
