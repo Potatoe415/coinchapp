@@ -3,11 +3,15 @@
 import Link from "next/link";
 import { useState, type ReactNode } from "react";
 import { useI18n } from "@/lib/client/i18n";
-import type { PlayerView, Trick } from "@/lib/coinche";
-import { nextSeat } from "@/lib/coinche";
+import { cardPoints, nextSeat, type PlayerView, type Trick, type TrumpMode } from "@/lib/coinche";
 import type { LobbyPlayer } from "@/lib/server/view";
 import { formatContract } from "./labels";
 import { PlayingCard } from "./PlayingCard";
+
+function trickPoints(trick: Trick | null, trump: TrumpMode | null): number {
+  if (!trick || trick.cards.length !== 4) return 0;
+  return trick.cards.reduce((sum, played) => sum + cardPoints(played.card, trump), 0);
+}
 
 export interface HostControls {
   isHost: boolean;
@@ -81,6 +85,11 @@ export function GameHud({
               </p>
             ) : null;
           })()}
+          {view.phase === "playing" && view.lastTrick && view.lastTrick.cards.length === 4 && (
+            <p className="mt-1 text-xs font-bold uppercase tracking-wide text-[var(--card-face)]/70" data-id="game-last-trick-pts">
+              {t("lastTrick")} ({trickPoints(view.lastTrick, view.trump)} pts)
+            </p>
+          )}
         </div>
         <GameInfoButton label={t("gameInfo")} onClick={() => setPanelOpen(true)} />
       </div>
@@ -92,6 +101,7 @@ export function GameHud({
           onReshuffle={noCardPlayed ? onReshuffle : undefined}
           emojiControls={emojiControls}
           lastTrick={view.lastTrick}
+          lastTrickPts={view.lastTrick ? trickPoints(view.lastTrick, view.trump) : null}
           onClose={() => setPanelOpen(false)}
         />
       )}
@@ -106,6 +116,7 @@ function GameInfoPanel({
   onReshuffle,
   emojiControls,
   lastTrick,
+  lastTrickPts,
   onClose,
 }: {
   host?: HostControls;
@@ -114,6 +125,7 @@ function GameInfoPanel({
   onReshuffle?: () => void;
   emojiControls?: EmojiControls;
   lastTrick: Trick | null;
+  lastTrickPts: number | null;
   onClose: () => void;
 }) {
   const { t } = useI18n();
@@ -142,7 +154,7 @@ function GameInfoPanel({
         {lastTrick && lastTrick.cards.length === 4 && (
           <div className="mb-4" data-id="last-trick-section">
             <p className="mb-2 text-xs font-bold uppercase tracking-wide text-[var(--card-face)]/60">
-              {t("lastTrick")}
+              {t("lastTrick")}{lastTrickPts != null ? ` (${lastTrickPts} pts)` : ""}
             </p>
             <div className="flex justify-center" data-id="last-trick-preview">
               {lastTrick.cards.map((played, i) => (

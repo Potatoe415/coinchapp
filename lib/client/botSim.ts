@@ -1,8 +1,21 @@
 import { buildDeck, cardId, DEFAULT_SCORING_RULES, legalCards, submitPlay, teamOf } from "@/lib/coinche";
-import type { Card, GameState, PlayerView, Seat, Suit, Team, Trick, TrumpMode } from "@/lib/coinche";
+import type {
+  Card,
+  GameState,
+  PlayedCard,
+  PlayerView,
+  Seat,
+  Suit,
+  Team,
+  Trick,
+  TrumpMode,
+} from "@/lib/coinche";
 
 /** Upper bound on plays in a single rollout (8 tricks * 4 seats). */
 const MAX_PLAYS = 32;
+
+/** Constrained-deal attempts before falling back to an unconstrained shuffle. */
+const MAX_DEAL_ATTEMPTS = 64;
 
 /** Card ids already visible to the bot: completed tricks plus the current trick. */
 function playedIds(view: PlayerView): Set<string> {
@@ -29,6 +42,87 @@ function shuffleInPlace<T>(items: T[], rng: () => number): void {
     items[i] = items[j];
     items[j] = tmp;
   }
+}
+
+/** Seat failed to follow the led suit in this trick => it is void in that suit. */
+function scanVoids(cards: PlayedCard[], voids: Set<Suit>[]): void {
+  if (cards.length === 0) return;
+  const led = cards[0].card.suit;
+  for (const played of cards) {
+    if (played.card.suit !== led) voids[played.seat].add(led);
+  }
+}
+
+/**
+ * Known suit voids ("chicanes") per seat, deduced from public play: any seat
+ * that did not follow the led suit cannot hold that suit. Holds in every mode
+ * (single trump, tout atout, sans atout), since following the led suit is
+ * always mandatory when possible.
+ */
+function inferVoids(view: PlayerView): Set<Suit>[] {
+  const voids: Set<Suit>[] = [new Set(), new Set(), new Set(), new Set()];
+  for (const trick of view.tricks) scanVoids(trick.cards, voids);
+  scanVoids(view.currentTrick.cards, voids);
+  return voids;
+}
+
+/** Pool ordered most-constrained first (fewest seats able to hold the card). */
+function orderByConstraint(pool: Card[], seatVoids: Set<Suit>[]): Card[] {
+  const eligible = (card: Card): number =>
+    seatVoids.reduce((n, v) => n + (v.has(card.suit) ? 0 : 1), 0);
+  return [...pool].sort((a, b) => eligible(a) - eligible(b));
+}
+
+/**
+ * One randomized pass assigning each card to a seat that may hold its suit and
+ * still has room. Returns null on a dead end (caller retries or falls back).
+ */
+function tryDeal(
+  ordered: Card[],
+  seatVoids: Set<Suit>[],
+  counts: number[],
+  rng: () => number,
+): Card[][] | null {
+  const cap = counts.slice();
+  const hands: Card[][] = counts.map(() => []);
+  for (const card of ordered) {
+    const choices: number[] = [];
+    for (let i = 0; i < hands.length; i++) {
+      if (cap[i] > 0 && !seatVoids[i].has(card.suit)) choices.push(i);
+    }
+    if (choices.length === 0) return null;
+    const pick = choices[Math.floor(rng() * choices.length)];
+    hands[pick].push(card);
+    cap[pick] -= 1;
+  }
+  return hands;
+}
+
+/** Plain shuffle-and-slice, ignoring voids: graceful last resort, never fails. */
+function fallbackDeal(pool: Card[], counts: number[], rng: () => number): Card[][] {
+  const copy = pool.slice();
+  shuffleInPlace(copy, rng);
+  const hands: Card[][] = [];
+  let cursor = 0;
+  for (const count of counts) {
+    hands.push(copy.slice(cursor, cursor + count));
+    cursor += count;
+  }
+  return hands;
+}
+
+/** A void-respecting deal of `ordered` into seats, with a safe unconstrained fallback. */
+function dealConstrained(
+  ordered: Card[],
+  seatVoids: Set<Suit>[],
+  counts: number[],
+  rng: () => number,
+): Card[][] {
+  for (let attempt = 0; attempt < MAX_DEAL_ATTEMPTS; attempt++) {
+    const dealt = tryDeal(ordered, seatVoids, counts, rng);
+    if (dealt) return dealt;
+  }
+  return fallbackDeal(ordered, counts, rng);
 }
 
 function seatHolding(hands: Card[][], tricks: Trick[], suit: Suit, rank: string): number {
@@ -97,17 +191,17 @@ export function buildDeterminizer(view: PlayerView, rng: () => number): Determin
   const counts = others.map((s) => view.handCounts[s]);
   const total = counts.reduce((sum, n) => sum + n, 0);
   if (total !== pool.length) throw new Error("determinization_mismatch");
+  const seatVoids = others.map((s) => inferVoids(view)[s]);
+  const ordered = orderByConstraint(pool, seatVoids);
   const template = baseTemplate(view);
 
   return {
     next(): GameState {
-      shuffleInPlace(pool, rng);
+      const dealt = dealConstrained(ordered, seatVoids, counts, rng);
       const hands: Card[][] = [[], [], [], []];
       hands[mySeat] = view.myHand.slice();
-      let cursor = 0;
       others.forEach((seat, i) => {
-        hands[seat] = pool.slice(cursor, cursor + counts[i]);
-        cursor += counts[i];
+        hands[seat] = dealt[i];
       });
       const located = locateBelote(hands, view.tricks, view.trump);
       const belote = { ...located, announced: [] as ("belote" | "rebelote")[] };
