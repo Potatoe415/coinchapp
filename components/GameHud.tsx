@@ -85,11 +85,6 @@ export function GameHud({
               </p>
             ) : null;
           })()}
-          {view.phase === "playing" && view.lastTrick && view.lastTrick.cards.length === 4 && (
-            <p className="mt-1 text-xs font-bold uppercase tracking-wide text-[var(--card-face)]/70" data-id="game-last-trick-pts">
-              {t("lastTrick")} ({trickPoints(view.lastTrick, view.trump)} pts)
-            </p>
-          )}
         </div>
         <GameInfoButton label={t("gameInfo")} onClick={() => setPanelOpen(true)} />
       </div>
