@@ -1,4 +1,4 @@
-import { decideBidWithSupport, PUNCH_CONTRIBUTION, teamOf } from "@/lib/coinche";
+import { avoidCuttingPartner, decideBidWithSupport, PUNCH_CONTRIBUTION, teamOf } from "@/lib/coinche";
 import type { BotPunch, Card, PlayerView, TrumpMode } from "@/lib/coinche";
 import { buildDeterminizer, simulateRootMove } from "./botSim";
 
@@ -58,8 +58,14 @@ function chooseBidAction(view: PlayerView, options: BotOptions): BotAction {
 
 function choosePlayAction(view: PlayerView, options: BotOptions): BotAction {
   if (!view.contract) throw new Error("missing_contract");
-  const legal = view.legalCards;
-  if (legal.length === 0) throw new Error("no_legal_cards");
+  if (view.legalCards.length === 0) throw new Error("no_legal_cards");
+  // Never ruff under a master partner: restrict the search to discards when possible.
+  const legal = avoidCuttingPartner(
+    view.legalCards,
+    view.currentTrick.cards,
+    view.trump,
+    view.mySeat,
+  );
   if (legal.length === 1) return { action: "PLAY", card: legal[0] };
 
   const rng = options.rng ?? Math.random;

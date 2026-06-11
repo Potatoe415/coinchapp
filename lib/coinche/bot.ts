@@ -1,8 +1,8 @@
 import { bidOptions } from "./bidding";
-import { cardPoints, cardStrength, partnerOf } from "./cards";
+import { cardPoints, cardStrength, isTrump, partnerOf, teamOf } from "./cards";
 import { submitBid, submitPlay } from "./engine";
 import { legalCards, trickWinner } from "./trick";
-import type { Bid, Card, GameState, Seat, Suit, TrumpMode } from "./types";
+import type { Bid, Card, GameState, PlayedCard, Seat, Suit, TrumpMode } from "./types";
 
 /** Lowest contract a bot will open, and the highest it will bid unprompted. */
 const MIN_OPEN_BID = 80;
@@ -138,13 +138,17 @@ function standingBid(bids: Bid[]): Bid | null {
   return highest;
 }
 
-/** Raise on top of a partner's standing bid, or null when no rule fires. */
+/**
+ * Raise on top of a partner's standing bid, or null when no rule fires.
+ * Only applies if this seat has not already announced (bid) this auction.
+ */
 function supportDecision(
   hand: Card[],
   bids: Bid[],
   seat: Seat,
   minValue: number,
 ): BidDecision | null {
+  if (bids.some((b) => b.seat === seat && b.type === "bid")) return null;
   const highest = standingBid(bids);
   if (!highest || highest.seat !== partnerOf(seat) || highest.suit === undefined) return null;
   const raise = partnerSupportRaise(hand, highest.value!, highest.suit);
@@ -202,9 +206,33 @@ function cheapestWinner(state: GameState, legal: Card[]): Card | null {
   return weakest(winners, state.trump);
 }
 
+/**
+ * Drop trump "cuts" from candidate cards when the bot's partner already wins
+ * the trick and a non-trump discard exists, so the bot never ruffs under a
+ * master partner. Returns `legal` unchanged when the rule does not apply
+ * (leading, trump led, TA/SA, partner not master, or only trumps left).
+ */
+export function avoidCuttingPartner(
+  legal: Card[],
+  trick: PlayedCard[],
+  trump: TrumpMode | null,
+  seat: Seat,
+): Card[] {
+  if (trick.length === 0 || !trump || trump === "TA" || trump === "SA") return legal;
+  if (trick[0].card.suit === trump) return legal;
+  if (teamOf(trickWinner(trick, trump)) !== teamOf(seat)) return legal;
+  const discards = legal.filter((c) => !isTrump(c, trump));
+  return discards.length > 0 ? discards : legal;
+}
+
 /** Single bot strategy: play the cheapest card that wins, else discard the weakest. */
 export function chooseCard(state: GameState): Card {
-  const legal = legalCards(state, state.turn);
+  const legal = avoidCuttingPartner(
+    legalCards(state, state.turn),
+    state.currentTrick.cards,
+    state.trump,
+    state.turn,
+  );
   const winner = cheapestWinner(state, legal);
   return winner ?? weakest(legal, state.trump);
 }

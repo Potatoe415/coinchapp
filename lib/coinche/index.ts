@@ -9,6 +9,7 @@ export {
   chooseBid,
   chooseCard,
   advanceBots,
+  avoidCuttingPartner,
   decideBid,
   decideBidWithSupport,
   BOT_PUNCH_LEVELS,

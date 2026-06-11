@@ -58,7 +58,12 @@ export function DealOverlay({
         ) : (
           result && (
             <>
-              <h2 className="text-xl font-black">{t("endOfDeal")}</h2>
+              <h2
+                data-id="deal-result-title"
+                className={`text-4xl font-black tracking-wide ${result.contractMade ? "text-[var(--accent-green)]" : "text-red-500"}`}
+              >
+                {result.contractMade ? "Gagné!!!" : "Chuté!!!"}
+              </h2>
               <p className="mt-1 text-sm text-[var(--card-face)]/70">
                 {formatText(t("contractByTeam"), {
                   contract: formatContract(result.contract, locale),
