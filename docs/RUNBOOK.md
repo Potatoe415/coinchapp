@@ -12,9 +12,9 @@ Prerequisites: Node 20+ and npm. A Supabase project. A Vercel account (for deplo
    ```
    npm install
    ```
-2. Create a Supabase project, then in the SQL editor run migrations in order:
-   - `supabase/migrations/0001_init.sql`
-   - `supabase/migrations/0002_games_ttl_48h.sql`
+2. Create a Supabase project, then in the SQL editor run the single setup script:
+   - `supabase/migrations/0001_init.sql` (full reset + schema + 48h TTL cron;
+     re-runnable to start from scratch)
 3. In Supabase dashboard: Authentication -> Providers -> enable **Anonymous sign-ins**.
 4. Copy `.env.example` to `.env.local` and fill in:
    - `NEXT_PUBLIC_SUPABASE_URL`

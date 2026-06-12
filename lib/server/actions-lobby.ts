@@ -72,7 +72,7 @@ export async function createGame(input: {
 
   const { data, error } = await supabase
     .from("games")
-    .insert({ room_code: roomCode, status: "lobby", settings, version: 0, host_user_id: uid })
+    .insert({ room_code: roomCode, game_type: "coinche", status: "lobby", settings, version: 0, host_user_id: uid })
     .select("id")
     .single();
   if (error || !data) throw new Error("create_failed");

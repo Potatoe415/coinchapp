@@ -15,9 +15,14 @@ export interface GameSettings {
 
 export type GameStatus = "lobby" | "playing" | "finished";
 
+/** Which game a row belongs to. Extend the union when a new game is added. */
+export type GameType = "coinche";
+
 export interface GameRow {
   id: string;
   room_code: string;
+  /** Discriminator so one Supabase project can host several games. */
+  game_type: GameType;
   status: GameStatus;
   settings: GameSettings;
   state: GameState | null;

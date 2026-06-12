@@ -35,6 +35,7 @@ Fields:
 |---|---|---|---|
 | id | uuid | Yes | Primary key |
 | room_code | text | Yes | Unique join code |
+| game_type | text | Yes | Which game this row is (default `'coinche'`); lets one project host several games. Indexed. |
 | status | text | Yes | lobby / playing / finished |
 | settings | jsonb | Yes | `GameSettings`: targetPoints, countContractOnlyIfMade, failedContractDefensePoints, zeroPointsForNonContractingTeamWhenContractMade, capotMadePoints, capotFailedDefensePoints, allowToutAtoutSansAtout, requireMorePointsToWin, botPunch ("low"\|"med"\|"high", default "med"; bot bidding aggressiveness, not part of GameState) |
 | state | jsonb | No | Full `GameState` (hidden hands). Server-only. |
@@ -115,6 +116,18 @@ Impact: Authoritative state stored as jsonb in games.state; clients get redacted
 
 ## 2026-06-10 - Online game TTL (48h)
 
-Change: Added migration `0002_games_ttl_48h.sql` with a `pg_cron` job (`cleanup-expired-games`) that deletes `games` rows older than 48 hours.
+Change: Added a `pg_cron` job (`cleanup-expired-games`) that deletes `games` rows older than 48 hours.
 Reason: Automatically remove stale online rooms from Supabase without manual cleanup.
 Impact: Expired games disappear from persistence; cascading FK deletion removes linked `game_players` and `game_events`.
+
+## 2026-06-12 - game_type discriminator
+
+Change: Added `games.game_type text not null default 'coinche'` (indexed). Mirrored as `GameType` in `lib/supabase/types.ts`; `createGame` sets it explicitly.
+Reason: Let a single Supabase project host several games and separate them logically (filter/route by `game_type`), instead of duplicating tables or schemas per game.
+Impact: Additive, non-breaking — existing rows default to `coinche`. The shared `games`/`game_players`/`game_events` plumbing (RLS, realtime, TTL cron) is reused across games. Per-game specifics stay in the `settings`/`state` jsonb and in the per-game rules engine.
+
+## 2026-06-12 - Consolidated into a single re-runnable script
+
+Change: Merged the schema, the `game_type` column and the 48h TTL cron into one `supabase/migrations/0001_init.sql` with a full reset (unschedule cron + `drop table ... cascade`) at the top. Deleted `0002_games_ttl_48h.sql` and `0003_games_game_type.sql`.
+Reason: User wants one script to wipe the (sandbox) DB and rebuild from zero.
+Impact: `0001_init.sql` is now the single executable source of truth; run it alone to recreate everything. Destructive by design — do not run against production data.
