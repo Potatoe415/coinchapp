@@ -70,15 +70,17 @@ export async function createGame(input: {
     roomCode = randomRoomCode();
   }
 
+  // game_type is left to the column default ('coinche') so creating a game never
+  // depends on the migration that adds the column having run on this DB.
   const { data, error } = await supabase
     .from("games")
-    .insert({ room_code: roomCode, game_type: "coinche", status: "lobby", settings, version: 0, host_user_id: uid })
+    .insert({ room_code: roomCode, status: "lobby", settings, version: 0, host_user_id: uid })
     .select("id")
     .single();
   if (error || !data) throw new Error("create_failed");
   const gameId = (data as { id: string }).id;
 
-  await supabase.from("game_players").insert({
+  const { error: seatError } = await supabase.from("game_players").insert({
     game_id: gameId,
     seat: 0,
     user_id: uid,
@@ -86,6 +88,12 @@ export async function createGame(input: {
     is_bot: false,
     team: teamForSeat(0),
   });
+  // Without this check a failed seat insert leaves a game with no players: the
+  // creator lands in a lobby with 4 empty seats and cannot start.
+  if (seatError) {
+    await supabase.from("games").delete().eq("id", gameId);
+    throw new Error("create_failed");
+  }
 
   return { gameId, roomCode };
 }

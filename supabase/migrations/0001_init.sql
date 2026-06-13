@@ -90,3 +90,7 @@ select cron.schedule(
   '0 * * * *',
   $$delete from public.games where created_at < now() - interval '48 hours'$$
 );
+
+-- Drops/recreates above change the tables; tell PostgREST (the REST/Realtime API)
+-- to reload its schema cache so writes to the new tables work immediately.
+notify pgrst, 'reload schema';
