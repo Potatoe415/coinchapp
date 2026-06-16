@@ -1,11 +1,12 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { cardId, type Card, type PlayerView } from "@/lib/coinche";
+import { CAPOT_VALUE, cardId, GENERALE_VALUE, type Bid, type Card, type PlayerView } from "@/lib/coinche";
 import type { GameView, NextDealGate } from "@/lib/server/view";
 import { DealOverlay } from "./DealOverlay";
 import type { EmojiReaction } from "./EmojiButton";
 import { playerName, seatTeam } from "./gameTableHelpers";
+import { trumpModeLabel } from "./labels";
 import { PlayerBadge } from "./PlayerBadge";
 import { CardBack, PlayingCard } from "./PlayingCard";
 
@@ -13,6 +14,62 @@ function isSeatThinking(view: PlayerView, seat: number): boolean {
   if (view.phase !== "bidding" && view.phase !== "playing") return false;
   if (view.turn !== seat) return false;
   return true;
+}
+
+function lastSeatBid(bids: Bid[], seat: number): Bid | null {
+  for (let i = bids.length - 1; i >= 0; i--) {
+    if (bids[i].seat === seat) return bids[i];
+  }
+  return null;
+}
+
+function bidBubbleText(bid: Bid): string {
+  if (bid.type === "pass") return "Passe";
+  if (bid.type === "coinche") return "Coinche !";
+  if (bid.type === "surcoinche") return "Surcoinche !";
+  const val = bid.value === CAPOT_VALUE ? "Capot" : bid.value === GENERALE_VALUE ? "Générale" : String(bid.value);
+  return `${val}${bid.suit ? ` ${trumpModeLabel(bid.suit)}` : ""}`;
+}
+
+function bubbleColors(bid: Bid): { bg: string; color: string } {
+  if (bid.type === "pass") return { bg: "rgba(255,255,255,0.55)", color: "rgba(180,180,180,0.9)" };
+  if (bid.type === "coinche") return { bg: "#fef3c7", color: "#b45309" };
+  if (bid.type === "surcoinche") return { bg: "#fee2e2", color: "#b91c1c" };
+  if (bid.suit === "H" || bid.suit === "D") return { bg: "#fff", color: "#dc2626" };
+  return { bg: "#fff", color: "#1e293b" };
+}
+
+function BidBubble({ bid, tailDir }: { bid: Bid; tailDir: "up" | "left" | "right" }) {
+  const { bg, color } = bubbleColors(bid);
+  const text = bidBubbleText(bid);
+  const tailH: React.CSSProperties = { width: 0, height: 0, borderTop: "5px solid transparent", borderBottom: "5px solid transparent" };
+  const tailV: React.CSSProperties = { width: 0, height: 0, borderLeft: "5px solid transparent", borderRight: "5px solid transparent" };
+  return (
+    <div
+      style={{ display: "flex", flexDirection: tailDir === "up" ? "column" : "row", alignItems: "center", gap: 0 }}
+      data-id="bid-bubble"
+    >
+      {tailDir === "up" && (
+        <div style={{ ...tailV, borderBottom: `6px solid ${bg}`, alignSelf: "center" }} />
+      )}
+      {tailDir === "left" && (
+        <div style={{ ...tailH, borderRight: `6px solid ${bg}` }} />
+      )}
+      <div
+        style={{
+          background: bg, color, borderRadius: "0.65rem",
+          padding: "2px 7px", fontSize: "0.7rem", fontWeight: 900,
+          boxShadow: "0 2px 8px rgba(0,0,0,0.35)", whiteSpace: "nowrap",
+          border: `1.5px solid rgba(0,0,0,0.10)`,
+        }}
+      >
+        {text}
+      </div>
+      {tailDir === "right" && (
+        <div style={{ ...tailH, borderLeft: `6px solid ${bg}` }} />
+      )}
+    </div>
+  );
 }
 
 export type TableSeats = {
@@ -68,10 +125,11 @@ export function GameTableScene({
 }
 
 function TopOpponent({ gv, view, seat, reaction }: { gv: GameView; view: PlayerView; seat: number; reaction?: EmojiReaction }) {
+  const bid = view.phase === "bidding" ? lastSeatBid(view.bids, seat) : null;
   return (
     <div className="absolute left-1/2 top-[13%] flex -translate-x-1/2 flex-col items-center" data-id="table-top">
       <CardBackFanH count={view.handCounts[seat]} />
-      <div className="mt-2" data-id="table-top-badge-wrap">
+      <div className="mt-2 flex flex-row items-center gap-1" data-id="table-top-badge-wrap">
         <PlayerBadge
           name={playerName(gv, seat)}
           team={seatTeam(seat)}
@@ -81,6 +139,7 @@ function TopOpponent({ gv, view, seat, reaction }: { gv: GameView; view: PlayerV
           reaction={reaction}
           dataId={`player-seat-${seat}`}
         />
+        {bid && <BidBubble bid={bid} tailDir="left" />}
       </div>
     </div>
   );
@@ -103,6 +162,10 @@ function SideOpponent({
   const handShiftClass = side === "left" ? "-translate-x-3/4" : "translate-x-3/4";
   const badgeNudgeClass = side === "left" ? "-ml-[50px]" : "-mr-[50px]";
   const badgeRotateClass = side === "right" ? "rotate-180" : "";
+  const bid = view.phase === "bidding" ? lastSeatBid(view.bids, seat) : null;
+  // With flex-row-reverse (right side), the bubble added last renders leftmost (toward center).
+  // With flex-row (left side), the bubble added last renders rightmost (toward center).
+  const tailDir = side === "left" ? "left" : "right";
   return (
     <div className={`absolute top-[41%] flex items-center gap-0 ${sideClass}`} data-id={`table-${side}`}>
       <div className={handShiftClass} data-id={`table-${side}-hand`}>
@@ -120,6 +183,7 @@ function SideOpponent({
           dataId={`player-seat-${seat}`}
         />
       </div>
+      {bid && <BidBubble bid={bid} tailDir={tailDir} />}
     </div>
   );
 }
