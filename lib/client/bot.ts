@@ -1,8 +1,7 @@
 import {
-  avoidCuttingPartner,
   decideBidWithSupport,
-  leadWinnersWhenTrumpsExhausted,
   PUNCH_CONTRIBUTION,
+  refinePlayCandidates,
   teamOf,
 } from "@/lib/coinche";
 import type { BotPunch, Card, PlayerView, TrumpMode } from "@/lib/coinche";
@@ -65,22 +64,9 @@ function chooseBidAction(view: PlayerView, options: BotOptions): BotAction {
 function choosePlayAction(view: PlayerView, options: BotOptions): BotAction {
   if (!view.contract) throw new Error("missing_contract");
   if (view.legalCards.length === 0) throw new Error("no_legal_cards");
-  // Never ruff under a master partner: restrict the search to discards when possible.
-  const safe = avoidCuttingPartner(
-    view.legalCards,
-    view.currentTrick.cards,
-    view.trump,
-    view.mySeat,
-  );
-  // When no trump remains outside this hand, cash winners instead of pulling trumps.
+  // Deterministic tactics narrow the candidate set the search will explore.
   const played = [...view.tricks, view.currentTrick].flatMap((t) => t.cards.map((p) => p.card));
-  const legal = leadWinnersWhenTrumpsExhausted(
-    safe,
-    view.myHand,
-    played,
-    view.currentTrick.cards.length === 0,
-    view.trump,
-  );
+  const legal = refinePlayCandidates(view, played, view.currentTrick.cards.length === 0);
   if (legal.length === 1) return { action: "PLAY", card: legal[0] };
 
   const rng = options.rng ?? Math.random;

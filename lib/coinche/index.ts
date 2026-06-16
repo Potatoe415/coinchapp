@@ -18,4 +18,12 @@ export {
   type BidDecision,
   type BotPunch,
 } from "./bot";
+export {
+  refinePlayCandidates,
+  leadTrumpToPull,
+  cashAcesEarly,
+  protectUnguardedTen,
+  dontOvertakePartner,
+  dumpLowWhenLosing,
+} from "./play-tactics";
 export { redact, type PlayerView } from "./redact";

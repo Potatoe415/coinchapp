@@ -77,6 +77,17 @@ export default function Home() {
         >
           {t("playOnline")}
         </button>
+
+        <button
+          data-id="play-adhoc-button"
+          onClick={() => router.push("/adhoc")}
+          className="w-full rounded-2xl bg-[var(--accent-green)] px-4 py-5 text-lg font-black text-[var(--surface)] shadow-lg"
+        >
+          {t("playAdhoc")}
+          <span className="mt-0.5 block text-xs font-medium text-[var(--surface)]/80">
+            {t("adhocOfflineNote")}
+          </span>
+        </button>
       </div>
 
       <div className="relative z-10 mt-auto mb-4 flex items-center gap-3 self-center" data-id="home-footer-actions">

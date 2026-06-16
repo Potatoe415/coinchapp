@@ -12,6 +12,7 @@ Status: Living document. Always reflects current state.
 - [ ] Manual Belote/Rebelote announcement during play (currently auto-detected).
 - [ ] Reconnection/disconnect handling and "connected" status in the table UI.
 - [ ] Smarter bot bidding/play (currently a greedy heuristic).
+- [ ] Ad-hoc P2P: real-device pairing test (Chrome mDNS `.local` risk), client reconnection, emoji over the data channel.
 
 ## Later
 - [ ] Optional accounts + stats/leaderboard.
@@ -31,3 +32,4 @@ Status: Living document. Always reflects current state.
 - [x] Realtime hook + lobby + mobile-first game table + bidding panel + deal/finish overlays.
 - [x] Settings dashboard on home (target points, bot difficulty).
 - [x] Runbook, README, product/tech/data-model docs.
+- [x] Offline ad-hoc mode: WebRTC P2P host/client over local network with QR-code signaling (additive, online/local modes untouched).
