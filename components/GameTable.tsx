@@ -247,6 +247,7 @@ export function GameTable({ gv, actions, reactions }: { gv: GameView; actions: G
           bimTrickKey={bimTrickKey}
           reactions={reactions}
           onNextDeal={actions.onNextDeal}
+          nextDealGate={gv.nextDealGate}
         />
         {emojiOn && actions.onSendEmoji && (
           <EmojiButton

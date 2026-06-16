@@ -7,6 +7,8 @@ import {
   type Seat,
 } from "@/lib/coinche";
 import type { GameSettings } from "@/lib/supabase/types";
+import type { GameView } from "@/lib/server/view";
+import type { RosterEntry } from "./protocol";
 import type { BotAction } from "../bot";
 
 /** Deterministic RNG (mirrors useLocalGame; kept local to avoid touching solo mode). */
@@ -32,6 +34,24 @@ export function applyBotAction(state: GameState, seat: Seat, action: BotAction):
     return submitBid(state, { seat, type: "bid", value: action.value, suit: action.suit });
   }
   return submitBid(state, { seat, type: "pass" });
+}
+
+/** Attach the end-of-deal readiness gate to a seat view during the scoring phase. */
+export function attachGate(
+  gv: GameView,
+  state: GameState,
+  seat: number,
+  roster: RosterEntry[],
+  ready: Set<number>,
+): GameView {
+  if (state.phase !== "scoring") return gv;
+  const humans = roster.filter((e) => !e.isBot).map((e) => e.seat);
+  gv.nextDealGate = {
+    readyCount: humans.filter((s) => ready.has(s)).length,
+    humanCount: humans.length,
+    iAmReady: ready.has(seat),
+  };
+  return gv;
 }
 
 /** Resolve a full ScoringRules from the lobby settings, falling back to defaults. */

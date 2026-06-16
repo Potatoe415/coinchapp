@@ -4,14 +4,17 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { formatText, useI18n } from "@/lib/client/i18n";
 import type { PlayerView } from "@/lib/coinche";
+import type { NextDealGate } from "@/lib/server/view";
 import { formatContract } from "./labels";
 
 export function DealOverlay({
   view,
   onNextDeal,
+  nextDealGate,
 }: {
   view: PlayerView;
   onNextDeal: () => Promise<void> | void;
+  nextDealGate?: NextDealGate;
 }) {
   const { locale, t } = useI18n();
   const [busy, setBusy] = useState(false);
@@ -83,7 +86,7 @@ export function DealOverlay({
               </div>
               <button
                 data-id="next-deal-button"
-                disabled={busy}
+                disabled={busy || (nextDealGate?.iAmReady ?? false)}
                 onClick={async () => {
                   setBusy(true);
                   try {
@@ -94,7 +97,12 @@ export function DealOverlay({
                 }}
                 className="mt-5 w-full rounded-lg bg-[var(--accent-cyan)] px-5 py-2.5 font-bold text-[var(--surface)] disabled:opacity-50"
               >
-                {t("nextDeal")}
+                {nextDealGate?.iAmReady
+                  ? formatText(t("waitingPlayersReady"), {
+                      ready: nextDealGate.readyCount,
+                      total: nextDealGate.humanCount,
+                    })
+                  : t("nextDeal")}
               </button>
             </>
           )

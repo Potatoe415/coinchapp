@@ -10,6 +10,13 @@ export interface LobbyPlayer {
   connected: boolean;
 }
 
+/** Ad-hoc only: end-of-deal readiness gate (next deal waits for all humans). */
+export interface NextDealGate {
+  readyCount: number;
+  humanCount: number;
+  iAmReady: boolean;
+}
+
 export interface GameView {
   gameId: string;
   roomCode: string;
@@ -27,6 +34,8 @@ export interface GameView {
   isHost: boolean;
   /** Redacted per-seat views for every bot seat. Present only for the host. */
   botViews?: Record<number, PlayerView>;
+  /** Ad-hoc only: present during the scoring phase to gate the next deal. */
+  nextDealGate?: NextDealGate;
 }
 
 function buildBotViews(loaded: LoadedGame): Record<number, PlayerView> {

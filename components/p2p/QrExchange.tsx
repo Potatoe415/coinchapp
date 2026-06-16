@@ -3,8 +3,9 @@
 import { useEffect, useRef, useState } from "react";
 import QRCode from "qrcode";
 import { BrowserQRCodeReader, type IScannerControls } from "@zxing/browser";
+import { useI18n } from "@/lib/client/i18n";
 
-/** Render a payload as a QR. Falls back to a copyable textarea if it is too large. */
+/** Render a payload as a QR, with an always-available copy-the-code fallback. */
 export function QrCode({ value, size = 240 }: { value: string; size?: number }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const [tooLarge, setTooLarge] = useState(false);
@@ -18,24 +19,62 @@ export function QrCode({ value, size = 240 }: { value: string; size?: number }) 
     );
   }, [value, size]);
 
-  if (tooLarge) {
-    return (
+  return (
+    <div className="flex w-full flex-col items-center gap-2">
+      {tooLarge ? (
+        <textarea
+          data-id="qr-fallback-text"
+          readOnly
+          value={value}
+          onFocus={(e) => e.currentTarget.select()}
+          className="h-32 w-full rounded-lg bg-[rgba(32,40,58,0.08)] p-2 text-xs"
+        />
+      ) : (
+        <canvas
+          ref={canvasRef}
+          data-id="qr-code-canvas"
+          className="rounded-lg bg-white"
+          style={{ width: size, height: size }}
+        />
+      )}
+      <CodeReveal value={value} />
+    </div>
+  );
+}
+
+/** Manual code fallback: reveal the payload as selectable text plus a copy button. */
+function CodeReveal({ value }: { value: string }) {
+  const { t } = useI18n();
+  const [copied, setCopied] = useState(false);
+
+  async function copy() {
+    try {
+      await navigator.clipboard.writeText(value);
+      setCopied(true);
+      window.setTimeout(() => setCopied(false), 1500);
+    } catch {
+      // Clipboard API needs a secure context: the user can still select manually.
+    }
+  }
+
+  return (
+    <details className="w-full" data-id="qr-code-reveal">
+      <summary className="cursor-pointer text-center text-sm text-white/70">{t("showCode")}</summary>
       <textarea
-        data-id="qr-fallback-text"
+        data-id="qr-code-text"
         readOnly
         value={value}
         onFocus={(e) => e.currentTarget.select()}
-        className="h-32 w-full rounded-lg bg-[rgba(32,40,58,0.08)] p-2 text-xs"
+        className="mt-2 h-24 w-full rounded-lg bg-black/20 p-2 text-xs text-white"
       />
-    );
-  }
-  return (
-    <canvas
-      ref={canvasRef}
-      data-id="qr-code-canvas"
-      className="rounded-lg bg-white"
-      style={{ width: size, height: size }}
-    />
+      <button
+        data-id="qr-copy-code-button"
+        onClick={copy}
+        className="mt-2 w-full rounded-lg bg-[var(--accent-cyan)] px-4 py-2 font-bold text-[var(--surface)]"
+      >
+        {copied ? t("codeCopied") : t("copyCode")}
+      </button>
+    </details>
   );
 }
 

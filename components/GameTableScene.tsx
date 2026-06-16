@@ -2,7 +2,7 @@
 
 import React, { useEffect, useRef, useState } from "react";
 import { cardId, type Card, type PlayerView } from "@/lib/coinche";
-import type { GameView } from "@/lib/server/view";
+import type { GameView, NextDealGate } from "@/lib/server/view";
 import { DealOverlay } from "./DealOverlay";
 import type { EmojiReaction } from "./EmojiButton";
 import { playerName, seatTeam } from "./gameTableHelpers";
@@ -33,6 +33,7 @@ export function GameTableScene({
   bimTrickKey,
   reactions,
   onNextDeal,
+  nextDealGate,
 }: {
   gv: GameView;
   view: PlayerView;
@@ -44,6 +45,7 @@ export function GameTableScene({
   bimTrickKey: string | null;
   reactions?: Map<number, EmojiReaction>;
   onNextDeal: () => Promise<void> | void;
+  nextDealGate?: NextDealGate;
 }) {
   return (
     <section className="relative z-10 h-[720px] w-full shrink-0" data-id="table-scene">
@@ -60,7 +62,7 @@ export function GameTableScene({
       )}
       <BeloteFlash announced={view.beloteAnnounced} />
       <BimFlash bimTrickKey={bimTrickKey} />
-      <DealOverlay view={view} onNextDeal={onNextDeal} />
+      <DealOverlay view={view} onNextDeal={onNextDeal} nextDealGate={nextDealGate} />
     </section>
   );
 }
