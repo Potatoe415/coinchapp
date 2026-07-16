@@ -64,7 +64,7 @@ Fields:
 | display_name | text | Yes | |
 | is_bot | boolean | Yes | |
 | team | text | Yes | A = seats {0,2}, B = seats {1,3} |
-| connected | boolean | Yes | |
+| last_seen_at | timestamptz | Yes | Presence heartbeat, refreshed by `getView` for the caller's own seat. Drives the `connected` flag in the redacted view (computed on read, not stored) and the stale-turn auto-play fallback (`lib/server/actions-game.ts` `advanceStaleTurns`). A bot seat's liveness is judged by the host's own row instead (`isSeatLive` in `lib/server/repo.ts`), since bots have no client of their own. |
 | created_at | timestamptz | Yes | |
 
 Access_Rules:
@@ -131,3 +131,9 @@ Impact: Additive, non-breaking — existing rows default to `coinche`. The share
 Change: Merged the schema, the `game_type` column and the 48h TTL cron into one `supabase/migrations/0001_init.sql` with a full reset (unschedule cron + `drop table ... cascade`) at the top. Deleted `0002_games_ttl_48h.sql` and `0003_games_game_type.sql`.
 Reason: User wants one script to wipe the (sandbox) DB and rebuild from zero.
 Impact: `0001_init.sql` is now the single executable source of truth; run it alone to recreate everything. Destructive by design — do not run against production data.
+
+## 2026-07-16 - `connected` boolean replaced by `last_seen_at` heartbeat
+
+Change: Removed `game_players.connected` (a boolean that was always `true`, never updated) and added `game_players.last_seen_at timestamptz not null default now()`, refreshed by `getView` for the caller's own seat on every call.
+Reason: Detect an absent host or player so the table stops freezing forever; the old column was dead weight (nothing ever wrote to it besides the default).
+Impact: `LobbyPlayer.connected` in `GameView` is now computed on read (`isSeatLive` in `lib/server/repo.ts`) instead of stored. `getView` also opportunistically auto-plays a turn whose responsible party has gone silent too long (`advanceStaleTurns` in `lib/server/actions-game.ts`), using the simple heuristic bot.

@@ -18,6 +18,8 @@ export interface GameActions {
   onNextDeal: () => Promise<void> | void;
   /** Online only: take over running the bots. */
   onBecomeHost?: () => Promise<void> | void;
+  /** Online only: force a manual re-sync (refetch + rebuild the realtime channel). */
+  onForceSync?: () => void;
   /** Local only: restart the game from scratch with same settings. */
   onReset?: () => void;
   /** Local only: re-deal the current hand (no card played yet). */
@@ -225,11 +227,12 @@ export function GameTable({ gv, actions, reactions }: { gv: GameView; actions: G
         onReshuffle={actions.onReshuffle}
         emojiControls={actions.onSendEmoji ? { enabled: emojiOn, onToggle: toggleEmoji } : undefined}
         host={
-          actions.onBecomeHost
+          actions.onBecomeHost && actions.onForceSync
             ? {
                 isHost: gv.isHost,
                 hostName: gv.hostSeat !== null ? playerName(gv, gv.hostSeat) : null,
                 onBecomeHost: actions.onBecomeHost,
+                onForceSync: actions.onForceSync,
               }
             : undefined
         }

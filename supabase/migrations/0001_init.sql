@@ -52,7 +52,12 @@ create table public.game_players (
   display_name text not null,
   is_bot boolean not null default false,
   team text not null,
-  connected boolean not null default true,
+  -- Last time this seat's client called getView (presence heartbeat). For a
+  -- bot seat, liveness is judged by the host's own row instead (see
+  -- lib/server/repo.ts isSeatLive) since bots have no client of their own.
+  -- Drives the "connected" flag in the redacted view - computed on read, not
+  -- stored (replaces the old always-true `connected` column).
+  last_seen_at timestamptz not null default now(),
   created_at timestamptz not null default now(),
   unique (game_id, seat)
 );

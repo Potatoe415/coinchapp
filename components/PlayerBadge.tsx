@@ -7,6 +7,8 @@ export interface PlayerBadgeProps {
   isTurn: boolean;
   isDealer: boolean;
   isThinking?: boolean;
+  /** Shows a dimmed dot when false (seat's responsible party gone quiet). */
+  connected?: boolean;
   reaction?: EmojiReaction;
   dataId?: string;
   orientation?: "horizontal" | "vertical";
@@ -18,24 +20,27 @@ export function PlayerBadge({
   isTurn,
   isDealer,
   isThinking = false,
+  connected = true,
   reaction,
   dataId,
   orientation = "horizontal",
 }: PlayerBadgeProps) {
   const teamClass = team === "A" ? "text-team-a" : "text-team-b";
   const turnClass = isTurn ? "underline decoration-2 underline-offset-2" : "";
+  const dimClass = connected ? "" : "opacity-50";
 
   if (orientation === "vertical") {
     return (
       <div data-id={dataId} className="flex items-center gap-1 drop-shadow-lg">
         {isThinking && <ThinkingIndicator />}
         <div
-          className={`px-1 py-2 text-lg font-black uppercase leading-none ${teamClass} ${turnClass}`}
+          className={`px-1 py-2 text-lg font-black uppercase leading-none ${teamClass} ${turnClass} ${dimClass}`}
           style={{ writingMode: "vertical-rl" }}
         >
           {name}
           {isDealer && <span className="mt-1 text-[10px]">D</span>}
         </div>
+        {!connected && <DisconnectedDot />}
         {reaction && (
           <span key={reaction.id} className="emoji-react text-xl leading-none" data-id="player-emoji-reaction">
             {reaction.emoji}
@@ -48,16 +53,27 @@ export function PlayerBadge({
   return (
     <div data-id={dataId} className="flex items-center gap-1 drop-shadow-lg">
       {isThinking && <ThinkingIndicator />}
-      <div className={`px-1 py-0.5 text-xl font-black uppercase leading-none ${teamClass} ${turnClass}`}>
+      <div className={`px-1 py-0.5 text-xl font-black uppercase leading-none ${teamClass} ${turnClass} ${dimClass}`}>
         {name}
         {isDealer && <span className="ml-1 align-middle text-[10px]">D</span>}
       </div>
+      {!connected && <DisconnectedDot />}
       {reaction && (
         <span key={reaction.id} className="emoji-react text-2xl leading-none" data-id="player-emoji-reaction">
           {reaction.emoji}
         </span>
       )}
     </div>
+  );
+}
+
+function DisconnectedDot() {
+  return (
+    <span
+      className="h-2 w-2 shrink-0 rounded-full bg-[var(--accent-red)]/70"
+      data-id="player-disconnected-dot"
+      aria-label="Déconnecté"
+    />
   );
 }
 

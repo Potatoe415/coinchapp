@@ -5,7 +5,7 @@ import { CAPOT_VALUE, cardId, GENERALE_VALUE, type Bid, type Card, type PlayerVi
 import type { GameView, NextDealGate } from "@/lib/server/view";
 import { DealOverlay } from "./DealOverlay";
 import type { EmojiReaction } from "./EmojiButton";
-import { playerName, seatTeam } from "./gameTableHelpers";
+import { isConnected, playerName, seatTeam } from "./gameTableHelpers";
 import { trumpModeLabel } from "./labels";
 import { PlayerBadge } from "./PlayerBadge";
 import { CardBack, PlayingCard } from "./PlayingCard";
@@ -136,6 +136,7 @@ function TopOpponent({ gv, view, seat, reaction }: { gv: GameView; view: PlayerV
           isTurn={view.turn === seat}
           isDealer={view.dealer === seat}
           isThinking={isSeatThinking(view, seat)}
+          connected={isConnected(gv, seat)}
           reaction={reaction}
           dataId={`player-seat-${seat}`}
         />
@@ -178,6 +179,7 @@ function SideOpponent({
           isTurn={view.turn === seat}
           isDealer={view.dealer === seat}
           isThinking={isSeatThinking(view, seat)}
+          connected={isConnected(gv, seat)}
           reaction={reaction}
           orientation="vertical"
           dataId={`player-seat-${seat}`}

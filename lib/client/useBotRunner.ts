@@ -49,8 +49,10 @@ export function useBotRunner(
           await refetch();
         }
       } catch {
-        // Host may have changed or another tick already advanced the state;
-        // the next realtime tick re-evaluates whose turn it is.
+        // Host may have changed, or a version conflict means another actor
+        // already advanced the state (see repo.ts updateVersioned). Refetch
+        // now instead of waiting for a tick that may never come.
+        if (!cancelled) await refetch();
       } finally {
         busyRef.current = false;
       }

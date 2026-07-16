@@ -1,6 +1,8 @@
 "use server";
 
 import {
+  chooseBid,
+  chooseCard,
   startNextDeal,
   submitBid,
   submitPlay,
@@ -12,8 +14,14 @@ import {
 } from "@/lib/coinche";
 import { getServiceClient, getUserId } from "@/lib/supabase/server";
 import type { GameRow, GameStatus } from "@/lib/supabase/types";
-import { botSeats, loadGame, persistGame, seatOf, touchGame, type LoadedGame } from "./repo";
+import { botSeats, isSeatLive, loadGame, persistGame, seatOf, touchGame, touchPresence, type LoadedGame } from "./repo";
 import { buildView, type GameView } from "./view";
+
+/** Above this silence, whoever is responsible for the current turn (a human,
+ * or the host for a bot seat) is presumed gone for good, and the simple
+ * heuristic bot plays their turn instead so the table never freezes forever. */
+const TAKEOVER_STALE_MS = 45_000;
+const MAX_TAKEOVER_STEPS = 16;
 
 /** A move the host client submits on behalf of a bot seat. */
 export type BotMove =
@@ -94,8 +102,45 @@ export async function becomeHost(gameId: string): Promise<void> {
   await touchGame(loaded.game as GameRow);
 }
 
+/**
+ * Safety net: auto-play any turn whose responsible party has gone silent for
+ * `TAKEOVER_STALE_MS`, using the simple heuristic bot (not the strong client
+ * ISMCTS brain, which needs a browser). Runs opportunistically on every
+ * `getView` call so an absent host or player can never freeze the table
+ * forever; concurrent callers are safe since `persistGame` requires the
+ * version to still match (see repo.ts `updateVersioned`).
+ */
+async function advanceStaleTurns(loaded: LoadedGame): Promise<void> {
+  const state = loaded.game.state;
+  if (!state) return;
+  const now = Date.now();
+  let current = state;
+  for (let steps = 0; steps < MAX_TAKEOVER_STEPS; steps++) {
+    const active = current.phase === "bidding" || current.phase === "playing";
+    if (!active || isSeatLive(loaded, current.turn, now, TAKEOVER_STALE_MS)) break;
+    current =
+      current.phase === "bidding"
+        ? submitBid(current, chooseBid(current))
+        : submitPlay(current, current.turn as Seat, chooseCard(current));
+  }
+  if (current === state) return;
+  try {
+    const status = statusFor(current);
+    const version = await persistGame(loaded.game as GameRow, current, status);
+    loaded.game.state = current;
+    loaded.game.status = status;
+    loaded.game.version = version;
+  } catch {
+    // Another caller already advanced it (version_conflict); the state we
+    // just read is stale but buildView still returns a consistent view.
+  }
+}
+
 export async function getView(gameId: string): Promise<GameView> {
   const uid = await getUserId();
   const loaded = await loadGame(gameId);
+  const mySeat = seatOf(uid, loaded.players);
+  if (mySeat !== null) await touchPresence(loaded, mySeat);
+  await advanceStaleTurns(loaded);
   return buildView(loaded, uid);
 }

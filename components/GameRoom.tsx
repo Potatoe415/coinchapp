@@ -21,7 +21,7 @@ type Channel = ReturnType<ReturnType<typeof createClient>["channel"]>;
 
 export function GameRoom({ gameId }: { gameId: string }) {
   const { t } = useI18n();
-  const { view, loading, error, refetch, notify } = useGameView(gameId);
+  const { view, loading, error, refetch, notify, forceResync } = useGameView(gameId);
   useBotRunner(gameId, view, refetch, notify);
 
   const [reactions, setReactions] = useState<Map<number, EmojiReaction>>(new Map());
@@ -76,6 +76,9 @@ export function GameRoom({ gameId }: { gameId: string }) {
     onBecomeHost: async () => {
       await becomeHost(gameId);
       await refetch();
+    },
+    onForceSync: () => {
+      forceResync();
     },
     onSendEmoji: (emoji: string) => {
       const mySeat = view?.mySeat;

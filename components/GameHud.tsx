@@ -17,6 +17,8 @@ export interface HostControls {
   isHost: boolean;
   hostName: string | null;
   onBecomeHost: () => Promise<void> | void;
+  /** Manual escape hatch if the game looks stuck: refetch + rebuild the realtime channel. */
+  onForceSync: () => void;
 }
 
 export interface EmojiControls {
@@ -245,6 +247,16 @@ function HostRow({ host, onClose }: { host: HostControls; onClose: () => void })
           {t("becomeHost")}
         </button>
       )}
+      <button
+        data-id="force-sync-button"
+        onClick={host.onForceSync}
+        className="rounded-lg bg-[var(--card-face)]/14 py-2 font-bold text-[var(--card-face)]"
+      >
+        {t("forceSync")}
+      </button>
+      <p className="text-xs text-[var(--card-face)]/60" data-id="force-sync-hint">
+        {t("forceSyncHint")}
+      </p>
     </div>
   );
 }

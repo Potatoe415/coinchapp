@@ -40,6 +40,7 @@ export interface PlayerRow {
   display_name: string;
   is_bot: boolean;
   team: "A" | "B";
-  connected: boolean;
+  /** Presence heartbeat, refreshed on every getView call from this seat's client. */
+  last_seen_at: string;
   created_at: string;
 }

@@ -1,6 +1,6 @@
 import { redact, type PlayerView } from "@/lib/coinche";
 import type { GameSettings, GameStatus } from "@/lib/supabase/types";
-import { seatOf, type LoadedGame } from "./repo";
+import { isSeatLive, PRESENCE_STALE_MS, seatOf, type LoadedGame } from "./repo";
 
 export interface LobbyPlayer {
   seat: number;
@@ -48,16 +48,21 @@ function buildBotViews(loaded: LoadedGame): Record<number, PlayerView> {
   return botViews;
 }
 
-export function buildView(loaded: LoadedGame, uid: string | null): GameView {
-  const { game, players } = loaded;
-  const mySeat = seatOf(uid, players);
-  const lobbyPlayers: LobbyPlayer[] = players.map((p) => ({
+function buildLobbyPlayers(loaded: LoadedGame): LobbyPlayer[] {
+  const now = Date.now();
+  return loaded.players.map((p) => ({
     seat: p.seat,
     displayName: p.display_name,
     isBot: p.is_bot,
     team: p.team,
-    connected: p.connected,
+    connected: isSeatLive(loaded, p.seat, now, PRESENCE_STALE_MS),
   }));
+}
+
+export function buildView(loaded: LoadedGame, uid: string | null): GameView {
+  const { game, players } = loaded;
+  const mySeat = seatOf(uid, players);
+  const lobbyPlayers = buildLobbyPlayers(loaded);
   const view =
     game.state && mySeat !== null ? redact(game.state, mySeat as 0 | 1 | 2 | 3) : null;
   const isHost = uid !== null && game.host_user_id === uid;

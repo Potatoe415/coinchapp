@@ -7,8 +7,9 @@ History lives in `docs/DECISIONS.md` (decisions) and `docs/BACKLOG.md` (tasks).
 
 Status: Vertical slice implemented. Builds and tests pass. Not yet deployed.
 Current_Goal: Ship the offline ad-hoc (WebRTC P2P) mode and validate pairing on real devices.
-Last_Action: Added comic-book speech bubbles in bidding phase: `BidBubble` component in `GameTableScene.tsx` shows each opponent's last bid (value + suit, Passe, Coinche, Surcoinche) as a styled bubble with a CSS-triangle tail pointing toward the player. Top opponent: tail up, below badge. Side opponents: tail left/right using flex ordering. tsc clean.
+Last_Action: Added a presence heartbeat + auto-play fallback so an absent host OR non-host player can no longer freeze the table forever. `game_players.connected` (dead, always true) replaced by `last_seen_at`, refreshed by `getView` for the caller's own seat (no new action/timer - piggybacks every existing refetch trigger). `isSeatLive` in `repo.ts` judges a bot seat's liveness via the current host's row (bots have no client of their own). `GameView.players[].connected` is now computed from it and shown as a dimmed dot on opponent badges (`PlayerBadge`, `GameTableScene.tsx`). `getView` also runs `advanceStaleTurns`: after 45s of silence from whoever is responsible for the current turn, the server auto-plays it with the simple heuristic bot, looped up to 16 steps. tsc/lint/vitest(47)/build all clean.
 Next_Actions:
+- Watch real games for whether the 30s/45s thresholds (`PRESENCE_STALE_MS`/`TAKEOVER_STALE_MS`) feel right; tune if the badge flickers on normal poll gaps or the takeover fires too eagerly/slowly.
 - Test ad-hoc pairing on two real phones on the same hotspot/Wi-Fi (Chrome mDNS `.local` candidate risk; no PoC was run).
 - Confirm with user whether to update `docs/PRODUCT.md` (offline/P2P now exists; "online only" framing outdated).
 - Wire `useMatchStats` into the scoring/finished screen to display the awards UI.

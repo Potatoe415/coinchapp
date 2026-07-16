@@ -187,12 +187,12 @@ export async function swapSeats(gameId: string, seatA: number, seatB: number): P
     // to the seat, so it does not change.
     await supabase
       .from("game_players")
-      .update({ user_id: playerB.user_id, display_name: playerB.display_name, is_bot: playerB.is_bot, connected: playerB.connected })
+      .update({ user_id: playerB.user_id, display_name: playerB.display_name, is_bot: playerB.is_bot })
       .eq("game_id", gameId)
       .eq("seat", seatA);
     await supabase
       .from("game_players")
-      .update({ user_id: playerA.user_id, display_name: playerA.display_name, is_bot: playerA.is_bot, connected: playerA.connected })
+      .update({ user_id: playerA.user_id, display_name: playerA.display_name, is_bot: playerA.is_bot })
       .eq("game_id", gameId)
       .eq("seat", seatB);
   } else if (playerA) {

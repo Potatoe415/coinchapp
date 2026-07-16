@@ -16,3 +16,9 @@ export function relativeSeat(mySeat: number, offset: number): number {
 export function playerName(gv: GameView, seat: number): string {
   return gv.players.find((p) => p.seat === seat)?.displayName ?? `Siège ${seat + 1}`;
 }
+
+/** Whether the seat's responsible party (the seat's own user, or the host
+ * for a bot seat) has called `getView` recently - see `lib/server/repo.ts`. */
+export function isConnected(gv: GameView, seat: number): boolean {
+  return gv.players.find((p) => p.seat === seat)?.connected ?? true;
+}
