@@ -120,6 +120,34 @@ describe("applyPlay", () => {
     expect(next.tricks).toHaveLength(1);
   });
 
+  it("queens: ends the round once the 4th queen falls, even spread across several tricks", () => {
+    const state = playingState({
+      turn: 0,
+      roundIndex: 2, // "queens"
+      hands: [
+        [card("Q", "H"), card("5", "H")],
+        [card("2", "D"), card("Q", "D")],
+        [card("3", "C"), card("Q", "C")],
+        [card("4", "S"), card("Q", "S")],
+      ],
+    });
+    // Trick 1: only the queen of hearts falls - round not decided yet.
+    let next = applyPlay(state, 0, card("Q", "H"));
+    next = applyPlay(next, 1, card("2", "D"));
+    next = applyPlay(next, 2, card("3", "C"));
+    next = applyPlay(next, 3, card("4", "S"));
+    expect(next.phase).toBe("playing");
+    expect(next.tricks).toHaveLength(1);
+
+    // Trick 2: the other 3 queens fall - all 4 are now down, round ends.
+    next = applyPlay(next, 0, card("5", "H"));
+    next = applyPlay(next, 1, card("Q", "D"));
+    next = applyPlay(next, 2, card("Q", "C"));
+    next = applyPlay(next, 3, card("Q", "S"));
+    expect(next.phase).toBe("scoring");
+    expect(next.tricks).toHaveLength(2);
+  });
+
   it("everything: capturing the king of spades does not end the round early (still needs all 13 tricks)", () => {
     const state = playingState({
       turn: 0,

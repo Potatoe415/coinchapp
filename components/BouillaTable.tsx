@@ -96,6 +96,22 @@ export function BouillaTable({
     }
   }
 
+  // Keep a ref to the latest onPlay so the auto-play timeout below uses fresh state.
+  const onPlayRef = useRef<(card: Card) => Promise<void>>(async () => {});
+  useEffect(() => {
+    onPlayRef.current = onPlay;
+  });
+
+  // Auto-play only when it's the very last card in hand (same behavior/timing as Coinche's GameTable).
+  const handCount = view.myHand.length;
+  useEffect(() => {
+    if (!myTurnToPlay || busy || handCount !== 1) return;
+    const card = view.myHand[0];
+    const timer = window.setTimeout(() => void onPlayRef.current(card), 700);
+    return () => window.clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [myTurnToPlay, busy, handCount]);
+
   return (
     <main
       className="relative mx-auto flex h-svh min-h-[720px] w-full max-w-[460px] flex-1 flex-col overflow-hidden bg-felt text-[var(--card-face)]"

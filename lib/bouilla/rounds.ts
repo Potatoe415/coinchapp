@@ -1,5 +1,5 @@
 import { isClub, isKingOfSpades, isQueen } from "./cards";
-import type { Round, Seat, Trick } from "./types";
+import type { PlayedCard, Round, Seat, Trick } from "./types";
 
 /** Fixed point values agreed with the user for each rule (see docs/DECISIONS.md). */
 export const TRICK_PENALTY = 5;
@@ -9,8 +9,8 @@ export const KING_OF_SPADES_PENALTY = 50;
 export const LAST_TRICK_PENALTY = 100;
 
 const TRICKS_PER_ROUND = 13;
-const CLUBS_PER_DECK = 13;
-const QUEENS_PER_DECK = 4;
+export const CLUBS_PER_DECK = 13;
+export const QUEENS_PER_DECK = 4;
 
 /** Per-seat penalty when that seat sweeps a round ("Capot"): the sweeper pays
  *  nothing and this amount is charged to every *other* seat instead (see
@@ -80,6 +80,22 @@ function soleCollector(tricks: Trick[], counter: (t: Trick) => number, total: nu
   return null;
 }
 
+/** True once `round` is already fully decided and no further trick can change its
+ *  outcome, so play can stop before all 13 tricks: "kingSpades" the instant the
+ *  king is captured, "queens" once all 4 queens have fallen (whoever ends up
+ *  holding them - unlike `sweepWinner`, this doesn't require a single collector).
+ *  Every other round still needs the full round to know the outcome. */
+export function roundDecidedEarly(round: Round, tricks: Trick[]): boolean {
+  switch (round) {
+    case "kingSpades":
+      return tricks.some(hasKingOfSpades);
+    case "queens":
+      return tricks.reduce((sum, t) => sum + queenCount(t), 0) === QUEENS_PER_DECK;
+    default:
+      return false;
+  }
+}
+
 /** Seat that swept `round` (the "Capot" bonus), or null if nobody did. Only
  *  "tricks"/"everything" (win every trick) and "clubs"/"queens" (collect every
  *  copy of the card) have a sweep - a single-event round can't be swept. */
@@ -97,5 +113,43 @@ export function sweepWinner(round: Round, tricks: Trick[]): Seat | null {
       return soleCollector(tricks, queenCount, QUEENS_PER_DECK);
     default:
       return null;
+  }
+}
+
+/** True if `seat` is still the only seat that could end up sweeping `round`, given
+ *  the tricks played *so far* this round (mid-round, unlike `sweepWinner` which
+ *  needs the round to be over). Trivially true before any relevant trick has gone
+ *  to someone else - a bot can use this to decide whether to keep pushing for the
+ *  "Capot" bonus (pay 0) instead of its usual duck-the-danger play. */
+export function sweepAliveFor(seat: Seat, round: Round, tricks: Trick[]): boolean {
+  switch (round) {
+    case "tricks":
+    case "everything":
+      return tricks.every((t) => t.winner === seat);
+    case "clubs":
+      return tricks.every((t) => clubCount(t) === 0 || t.winner === seat);
+    case "queens":
+      return tricks.every((t) => queenCount(t) === 0 || t.winner === seat);
+    default:
+      return false;
+  }
+}
+
+/** True if winning the trick currently in progress (`cardsSoFar`, the cards already
+ *  played to it) could still change who sweeps `round`: for "tricks"/"everything"
+ *  every trick counts; for "clubs"/"queens" only a trick that already holds one of
+ *  the tracked cards does. Always false for "kingSpades"/"lastTrick" - single-event
+ *  rounds with no sweep bonus (see `sweepWinner`). */
+export function trickMattersForSweep(round: Round, cardsSoFar: PlayedCard[]): boolean {
+  switch (round) {
+    case "tricks":
+    case "everything":
+      return true;
+    case "clubs":
+      return cardsSoFar.some((p) => isClub(p.card));
+    case "queens":
+      return cardsSoFar.some((p) => isQueen(p.card));
+    default:
+      return false;
   }
 }

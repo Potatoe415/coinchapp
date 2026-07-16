@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { sweepWinner, trickPenalty } from "./rounds";
+import { roundDecidedEarly, sweepAliveFor, sweepWinner, trickMattersForSweep, trickPenalty } from "./rounds";
 import { card } from "./test-utils";
-import type { Rank, Seat, Trick } from "./types";
+import type { PlayedCard, Rank, Seat, Trick } from "./types";
 
 function trickOf(cards: ReturnType<typeof card>[], winner: Seat = 0): Trick {
   return { leader: 0, cards: cards.map((c, seat) => ({ seat: seat as Seat, card: c })), winner };
@@ -88,5 +88,88 @@ describe("sweepWinner", () => {
   it("kingSpades/lastTrick: never sweep (single-event rounds)", () => {
     expect(sweepWinner("kingSpades", allTricksWonBy(0, 13))).toBeNull();
     expect(sweepWinner("lastTrick", allTricksWonBy(0, 13))).toBeNull();
+  });
+});
+
+describe("roundDecidedEarly", () => {
+  it("kingSpades: decided the instant the king of spades appears in any trick", () => {
+    const withKing = [trickOf([card("K", "S"), card("2", "H"), card("3", "H"), card("4", "H")])];
+    const withoutKing = [trickOf([card("2", "S"), card("2", "H"), card("3", "H"), card("4", "H")])];
+    expect(roundDecidedEarly("kingSpades", withKing)).toBe(true);
+    expect(roundDecidedEarly("kingSpades", withoutKing)).toBe(false);
+  });
+
+  it("queens: decided once all 4 queens have fallen, across any number of tricks or seats", () => {
+    const allInOneTrick = [trickOf([card("Q", "H"), card("Q", "D"), card("Q", "C"), card("Q", "S")], 3)];
+    expect(roundDecidedEarly("queens", allInOneTrick)).toBe(true);
+
+    const spreadAcrossSeats = [
+      trickOf([card("Q", "H"), card("2", "D"), card("3", "C"), card("4", "S")], 0),
+      trickOf([card("Q", "D"), card("Q", "C"), card("Q", "S"), card("2", "H")], 1),
+    ];
+    expect(roundDecidedEarly("queens", spreadAcrossSeats)).toBe(true);
+
+    const onlyThree = [trickOf([card("Q", "H"), card("Q", "D"), card("Q", "C"), card("2", "S")], 0)];
+    expect(roundDecidedEarly("queens", onlyThree)).toBe(false);
+  });
+
+  it("every other round always needs the full round", () => {
+    expect(roundDecidedEarly("tricks", allTricksWonBy(0, 12))).toBe(false);
+    expect(roundDecidedEarly("clubs", allTricksWonBy(0, 13))).toBe(false);
+    expect(roundDecidedEarly("lastTrick", allTricksWonBy(0, 13))).toBe(false);
+    expect(roundDecidedEarly("everything", allTricksWonBy(0, 13))).toBe(false);
+  });
+});
+
+describe("sweepAliveFor", () => {
+  it("tricks/everything: alive for the seat that has won every trick so far, dead for everyone else", () => {
+    const soFar = allTricksWonBy(1, 6);
+    expect(sweepAliveFor(1, "tricks", soFar)).toBe(true);
+    expect(sweepAliveFor(0, "tricks", soFar)).toBe(false);
+    expect(sweepAliveFor(1, "everything", soFar)).toBe(true);
+  });
+
+  it("tricks: dies for everyone the moment a second seat wins a trick", () => {
+    const split = [...allTricksWonBy(0, 3), ...allTricksWonBy(1, 1)];
+    expect(sweepAliveFor(0, "tricks", split)).toBe(false);
+    expect(sweepAliveFor(1, "tricks", split)).toBe(false);
+  });
+
+  it("queens: alive for the seat that has collected every queen seen so far, even across several tricks", () => {
+    const soFar: Trick[] = [
+      trickOf([card("Q", "H"), card("2", "D"), card("3", "C"), card("4", "S")], 2),
+      trickOf([card("5", "H"), card("6", "D"), card("7", "C"), card("8", "S")], 0), // no queen: doesn't count against seat 2
+      trickOf([card("Q", "D"), card("Q", "C"), card("Q", "S"), card("9", "H")], 2),
+    ];
+    expect(sweepAliveFor(2, "queens", soFar)).toBe(true);
+    expect(sweepAliveFor(0, "queens", soFar)).toBe(false);
+  });
+
+  it("kingSpades/lastTrick: never alive (single-event rounds have no sweep)", () => {
+    expect(sweepAliveFor(0, "kingSpades", allTricksWonBy(0, 5))).toBe(false);
+    expect(sweepAliveFor(0, "lastTrick", allTricksWonBy(0, 5))).toBe(false);
+  });
+});
+
+describe("trickMattersForSweep", () => {
+  function cardsOf(cards: ReturnType<typeof card>[]): PlayedCard[] {
+    return cards.map((c, seat) => ({ seat: seat as Seat, card: c }));
+  }
+
+  it("tricks/everything: every trick matters, even before any card is played", () => {
+    expect(trickMattersForSweep("tricks", [])).toBe(true);
+    expect(trickMattersForSweep("everything", cardsOf([card("2", "H")]))).toBe(true);
+  });
+
+  it("clubs/queens: only a trick that already holds the tracked card matters", () => {
+    expect(trickMattersForSweep("clubs", cardsOf([card("2", "H"), card("3", "C")]))).toBe(true);
+    expect(trickMattersForSweep("clubs", cardsOf([card("2", "H"), card("3", "D")]))).toBe(false);
+    expect(trickMattersForSweep("queens", cardsOf([card("Q", "S")]))).toBe(true);
+    expect(trickMattersForSweep("queens", [])).toBe(false);
+  });
+
+  it("kingSpades/lastTrick: never matters (no sweep to break)", () => {
+    expect(trickMattersForSweep("kingSpades", cardsOf([card("K", "S")]))).toBe(false);
+    expect(trickMattersForSweep("lastTrick", cardsOf([card("A", "H")]))).toBe(false);
   });
 });
