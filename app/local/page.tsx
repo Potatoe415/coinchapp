@@ -1,18 +1,31 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useState } from "react";
 import { useI18n } from "@/lib/client/i18n";
 import { GameSettingsPanel, DEFAULT_GAME_SETUP } from "@/components/GameSettingsPanel";
 import type { GameSetupValues } from "@/components/GameSettingsPanel";
 
 export default function LocalSetupPage() {
+  return (
+    <Suspense>
+      <LocalSetupPageInner />
+    </Suspense>
+  );
+}
+
+function LocalSetupPageInner() {
   const router = useRouter();
   const { t } = useI18n();
+  const isBouilla = useSearchParams().get("game") === "bouilla";
   const [setup, setSetup] = useState<GameSetupValues>(DEFAULT_GAME_SETUP);
 
   function startLocalGame() {
+    if (isBouilla) {
+      router.push("/local/play?game=bouilla");
+      return;
+    }
     const params = new URLSearchParams({
       target: String(setup.target),
       countContractOnlyIfMade: String(setup.countContractOnlyIfMade),
@@ -39,8 +52,12 @@ export default function LocalSetupPage() {
       </Link>
 
       <header className="text-center">
-        <h1 className="text-3xl font-black tracking-tight text-[var(--surface)]">{t("playLocal")}</h1>
-        <p className="text-sm text-[var(--foreground)]/75">{t("localSubtitle")}</p>
+        <h1 className="text-3xl font-black tracking-tight text-[var(--surface)]" data-id="local-title">
+          {isBouilla ? "la Bouilla en local" : t("playLocal")}
+        </h1>
+        <p className="text-sm text-[var(--foreground)]/75">
+          {isBouilla ? "4 joueurs, chacun pour soi, contre des bots." : t("localSubtitle")}
+        </p>
       </header>
 
       <section className="grid gap-3" data-id="local-actions-card">
@@ -53,12 +70,14 @@ export default function LocalSetupPage() {
         </button>
       </section>
 
-      <GameSettingsPanel
-        values={setup}
-        onChange={setSetup}
-        idPrefix="local"
-        title={t("settings")}
-      />
+      {!isBouilla && (
+        <GameSettingsPanel
+          values={setup}
+          onChange={setSetup}
+          idPrefix="local"
+          title={t("settings")}
+        />
+      )}
     </main>
   );
 }

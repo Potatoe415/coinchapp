@@ -12,6 +12,13 @@ import { playerName, relativeSeat } from "./gameTableHelpers";
 import { isRedSuit, trumpModeLabel } from "./labels";
 import { PlayingCard } from "./PlayingCard";
 
+/** This table only ever renders a Coinche game: narrow the shared, multi-game
+ *  `GameView` down to its Coinche-specific view/botViews shape. */
+export type CoincheGameView = Omit<GameView, "view" | "botViews"> & {
+  view: PlayerView | null;
+  botViews?: Record<number, PlayerView>;
+};
+
 export interface GameActions {
   onBid: (payload: BidPayload) => Promise<void> | void;
   onPlay: (card: Card) => Promise<void> | void;
@@ -97,7 +104,7 @@ function sortHand(hand: Card[], trump: TrumpMode | null): Card[] {
   });
 }
 
-export function GameTable({ gv, actions, reactions }: { gv: GameView; actions: GameActions; reactions?: Map<number, EmojiReaction> }) {
+export function GameTable({ gv, actions, reactions }: { gv: CoincheGameView; actions: GameActions; reactions?: Map<number, EmojiReaction> }) {
   const view = gv.view!;
   const mySeat = gv.mySeat!;
   const [busy, setBusy] = useState(false);

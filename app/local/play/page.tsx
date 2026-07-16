@@ -1,4 +1,5 @@
 import { LocalGame } from "@/components/LocalGame";
+import { BouillaLocalGame } from "@/components/BouillaLocalGame";
 import { BOT_PUNCH_LEVELS, type BotPunch, type ScoringRules } from "@/lib/coinche";
 
 const TARGETS = [500, 1000, 1500, 2000];
@@ -22,6 +23,7 @@ export default async function LocalPlayPage({
   searchParams,
 }: {
   searchParams: Promise<{
+    game?: string;
     target?: string;
     seed?: string;
     countContractOnlyIfMade?: string;
@@ -35,9 +37,12 @@ export default async function LocalPlayPage({
   }>;
 }) {
   const sp = await searchParams;
+  const seed = seedFromParams(sp.seed);
+  if (sp.game === "bouilla") {
+    return <BouillaLocalGame seed={seed} />;
+  }
   const target = Number(sp.target);
   const targetPoints = TARGETS.includes(target) ? target : 1000;
-  const seed = seedFromParams(sp.seed);
   const scoringRules: ScoringRules = {
     countContractOnlyIfMade: sp.countContractOnlyIfMade === "true",
     failedContractDefensePoints: parsePoints(sp.failedContractDefensePoints, 160),

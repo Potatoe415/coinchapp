@@ -1,22 +1,28 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import type { Card } from "@/lib/coinche";
-import type { GameActions } from "@/components/GameTable";
+import type { BidPayload } from "@/components/BiddingPanel";
 import type { GameView } from "@/lib/server/view";
 import type { P2PConnection } from "./p2p/connection";
-import { parseHostMessage, type ClientMessage } from "./p2p/protocol";
+import { parseHostMessage, type ClientMessage, type WireCard } from "./p2p/protocol";
+
+/** Client-side move senders, loosely typed at the transport boundary (see `WireCard`).
+ *  Both `GameTable` (Coinche) and `BouillaTable` build their own actions object from these. */
+export interface P2PClientActions {
+  onBid: (payload: BidPayload) => void;
+  onPlay: (card: WireCard) => void;
+  onNextDeal: () => void;
+}
 
 /**
  * Light client: receives its redacted GameView from the host over the data
- * channel and sends back its own seat's moves. Produces the same
- * GameView/GameActions contract as the other producers, so GameTable renders
- * unchanged. Returns gv=null until the first view arrives.
+ * channel and sends back its own seat's moves. Returns gv=null until the
+ * first view arrives.
  */
 export function useP2PClient(
   conn: P2PConnection,
   name: string,
-): { gv: GameView | null; connected: boolean } & { actions: GameActions } {
+): { gv: GameView | null; connected: boolean; actions: P2PClientActions } {
   const [gv, setGv] = useState<GameView | null>(null);
   const connRef = useRef(conn);
 
@@ -33,10 +39,10 @@ export function useP2PClient(
     send({ t: "hello", name });
   }, [name, send]);
 
-  const actions: GameActions = useMemo(
+  const actions: P2PClientActions = useMemo(
     () => ({
       onBid: (payload) => send({ t: "bid", payload }),
-      onPlay: (card: Card) => send({ t: "play", card }),
+      onPlay: (card: WireCard) => send({ t: "play", card }),
       onNextDeal: () => send({ t: "nextDeal" }),
     }),
     [send],

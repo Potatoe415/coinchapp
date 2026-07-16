@@ -1,7 +1,10 @@
-import type { BotPunch, GameState } from "@/lib/coinche";
+import type { BotPunch, GameState as CoincheGameState } from "@/lib/coinche";
+import type { GameState as BouillaGameState } from "@/lib/bouilla";
 
+/** Coinche settings are all optional here: Bouilla games carry an empty `{}` since its
+ *  6 rounds/point values are fixed (see docs/DECISIONS.md), no per-game configuration. */
 export interface GameSettings {
-  targetPoints: number;
+  targetPoints?: number;
   countContractOnlyIfMade?: boolean;
   failedContractDefensePoints?: number;
   zeroPointsForNonContractingTeamWhenContractMade?: boolean;
@@ -16,7 +19,9 @@ export interface GameSettings {
 export type GameStatus = "lobby" | "playing" | "finished";
 
 /** Which game a row belongs to. Extend the union when a new game is added. */
-export type GameType = "coinche";
+export type GameType = "coinche" | "bouilla";
+
+export type AnyGameState = CoincheGameState | BouillaGameState;
 
 export interface GameRow {
   id: string;
@@ -25,7 +30,7 @@ export interface GameRow {
   game_type: GameType;
   status: GameStatus;
   settings: GameSettings;
-  state: GameState | null;
+  state: AnyGameState | null;
   version: number;
   /** User id of the client that runs the bots. Null until set on create. */
   host_user_id: string | null;

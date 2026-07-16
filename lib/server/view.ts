@@ -1,6 +1,9 @@
-import { redact, type PlayerView } from "@/lib/coinche";
-import type { GameSettings, GameStatus } from "@/lib/supabase/types";
+import { redact as redactCoinche, type PlayerView as CoinchePlayerView } from "@/lib/coinche";
+import { redact as redactBouilla, type PlayerView as BouillaPlayerView } from "@/lib/bouilla";
+import type { GameRow, GameSettings, GameStatus, GameType } from "@/lib/supabase/types";
 import { isSeatLive, PRESENCE_STALE_MS, seatOf, type LoadedGame } from "./repo";
+
+export type AnyPlayerView = CoinchePlayerView | BouillaPlayerView;
 
 export interface LobbyPlayer {
   seat: number;
@@ -20,12 +23,13 @@ export interface NextDealGate {
 export interface GameView {
   gameId: string;
   roomCode: string;
+  gameType: GameType;
   status: GameStatus;
   settings: GameSettings;
   version: number;
   players: LobbyPlayer[];
   mySeat: number | null;
-  view: PlayerView | null;
+  view: AnyPlayerView | null;
   /** User id of the client that runs the bots. */
   hostUserId: string | null;
   /** Seat of the host, or null if the host has no seat. */
@@ -33,17 +37,24 @@ export interface GameView {
   /** Whether the caller is the host (and thus the bot runner). */
   isHost: boolean;
   /** Redacted per-seat views for every bot seat. Present only for the host. */
-  botViews?: Record<number, PlayerView>;
+  botViews?: Record<number, AnyPlayerView>;
   /** Ad-hoc only: present during the scoring phase to gate the next deal. */
   nextDealGate?: NextDealGate;
 }
 
-function buildBotViews(loaded: LoadedGame): Record<number, PlayerView> {
+/** Dispatch to the active game's own redact function (never shared: each game's
+ *  hidden-information rules differ). */
+function redactForSeat(game: GameRow, seat: 0 | 1 | 2 | 3): AnyPlayerView {
+  if (game.game_type === "bouilla") return redactBouilla(game.state as Parameters<typeof redactBouilla>[0], seat);
+  return redactCoinche(game.state as Parameters<typeof redactCoinche>[0], seat);
+}
+
+function buildBotViews(loaded: LoadedGame): Record<number, AnyPlayerView> {
   const { game, players } = loaded;
-  const botViews: Record<number, PlayerView> = {};
+  const botViews: Record<number, AnyPlayerView> = {};
   if (!game.state) return botViews;
   for (const player of players) {
-    if (player.is_bot) botViews[player.seat] = redact(game.state, player.seat as 0 | 1 | 2 | 3);
+    if (player.is_bot) botViews[player.seat] = redactForSeat(game, player.seat as 0 | 1 | 2 | 3);
   }
   return botViews;
 }
@@ -63,13 +74,13 @@ export function buildView(loaded: LoadedGame, uid: string | null): GameView {
   const { game, players } = loaded;
   const mySeat = seatOf(uid, players);
   const lobbyPlayers = buildLobbyPlayers(loaded);
-  const view =
-    game.state && mySeat !== null ? redact(game.state, mySeat as 0 | 1 | 2 | 3) : null;
+  const view = game.state && mySeat !== null ? redactForSeat(game, mySeat as 0 | 1 | 2 | 3) : null;
   const isHost = uid !== null && game.host_user_id === uid;
   const hostSeat = players.find((p) => p.user_id === game.host_user_id)?.seat ?? null;
   return {
     gameId: game.id,
     roomCode: game.room_code,
+    gameType: game.game_type,
     status: game.status,
     settings: game.settings,
     version: game.version,

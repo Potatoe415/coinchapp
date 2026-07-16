@@ -1,12 +1,59 @@
 "use client";
 
 import { useI18n } from "@/lib/client/i18n";
+import type { GameType } from "@/lib/supabase/types";
 
 interface Props {
   onClose: () => void;
+  game?: GameType;
 }
 
-const RULES = {
+const BOUILLA_RULES = {
+  fr: {
+    title: "Règles de la Bouilla",
+    sections: [
+      {
+        heading: "But du jeu",
+        body: "4 joueurs, chacun pour soi. Paquet de 52 cartes (13 par joueur), pas d'atout. 6 manches à règle fixe, jouées une seule fois chacune. À la fin, le moins de points gagne (comme au golf).",
+      },
+      {
+        heading: "Les 6 manches",
+        body: "1. Éviter les plis — 5 pts par pli pris.\n2. Éviter les trèfles — 10 pts par trèfle pris.\n3. Éviter les dames — 20 pts par dame prise.\n4. Éviter le roi de pique — 50 pts s'il est pris.\n5. Éviter le dernier pli — 100 pts.\n6. La Bouilla : toutes les règles ci-dessus cumulées sur les mêmes plis.",
+      },
+      {
+        heading: "Le jeu des plis",
+        body: "Fournissez la couleur demandée si vous le pouvez, sinon défaussez librement (pas d'atout, donc pas d'obligation de couper). Le pli est remporté par la plus haute carte de la couleur demandée.",
+      },
+      {
+        heading: "Le score",
+        body: "Les pénalités de chaque manche s'additionnent au score total de chaque joueur. Après les 6 manches, le ou les joueurs avec le moins de points remportent la partie.",
+      },
+    ],
+  },
+  en: {
+    title: "la Bouilla Rules",
+    sections: [
+      {
+        heading: "Goal",
+        body: "4 players, every player for themselves. Full 52-card pack (13 each), no trump. 6 fixed rounds, each played once. Lowest total score wins (like golf).",
+      },
+      {
+        heading: "The 6 rounds",
+        body: "1. Avoid tricks — 5 pts per trick won.\n2. Avoid clubs — 10 pts per club won.\n3. Avoid queens — 20 pts per queen won.\n4. Avoid the king of spades — 50 pts if won.\n5. Avoid the last trick — 100 pts.\n6. Everything at once: every rule above stacked on the same tricks.",
+      },
+      {
+        heading: "Playing tricks",
+        body: "Follow the led suit if you can, otherwise discard freely (no trump, so no obligation to cut). The trick goes to the highest card of the led suit.",
+      },
+      {
+        heading: "Scoring",
+        body: "Each round's penalties add to every player's running total. After all 6 rounds, whoever has the lowest total wins.",
+      },
+    ],
+  },
+} as const;
+
+const COINCHE_RULES = {
   fr: {
     title: "Règles de la Coinche",
     sections: [
@@ -67,9 +114,9 @@ const RULES = {
   },
 } as const;
 
-export function RulesModal({ onClose }: Props) {
+export function RulesModal({ onClose, game = "coinche" }: Props) {
   const { locale } = useI18n();
-  const rules = RULES[locale];
+  const rules = (game === "bouilla" ? BOUILLA_RULES : COINCHE_RULES)[locale];
 
   return (
     <div

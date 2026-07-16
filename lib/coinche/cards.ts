@@ -1,6 +1,8 @@
+import { buildDeck as buildDeckGeneric, cardId as cardIdGeneric, sameCard as sameCardGeneric, SUITS as GENERIC_SUITS } from "@/lib/cards";
 import type { Card, Rank, Seat, Suit, Team, TrumpMode } from "./types";
 
-export const SUITS: Suit[] = ["H", "D", "C", "S"];
+export { nextSeat } from "@/lib/cards";
+export const SUITS: Suit[] = GENERIC_SUITS;
 export const RANKS: Rank[] = ["7", "8", "9", "10", "J", "Q", "K", "A"];
 
 /** Trump strength order, weakest -> strongest. Index = strength. */
@@ -55,21 +57,15 @@ const TOUT_ATOUT_POINTS: Record<Rank, number> = {
 };
 
 export function buildDeck(): Card[] {
-  const deck: Card[] = [];
-  for (const suit of SUITS) {
-    for (const rank of RANKS) {
-      deck.push({ suit, rank });
-    }
-  }
-  return deck;
+  return buildDeckGeneric(RANKS, SUITS);
 }
 
 export function cardId(card: Card): string {
-  return `${card.rank}${card.suit}`;
+  return cardIdGeneric(card);
 }
 
 export function sameCard(a: Card, b: Card): boolean {
-  return a.suit === b.suit && a.rank === b.rank;
+  return sameCardGeneric(a, b);
 }
 
 export function isTrump(card: Card, trump: TrumpMode | null): boolean {
@@ -105,8 +101,4 @@ export function teamOf(seat: Seat): Team {
 
 export function partnerOf(seat: Seat): Seat {
   return ((seat + 2) % 4) as Seat;
-}
-
-export function nextSeat(seat: Seat): Seat {
-  return ((seat + 1) % 4) as Seat;
 }

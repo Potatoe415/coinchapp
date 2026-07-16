@@ -1,6 +1,5 @@
 import { getServiceClient } from "@/lib/supabase/server";
-import type { GameRow, GameStatus, PlayerRow } from "@/lib/supabase/types";
-import type { GameState } from "@/lib/coinche";
+import type { AnyGameState, GameRow, GameStatus, PlayerRow } from "@/lib/supabase/types";
 
 export interface LoadedGame {
   game: GameRow;
@@ -152,7 +151,7 @@ async function updateVersioned(
 /** Persist a new authoritative state and emit a realtime tick. */
 export async function persistGame(
   game: GameRow,
-  state: GameState,
+  state: AnyGameState,
   status: GameStatus,
 ): Promise<number> {
   return updateVersioned(game, { state, status });

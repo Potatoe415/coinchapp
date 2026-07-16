@@ -1,7 +1,9 @@
+import { shuffle, type Rng } from "@/lib/cards";
 import { buildDeck, nextSeat } from "./cards";
 import type { Card, GameState, ScoringRules } from "./types";
 
-export type Rng = () => number;
+export type { Rng } from "@/lib/cards";
+export { shuffle };
 export const DEFAULT_SCORING_RULES: ScoringRules = {
   countContractOnlyIfMade: false,
   failedContractDefensePoints: 160,
@@ -11,16 +13,6 @@ export const DEFAULT_SCORING_RULES: ScoringRules = {
   allowToutAtoutSansAtout: false,
   requireMorePointsToWin: true,
 };
-
-/** Fisher-Yates shuffle with an injectable RNG (deterministic in tests). */
-export function shuffle<T>(items: T[], rng: Rng = Math.random): T[] {
-  const out = items.slice();
-  for (let i = out.length - 1; i > 0; i--) {
-    const j = Math.floor(rng() * (i + 1));
-    [out[i], out[j]] = [out[j], out[i]];
-  }
-  return out;
-}
 
 /** Deal 8 cards per seat in the classic 3-2-3 pattern. */
 export function dealHands(deck: Card[]): Card[][] {

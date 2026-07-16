@@ -8,10 +8,12 @@ import { useGameView } from "@/lib/client/useGameView";
 import { ensureAnonAuth } from "@/lib/client/auth";
 import { becomeHost, nextDeal, placeBid, playCard } from "@/lib/server/actions-game";
 import type { Card } from "@/lib/coinche";
+import type { Card as BouillaCard } from "@/lib/bouilla";
 import { createClient } from "@/lib/supabase/client";
 import type { EmojiReaction } from "./EmojiButton";
 import { Lobby } from "./Lobby";
-import { GameTable, type GameActions } from "./GameTable";
+import { GameTable, type GameActions, type CoincheGameView } from "./GameTable";
+import { BouillaTable, type BouillaActions, type BouillaGameView } from "./BouillaTable";
 import type { BidPayload } from "./BiddingPanel";
 
 const REACTION_TTL = 3000;
@@ -57,7 +59,23 @@ export function GameRoom({ gameId }: { gameId: string }) {
     };
   }, [gameId, addReaction]);
 
-  const actions: GameActions = {
+  const onSendEmoji = (emoji: string) => {
+    const mySeat = view?.mySeat;
+    if (mySeat === null || mySeat === undefined) return;
+    void channelRef.current?.send({
+      type: "broadcast",
+      event: "emoji",
+      payload: { seat: mySeat, emoji } satisfies EmojiPayload,
+    });
+    addReaction(mySeat, emoji);
+  };
+  const onBecomeHost = async () => {
+    await becomeHost(gameId);
+    await refetch();
+  };
+  const onForceSync = () => forceResync();
+
+  const coincheActions: GameActions = {
     onBid: async (payload: BidPayload) => {
       await placeBid(gameId, payload);
       notify();
@@ -73,23 +91,25 @@ export function GameRoom({ gameId }: { gameId: string }) {
       notify();
       await refetch();
     },
-    onBecomeHost: async () => {
-      await becomeHost(gameId);
+    onBecomeHost,
+    onForceSync,
+    onSendEmoji,
+  };
+
+  const bouillaActions: BouillaActions = {
+    onPlay: async (card: BouillaCard) => {
+      await playCard(gameId, card);
+      notify();
       await refetch();
     },
-    onForceSync: () => {
-      forceResync();
+    onNextRound: async () => {
+      await nextDeal(gameId);
+      notify();
+      await refetch();
     },
-    onSendEmoji: (emoji: string) => {
-      const mySeat = view?.mySeat;
-      if (mySeat === null || mySeat === undefined) return;
-      void channelRef.current?.send({
-        type: "broadcast",
-        event: "emoji",
-        payload: { seat: mySeat, emoji } satisfies EmojiPayload,
-      });
-      addReaction(mySeat, emoji);
-    },
+    onBecomeHost,
+    onForceSync,
+    onSendEmoji,
   };
 
   if (loading) {
@@ -125,7 +145,10 @@ export function GameRoom({ gameId }: { gameId: string }) {
     );
   }
 
-  return <GameTable gv={view} actions={actions} reactions={reactions} />;
+  if (view.gameType === "bouilla") {
+    return <BouillaTable gv={view as BouillaGameView} actions={bouillaActions} reactions={reactions} />;
+  }
+  return <GameTable gv={view as CoincheGameView} actions={coincheActions} reactions={reactions} />;
 }
 
 function Centered({ children }: { children: React.ReactNode }) {

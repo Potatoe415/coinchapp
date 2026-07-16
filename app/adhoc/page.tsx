@@ -1,5 +1,10 @@
+import { Suspense } from "react";
 import { AdHocLobby } from "@/components/AdHocLobby";
 
 export default function AdHocPage() {
-  return <AdHocLobby />;
+  return (
+    <Suspense>
+      <AdHocLobby />
+    </Suspense>
+  );
 }

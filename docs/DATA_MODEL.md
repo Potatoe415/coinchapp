@@ -35,10 +35,10 @@ Fields:
 |---|---|---|---|
 | id | uuid | Yes | Primary key |
 | room_code | text | Yes | Unique join code |
-| game_type | text | Yes | Which game this row is (default `'coinche'`); lets one project host several games. Indexed. |
+| game_type | text | Yes | `"coinche" \| "bouilla"` (default `'coinche'`); lets one project host several games, and picks which rules engine (`lib/coinche` or `lib/bouilla`) `actions-lobby.ts`/`actions-game.ts`/`view.ts` dispatch to. Indexed. |
 | status | text | Yes | lobby / playing / finished |
-| settings | jsonb | Yes | `GameSettings`: targetPoints, countContractOnlyIfMade, failedContractDefensePoints, zeroPointsForNonContractingTeamWhenContractMade, capotMadePoints, capotFailedDefensePoints, allowToutAtoutSansAtout, requireMorePointsToWin, botPunch ("low"\|"med"\|"high", default "med"; bot bidding aggressiveness, not part of GameState) |
-| state | jsonb | No | Full `GameState` (hidden hands). Server-only. |
+| settings | jsonb | Yes | `GameSettings`, all fields optional so one shape fits both games. Coinche: targetPoints, countContractOnlyIfMade, failedContractDefensePoints, zeroPointsForNonContractingTeamWhenContractMade, capotMadePoints, capotFailedDefensePoints, allowToutAtoutSansAtout, requireMorePointsToWin, botPunch ("low"\|"med"\|"high", default "med"; bot bidding aggressiveness, not part of GameState). Bouilla: always `{}` — its 6 rounds/point values are fixed, no per-game config. |
+| state | jsonb | No | Full `GameState` for the row's `game_type` (`AnyGameState` = Coinche `GameState` \| Bouilla `GameState`, hidden hands). Server-only. |
 | version | integer | Yes | Incremented on each change (realtime tick) |
 | host_user_id | uuid | No | User id of the client that runs the bots. Set to creator on create; reassigned by `becomeHost`. |
 | created_at | timestamptz | Yes | |
@@ -137,3 +137,9 @@ Impact: `0001_init.sql` is now the single executable source of truth; run it alo
 Change: Removed `game_players.connected` (a boolean that was always `true`, never updated) and added `game_players.last_seen_at timestamptz not null default now()`, refreshed by `getView` for the caller's own seat on every call.
 Reason: Detect an absent host or player so the table stops freezing forever; the old column was dead weight (nothing ever wrote to it besides the default).
 Impact: `LobbyPlayer.connected` in `GameView` is now computed on read (`isSeatLive` in `lib/server/repo.ts`) instead of stored. `getView` also opportunistically auto-plays a turn whose responsible party has gone silent too long (`advanceStaleTurns` in `lib/server/actions-game.ts`), using the simple heuristic bot.
+
+## 2026-07-16 - `game_type` actually used: second game "la Bouilla"
+
+Change: No SQL change (the `game_type` column and its `'coinche'` default already existed since 2026-06-12). `createGame` now accepts and persists `game_type: "bouilla"`; `GameSettings` fields all became optional (Bouilla rows store `settings = {}`); `GameRow.state`/`GameView.view`/`botViews` are now discriminated unions (`AnyGameState`/`AnyPlayerView`) over both games' `GameState`/`PlayerView` shapes.
+Reason: First real consumer of the `game_type` discriminator that was added ahead of need.
+Impact: Existing Coinche rows/behavior unchanged (still default `'coinche'`, same settings shape). Every read of `game.state`/`game.settings` that is specific to one engine narrows via `game.game_type` first (see `lib/server/view.ts` `redactForSeat`, `lib/server/actions-game.ts`, `lib/server/actions-lobby.ts` `startInitialState`/`sanitizeSettings`).

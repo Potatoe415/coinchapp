@@ -88,6 +88,14 @@ export default function Home() {
             {t("adhocOfflineNote")}
           </span>
         </button>
+
+        <button
+          data-id="play-bouilla-button"
+          onClick={() => router.push("/bouilla")}
+          className="w-full rounded-2xl bg-[var(--accent-orange)] px-4 py-5 text-lg font-black text-[var(--surface)] shadow-lg"
+        >
+          Jouer à la Bouilla
+        </button>
       </div>
 
       <div className="relative z-10 mt-auto mb-4 flex items-center gap-3 self-center" data-id="home-footer-actions">

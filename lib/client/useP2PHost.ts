@@ -4,11 +4,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   beginNextDeal,
   createInitialState,
-  redact,
   startNextDeal,
   submitBid,
   submitPlay,
   type BotPunch,
+  type Card,
   type GameState,
   type Seat,
 } from "@/lib/coinche";
@@ -23,7 +23,9 @@ import {
   type ClientMessage,
   type RosterEntry,
 } from "./p2p/protocol";
-import { applyBotAction, attachGate, scoringFromSettings, seededRng, wait } from "./p2p/hostEngine";
+import { attachGate, scoringFromSettings, seededRng, wait } from "./p2p/hostEngine";
+import { runBotLoop } from "./cardGameDriver";
+import { coincheEngine } from "./coincheEngineAdapter";
 
 /** Must match the CSS trick-collect animation duration. */
 const COLLECT_DELAY_MS = 1500;
@@ -47,7 +49,7 @@ export function useP2PHost(config: P2PHostConfig): { gv: GameView; actions: Game
   const { mySeat, settings, seed } = config;
   const [state, setState] = useState<GameState>(() =>
     beginNextDeal(
-      createInitialState(settings.targetPoints, scoringFromSettings(settings)),
+      createInitialState(settings.targetPoints ?? 1000, scoringFromSettings(settings)),
       seededRng(seed),
     ),
   );
@@ -106,17 +108,15 @@ export function useP2PHost(config: P2PHostConfig): { gv: GameView; actions: Game
     if (busyRef.current) return;
     busyRef.current = true;
     try {
-      let guard = 0;
-      while (guard++ < 64) {
-        const prev = stateRef.current;
-        if (prev.phase !== "bidding" && prev.phase !== "playing") break;
-        if (!isBotSeat(prev.turn)) break;
-        const seat = prev.turn as Seat;
-        const [action] = await Promise.all([decide(redact(prev, seat)), wait(BOT_THINKING_MS)]);
-        const next = applyBotAction(prev, seat, action);
-        commit(next);
-        if (next.tricks.length > prev.tricks.length) await wait(COLLECT_DELAY_MS);
-      }
+      await runBotLoop({
+        engine: coincheEngine,
+        getState: () => stateRef.current,
+        isBot: isBotSeat,
+        decide,
+        commit,
+        thinkingMs: BOT_THINKING_MS,
+        collectDelayMs: COLLECT_DELAY_MS,
+      });
     } finally {
       busyRef.current = false;
     }
@@ -128,7 +128,7 @@ export function useP2PHost(config: P2PHostConfig): { gv: GameView; actions: Game
       let next: GameState;
       try {
         if (msg.t === "bid") next = submitBid(prev, { seat, ...msg.payload });
-        else if (msg.t === "play") next = submitPlay(prev, seat, msg.card);
+        else if (msg.t === "play") next = submitPlay(prev, seat, msg.card as unknown as Card);
         else return; // hello/nextDeal are handled separately
       } catch {
         return;

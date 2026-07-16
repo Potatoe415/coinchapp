@@ -91,9 +91,11 @@ export function Lobby({ gv, onChange }: { gv: GameView; onChange: () => Promise<
         <p className="text-4xl font-black tracking-[0.3em] text-[var(--surface)]" data-id="lobby-room-code">
           {gv.roomCode}
         </p>
-        <p className="mt-1 text-xs text-[var(--foreground)]/60">
-          {t("target")} {gv.settings.targetPoints}
-        </p>
+        {gv.settings.targetPoints !== undefined && (
+          <p className="mt-1 text-xs text-[var(--foreground)]/60">
+            {t("target")} {gv.settings.targetPoints}
+          </p>
+        )}
         <button
           data-id="lobby-copy-invite"
           onClick={copyInviteLink}

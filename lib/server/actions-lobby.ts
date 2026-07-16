@@ -1,8 +1,9 @@
 "use server";
 
 import { beginNextDeal, BOT_PUNCH_LEVELS, createInitialState } from "@/lib/coinche";
+import { beginNextRound, createInitialState as createInitialBouillaState } from "@/lib/bouilla";
 import { getServiceClient, getUserId } from "@/lib/supabase/server";
-import type { GameRow, GameSettings } from "@/lib/supabase/types";
+import type { AnyGameState, GameRow, GameSettings, GameType } from "@/lib/supabase/types";
 import {
   findGameByCode,
   loadGame,
@@ -21,7 +22,7 @@ function sanitizePoints(val: number | undefined, fallback: number): number {
   return Number.isFinite(val) && (val as number) >= 0 ? Math.floor(val as number) : fallback;
 }
 
-function sanitizeSettings(input: Partial<GameSettings>): GameSettings {
+function sanitizeCoincheSettings(input: Partial<GameSettings>): GameSettings {
   const targetPoints = TARGET_OPTIONS.includes(input.targetPoints ?? 0)
     ? (input.targetPoints as number)
     : 1000;
@@ -36,6 +37,15 @@ function sanitizeSettings(input: Partial<GameSettings>): GameSettings {
     requireMorePointsToWin: input.requireMorePointsToWin !== false,
     botPunch: BOT_PUNCH_LEVELS.includes(input.botPunch ?? "med") ? (input.botPunch ?? "med") : "med",
   };
+}
+
+/** Bouilla has no per-game configuration: its 6 rounds/point values are fixed. */
+function sanitizeSettings(gameType: GameType, input: Partial<GameSettings>): GameSettings {
+  return gameType === "bouilla" ? {} : sanitizeCoincheSettings(input);
+}
+
+function isGameType(value: unknown): value is GameType {
+  return value === "coinche" || value === "bouilla";
 }
 
 function cleanName(name: string, fallback: string): string {
@@ -57,11 +67,13 @@ async function requireUser(): Promise<string> {
 
 export async function createGame(input: {
   displayName: string;
+  gameType?: GameType;
   settings: Partial<GameSettings>;
 }): Promise<{ gameId: string; roomCode: string }> {
   const uid = await requireUser();
   const supabase = getServiceClient();
-  const settings = sanitizeSettings(input.settings);
+  const gameType = isGameType(input.gameType) ? input.gameType : "coinche";
+  const settings = sanitizeSettings(gameType, input.settings);
 
   let roomCode = randomRoomCode();
   for (let attempt = 0; attempt < 5; attempt++) {
@@ -70,11 +82,9 @@ export async function createGame(input: {
     roomCode = randomRoomCode();
   }
 
-  // game_type is left to the column default ('coinche') so creating a game never
-  // depends on the migration that adds the column having run on this DB.
   const { data, error } = await supabase
     .from("games")
-    .insert({ room_code: roomCode, status: "lobby", settings, version: 0, host_user_id: uid })
+    .insert({ room_code: roomCode, game_type: gameType, status: "lobby", settings, version: 0, host_user_id: uid })
     .select("id")
     .single();
   if (error || !data) throw new Error("create_failed");
@@ -211,14 +221,9 @@ export async function swapSeats(gameId: string, seatA: number, seatB: number): P
   await touchGame(loaded.game);
 }
 
-export async function startGame(gameId: string): Promise<void> {
-  await requireUser();
-  const loaded = await loadGame(gameId);
-  if (loaded.game.status !== "lobby") throw new Error("already_started");
-  if (loaded.players.length < 4) throw new Error("need_four_players");
-
-  const settings = loaded.game.settings;
-  const state = beginNextDeal(createInitialState(settings.targetPoints, {
+function startInitialState(gameType: GameType, settings: GameSettings): AnyGameState {
+  if (gameType === "bouilla") return beginNextRound(createInitialBouillaState());
+  return beginNextDeal(createInitialState(settings.targetPoints ?? 1000, {
     countContractOnlyIfMade: settings.countContractOnlyIfMade,
     failedContractDefensePoints: settings.failedContractDefensePoints,
     zeroPointsForNonContractingTeamWhenContractMade: settings.zeroPointsForNonContractingTeamWhenContractMade,
@@ -227,5 +232,14 @@ export async function startGame(gameId: string): Promise<void> {
     allowToutAtoutSansAtout: settings.allowToutAtoutSansAtout,
     requireMorePointsToWin: settings.requireMorePointsToWin,
   }));
+}
+
+export async function startGame(gameId: string): Promise<void> {
+  await requireUser();
+  const loaded = await loadGame(gameId);
+  if (loaded.game.status !== "lobby") throw new Error("already_started");
+  if (loaded.players.length < 4) throw new Error("need_four_players");
+
+  const state = startInitialState(loaded.game.game_type, loaded.game.settings);
   await persistGame(loaded.game as GameRow, state, state.phase === "finished" ? "finished" : "playing");
 }

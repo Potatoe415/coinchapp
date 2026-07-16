@@ -12,11 +12,11 @@ import {
   type Card,
   type GameState,
   type ScoringRules,
-  type Seat,
 } from "@/lib/coinche";
 import type { GameActions } from "@/components/GameTable";
 import type { GameView } from "@/lib/server/view";
-import type { BotAction } from "./bot";
+import { runBotLoop, seededRng, wait } from "./cardGameDriver";
+import { coincheEngine } from "./coincheEngineAdapter";
 import { useBotWorker } from "./useBotWorker";
 
 const BOTS = [false, true, true, true];
@@ -26,32 +26,8 @@ const COLLECT_DELAY_MS = 1500;
 /** Simulated thinking time before each bot move. Configurable. */
 export const BOT_THINKING_MS = 500;
 
-function seededRng(seed: number): () => number {
-  let state = seed >>> 0;
-  return () => {
-    state += 0x6d2b79f5;
-    let value = state;
-    value = Math.imul(value ^ (value >>> 15), value | 1);
-    value ^= value + Math.imul(value ^ (value >>> 7), value | 61);
-    return ((value ^ (value >>> 14)) >>> 0) / 4294967296;
-  };
-}
-
-function wait(ms: number): Promise<void> {
-  return new Promise((resolve) => window.setTimeout(resolve, ms));
-}
-
 function startState(targetPoints: number, seed: number, scoringRules: ScoringRules): GameState {
   return beginNextDeal(createInitialState(targetPoints, scoringRules), seededRng(seed));
-}
-
-/** Apply a bot's decided action (heuristic bid or ISMCTS card) to the state. */
-function applyBotAction(state: GameState, seat: Seat, action: BotAction): GameState {
-  if (action.action === "PLAY") return submitPlay(state, seat, action.card);
-  if (action.action === "BID") {
-    return submitBid(state, { seat, type: "bid", value: action.value, suit: action.suit });
-  }
-  return submitBid(state, { seat, type: "pass" });
 }
 
 /** Fully offline single-player game: you are seat 0, the rest are bots.
@@ -80,18 +56,15 @@ export function useLocalGame(
     if (busyRef.current) return;
     busyRef.current = true;
     try {
-      let guard = 0;
-      while (guard++ < 64) {
-        const prev = stateRef.current;
-        if ((prev.phase !== "bidding" && prev.phase !== "playing") || !BOTS[prev.turn]) break;
-        const seat = prev.turn as Seat;
-        const [action] = await Promise.all([decide(redact(prev, seat)), wait(BOT_THINKING_MS)]);
-        const next = applyBotAction(prev, seat, action);
-        commit(next);
-        if (next.tricks.length > prev.tricks.length) {
-          await wait(COLLECT_DELAY_MS);
-        }
-      }
+      await runBotLoop({
+        engine: coincheEngine,
+        getState: () => stateRef.current,
+        isBot: (seat) => BOTS[seat],
+        decide,
+        commit,
+        thinkingMs: BOT_THINKING_MS,
+        collectDelayMs: COLLECT_DELAY_MS,
+      });
     } finally {
       busyRef.current = false;
     }
@@ -129,6 +102,7 @@ export function useLocalGame(
   const gv: GameView = {
     gameId: "local",
     roomCode: "LOCAL",
+    gameType: "coinche",
     status: state.phase === "finished" ? "finished" : "playing",
     settings: { targetPoints },
     version: 0,

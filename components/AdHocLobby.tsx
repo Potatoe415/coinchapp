@@ -2,11 +2,13 @@
 
 import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/lib/client/i18n";
 import type { Seat } from "@/lib/coinche";
 import type { GameSettings } from "@/lib/supabase/types";
 import type { P2PConnection } from "@/lib/client/p2p/connection";
 import type { P2PHostConfig } from "@/lib/client/useP2PHost";
+import type { P2PBouillaHostConfig } from "@/lib/client/useP2PBouillaHost";
 import type { RosterEntry } from "@/lib/client/p2p/protocol";
 import {
   GameSettingsPanel,
@@ -16,6 +18,7 @@ import {
 import { HostFlow } from "@/components/p2p/HostFlow";
 import { JoinFlow } from "@/components/p2p/JoinFlow";
 import { P2PHostGame } from "@/components/p2p/P2PHostGame";
+import { P2PBouillaHostGame } from "@/components/p2p/P2PBouillaHostGame";
 import { P2PClientGame } from "@/components/p2p/P2PClientGame";
 
 const BOT_NAMES = ["", "Adam", "Jane", "Léa"];
@@ -51,12 +54,14 @@ function buildRoster(hostName: string, humanCount: number): RosterEntry[] {
 
 export function AdHocLobby() {
   const { t } = useI18n();
+  const isBouilla = useSearchParams().get("game") === "bouilla";
   const [phase, setPhase] = useState<Phase>("choose");
   const [name, setName] = useState("");
   const [humanCount, setHumanCount] = useState(1);
   const [setup, setSetup] = useState<GameSetupValues>(DEFAULT_GAME_SETUP);
   const [seed] = useState(() => (Math.random() * 0x100000000) >>> 0);
   const [hostConfig, setHostConfig] = useState<P2PHostConfig | null>(null);
+  const [bouillaHostConfig, setBouillaHostConfig] = useState<P2PBouillaHostConfig | null>(null);
   const [client, setClient] = useState<{ conn: P2PConnection; name: string } | null>(null);
 
   const humanSeats = useMemo(
@@ -66,23 +71,23 @@ export function AdHocLobby() {
 
   const onHostReady = useCallback(
     (conns: Map<Seat, P2PConnection>) => {
-      setHostConfig({
-        mySeat: 0,
-        roster: buildRoster(name, humanCount),
-        connections: conns,
-        settings: toSettings(setup),
-        seed,
-      });
+      const roster = buildRoster(name, humanCount);
+      if (isBouilla) {
+        setBouillaHostConfig({ mySeat: 0, roster, connections: conns, seed });
+      } else {
+        setHostConfig({ mySeat: 0, roster, connections: conns, settings: toSettings(setup), seed });
+      }
       setPhase("host-play");
     },
-    [name, humanCount, setup, seed],
+    [name, humanCount, setup, seed, isBouilla],
   );
 
   if (phase === "host-play" && hostConfig) return <P2PHostGame config={hostConfig} />;
+  if (phase === "host-play" && bouillaHostConfig) return <P2PBouillaHostGame config={bouillaHostConfig} />;
   if (phase === "join-play" && client) return <P2PClientGame conn={client.conn} name={client.name} />;
 
   return (
-    <Shell>
+    <Shell isBouilla={isBouilla}>
       {phase === "choose" && <ChooseMode t={t} setPhase={setPhase} />}
       {phase === "host-setup" && (
         <div className="flex flex-col gap-4" data-id="adhoc-host-setup">
@@ -101,7 +106,9 @@ export function AdHocLobby() {
           >
             {t("inviteOpponents")}
           </button>
-          <GameSettingsPanel values={setup} onChange={setSetup} idPrefix="adhoc" title={t("settings")} />
+          {!isBouilla && (
+            <GameSettingsPanel values={setup} onChange={setSetup} idPrefix="adhoc" title={t("settings")} />
+          )}
         </div>
       )}
       {phase === "host-connect" && <HostFlow humanSeats={humanSeats} onReady={onHostReady} />}
@@ -117,7 +124,7 @@ export function AdHocLobby() {
   );
 }
 
-function Shell({ children }: { children: React.ReactNode }) {
+function Shell({ children, isBouilla }: { children: React.ReactNode; isBouilla: boolean }) {
   const { t } = useI18n();
   return (
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-5 bg-felt px-5 py-8" data-id="adhoc-screen">
@@ -130,8 +137,12 @@ function Shell({ children }: { children: React.ReactNode }) {
         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 5l-7 7 7 7" /></svg>
       </Link>
       <header className="text-center">
-        <h1 className="text-3xl font-black tracking-tight text-white">{t("playAdhoc")}</h1>
-        <p className="text-sm text-white/70">{t("adhocSubtitle")}</p>
+        <h1 className="text-3xl font-black tracking-tight text-white" data-id="adhoc-title">
+          {isBouilla ? "la Bouilla sans internet" : t("playAdhoc")}
+        </h1>
+        <p className="text-sm text-white/70">
+          {isBouilla ? "Bots + vrais joueurs en direct, sans compte ni connexion." : t("adhocSubtitle")}
+        </p>
       </header>
       {children}
     </main>

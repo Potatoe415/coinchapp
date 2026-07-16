@@ -4,7 +4,7 @@ import { useCallback, useRef, useState } from "react";
 import { useLocalGame } from "@/lib/client/useLocalGame";
 import type { BotPunch, ScoringRules } from "@/lib/coinche";
 import type { EmojiReaction } from "./EmojiButton";
-import { GameTable } from "./GameTable";
+import { GameTable, type CoincheGameView } from "./GameTable";
 
 const REACTION_TTL = 3000;
 
@@ -64,7 +64,7 @@ function LocalGameInner({
 
   return (
     <GameTable
-      gv={gv}
+      gv={gv as CoincheGameView}
       reactions={reactions}
       actions={{ ...actions, onReset, onSendEmoji: (emoji) => sendReaction(gv.mySeat ?? 0, emoji) }}
     />

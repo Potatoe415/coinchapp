@@ -5,13 +5,21 @@ import { submitBotMove, type BotMove } from "@/lib/server/actions-game";
 import type { Seat } from "@/lib/coinche";
 import type { GameView } from "@/lib/server/view";
 import type { BotPunch } from "@/lib/coinche";
+import type { PlayerView as CoinchePlayerView } from "@/lib/coinche";
+import type { PlayerView as BouillaPlayerView } from "@/lib/bouilla";
+import { decideBouillaAction, type BouillaBotAction } from "./bouillaEngineAdapter";
 import type { BotAction } from "./bot";
 import { useBotWorker } from "./useBotWorker";
 
-function toMove(action: BotAction): BotMove {
+function toMove(action: BotAction | BouillaBotAction): BotMove {
   if (action.action === "PLAY") return { kind: "play", card: action.card };
   if (action.action === "BID") return { kind: "bid", type: "bid", value: action.value, suit: action.suit };
   return { kind: "bid", type: "pass" };
+}
+
+/** Is the seat whose turn it is expected to act right now, for the active game type? */
+function isActiveTurn(gameType: GameView["gameType"], phase: string): boolean {
+  return gameType === "bouilla" ? phase === "playing" : phase === "bidding" || phase === "playing";
 }
 
 /**
@@ -26,13 +34,12 @@ export function useBotRunner(
   notify: () => void,
 ): void {
   const busyRef = useRef(false);
-  const decide = useBotWorker(gv?.settings.botPunch as BotPunch | undefined);
+  const decideCoinche = useBotWorker(gv?.settings.botPunch as BotPunch | undefined);
 
   useEffect(() => {
     if (!gv || !gv.isHost || !gv.view) return;
     const view = gv.view;
-    const active = view.phase === "bidding" || view.phase === "playing";
-    if (!active) return;
+    if (!isActiveTurn(gv.gameType, view.phase)) return;
     const turn = view.turn;
     const botView = gv.botViews?.[turn];
     if (!botView || busyRef.current) return;
@@ -41,7 +48,10 @@ export function useBotRunner(
     void (async () => {
       busyRef.current = true;
       try {
-        const action = await decide(botView);
+        const action =
+          gv.gameType === "bouilla"
+            ? await decideBouillaAction(botView as BouillaPlayerView)
+            : await decideCoinche(botView as CoinchePlayerView);
         if (cancelled) return;
         await submitBotMove(gameId, turn as Seat, toMove(action));
         if (!cancelled) {
@@ -61,5 +71,5 @@ export function useBotRunner(
     return () => {
       cancelled = true;
     };
-  }, [gameId, gv, refetch, decide, notify]);
+  }, [gameId, gv, refetch, decideCoinche, notify]);
 }

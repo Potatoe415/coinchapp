@@ -1,19 +1,30 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { Suspense, useEffect, useState } from "react";
 import { createGame, joinGame } from "@/lib/server/actions-lobby";
 import { ensureAnonAuth } from "@/lib/client/auth";
 import { useI18n } from "@/lib/client/i18n";
 import { GameSettingsPanel, DEFAULT_GAME_SETUP } from "@/components/GameSettingsPanel";
 import type { GameSetupValues } from "@/components/GameSettingsPanel";
+import type { GameType } from "@/lib/supabase/types";
 
 const ROOM_CODE_LENGTH = 3;
 
 export default function OnlinePage() {
+  return (
+    <Suspense>
+      <OnlinePageInner />
+    </Suspense>
+  );
+}
+
+function OnlinePageInner() {
   const router = useRouter();
   const { t } = useI18n();
+  const isBouilla = useSearchParams().get("game") === "bouilla";
+  const gameType: GameType = isBouilla ? "bouilla" : "coinche";
   const [name, setName] = useState("");
   const [setup, setSetup] = useState<GameSetupValues>(DEFAULT_GAME_SETUP);
   const [code, setCode] = useState("");
@@ -53,8 +64,12 @@ export default function OnlinePage() {
       </Link>
 
       <header className="text-center">
-        <h1 className="text-3xl font-black tracking-tight text-[var(--surface)]">{t("playOnline")}</h1>
-        <p className="text-sm text-[var(--foreground)]/75">{t("onlineSubtitle")}</p>
+        <h1 className="text-3xl font-black tracking-tight text-[var(--surface)]" data-id="online-title">
+          {isBouilla ? "la Bouilla en ligne" : t("playOnline")}
+        </h1>
+        <p className="text-sm text-[var(--foreground)]/75">
+          {isBouilla ? "Crée ou rejoins une table à 4, chacun pour soi." : t("onlineSubtitle")}
+        </p>
       </header>
 
       {error && (
@@ -87,17 +102,20 @@ export default function OnlinePage() {
             run(() =>
               createGame({
                 displayName: name,
-                settings: {
-                  targetPoints: setup.target,
-                  countContractOnlyIfMade: setup.countContractOnlyIfMade,
-                  failedContractDefensePoints: Number(setup.failedContractDefensePoints) || 160,
-                  zeroPointsForNonContractingTeamWhenContractMade: setup.zeroPointsForNonContractingTeamWhenContractMade,
-                  capotMadePoints: Number(setup.capotMadePoints) || 250,
-                  capotFailedDefensePoints: Number(setup.capotFailedDefensePoints) || 250,
-                  allowToutAtoutSansAtout: setup.allowToutAtoutSansAtout,
-                  requireMorePointsToWin: setup.requireMorePointsToWin,
-                  botPunch: setup.botPunch,
-                },
+                gameType,
+                settings: isBouilla
+                  ? {}
+                  : {
+                      targetPoints: setup.target,
+                      countContractOnlyIfMade: setup.countContractOnlyIfMade,
+                      failedContractDefensePoints: Number(setup.failedContractDefensePoints) || 160,
+                      zeroPointsForNonContractingTeamWhenContractMade: setup.zeroPointsForNonContractingTeamWhenContractMade,
+                      capotMadePoints: Number(setup.capotMadePoints) || 250,
+                      capotFailedDefensePoints: Number(setup.capotFailedDefensePoints) || 250,
+                      allowToutAtoutSansAtout: setup.allowToutAtoutSansAtout,
+                      requireMorePointsToWin: setup.requireMorePointsToWin,
+                      botPunch: setup.botPunch,
+                    },
               }),
             )
           }
@@ -132,12 +150,14 @@ export default function OnlinePage() {
         </div>
       </section>
 
-      <GameSettingsPanel
-        values={setup}
-        onChange={setSetup}
-        idPrefix="online"
-        title={t("gameSettings")}
-      />
+      {!isBouilla && (
+        <GameSettingsPanel
+          values={setup}
+          onChange={setSetup}
+          idPrefix="online"
+          title={t("gameSettings")}
+        />
+      )}
     </main>
   );
 }

@@ -214,7 +214,7 @@ function GameInfoPanel({
   );
 }
 
-function HostRow({ host, onClose }: { host: HostControls; onClose: () => void }) {
+export function HostRow({ host, onClose }: { host: HostControls; onClose: () => void }) {
   const { t } = useI18n();
   const [busy, setBusy] = useState(false);
 
@@ -284,7 +284,7 @@ function IconLink({
   );
 }
 
-function GameInfoButton({ label, onClick }: { label: string; onClick: () => void }) {
+export function GameInfoButton({ label, onClick }: { label: string; onClick: () => void }) {
   return (
     <button
       type="button"

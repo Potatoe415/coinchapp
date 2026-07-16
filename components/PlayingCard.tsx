@@ -1,4 +1,4 @@
-import type { Card, Suit } from "@/lib/coinche";
+import type { CardOf, Suit } from "@/lib/cards";
 
 const SUIT_SYMBOL: Record<Suit, string> = { H: "\u2665", D: "\u2666", C: "\u2663", S: "\u2660" };
 const RED_SUITS: Suit[] = ["H", "D"];
@@ -10,8 +10,9 @@ const SIZES = {
   lg: { card: "h-24 w-16", rank: "text-2xl", suit: "text-5xl" },
 } as const;
 
+/** Any game's card shape (rank set differs per game, suit set is universal). */
 export interface PlayingCardProps {
-  card: Card;
+  card: CardOf<string>;
   size?: keyof typeof SIZES;
   dimmed?: boolean;
   playable?: boolean;
