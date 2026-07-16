@@ -1,14 +1,14 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
-import { CAPOT_VALUE, cardId, GENERALE_VALUE, type Bid, type Card, type PlayerView } from "@/lib/coinche";
+import { CAPOT_VALUE, GENERALE_VALUE, type Bid, type Card, type PlayerView } from "@/lib/coinche";
 import type { GameView, NextDealGate } from "@/lib/server/view";
 import { DealOverlay } from "./DealOverlay";
 import type { EmojiReaction } from "./EmojiButton";
 import { isConnected, playerName, seatTeam } from "./gameTableHelpers";
 import { trumpModeLabel } from "./labels";
 import { PlayerBadge } from "./PlayerBadge";
-import { CardBack, PlayingCard } from "./PlayingCard";
+import { CardBackFanH, CardBackStackV, CompletedTrickHold, PlayedCardStage, type TableSeats } from "./TrickStage";
 
 function isSeatThinking(view: PlayerView, seat: number): boolean {
   if (view.phase !== "bidding" && view.phase !== "playing") return false;
@@ -71,13 +71,6 @@ function BidBubble({ bid, tailDir }: { bid: Bid; tailDir: "up" | "left" | "right
     </div>
   );
 }
-
-export type TableSeats = {
-  top: number;
-  left: number;
-  right: number;
-  bottom: number;
-};
 
 export function GameTableScene({
   gv,
@@ -190,109 +183,6 @@ function SideOpponent({
   );
 }
 
-function PlayedCardStage({ seats, trickBySeat }: { seats: TableSeats; trickBySeat: Map<number, Card> }) {
-  return (
-    <>
-      <SlotBox
-        className="top-[36%] left-1/2 -translate-x-1/2"
-        card={trickBySeat.get(seats.top)}
-        dataId="played-top"
-        enterFrom="top"
-        delay={0}
-      />
-      <SlotBox
-        className="top-[45%] left-[27%]"
-        card={trickBySeat.get(seats.left)}
-        dataId="played-left"
-        enterFrom="left"
-        delay={90}
-      />
-      <SlotBox
-        className="top-[45%] right-[27%]"
-        card={trickBySeat.get(seats.right)}
-        dataId="played-right"
-        enterFrom="right"
-        delay={180}
-      />
-      <SlotBox
-        className="bottom-[25%] left-1/2 -translate-x-1/2"
-        card={trickBySeat.get(seats.bottom)}
-        dataId="table-my-played"
-        enterFrom="bottom"
-        delay={0}
-      />
-    </>
-  );
-}
-
-function CompletedTrickHold({
-  seats,
-  trickBySeat,
-  winner,
-}: {
-  seats: TableSeats;
-  trickBySeat: Map<number, Card>;
-  winner: number | null;
-}) {
-  const dir =
-    winner === null
-      ? "bottom"
-      : winner === seats.top
-        ? "top"
-        : winner === seats.left
-          ? "left"
-          : winner === seats.right
-            ? "right"
-            : "bottom";
-  const flyX = dir === "left" ? "-300px" : dir === "right" ? "300px" : "0px";
-  const flyY = dir === "top" ? "-320px" : dir === "bottom" ? "280px" : "0px";
-
-  return (
-    <div className="pointer-events-none absolute inset-0 z-10" data-id="completed-trick-hold">
-      <CollectSlot
-        className="left-1/2 top-[36%] -translate-x-1/2"
-        card={trickBySeat.get(seats.top)}
-        dataId="held-top"
-        gatherX="0px"
-        gatherY="55px"
-        gatherRot="4deg"
-        flyX={flyX}
-        flyY={flyY}
-      />
-      <CollectSlot
-        className="left-[27%] top-[45%]"
-        card={trickBySeat.get(seats.left)}
-        dataId="held-left"
-        gatherX="100px"
-        gatherY="0px"
-        gatherRot="-5deg"
-        flyX={flyX}
-        flyY={flyY}
-      />
-      <CollectSlot
-        className="right-[27%] top-[45%]"
-        card={trickBySeat.get(seats.right)}
-        dataId="held-right"
-        gatherX="-100px"
-        gatherY="0px"
-        gatherRot="5deg"
-        flyX={flyX}
-        flyY={flyY}
-      />
-      <CollectSlot
-        className="bottom-[25%] left-1/2 -translate-x-1/2"
-        card={trickBySeat.get(seats.bottom)}
-        dataId="held-bottom"
-        gatherX="0px"
-        gatherY="-160px"
-        gatherRot="-4deg"
-        flyX={flyX}
-        flyY={flyY}
-      />
-    </div>
-  );
-}
-
 function BimFlash({ bimTrickKey }: { bimTrickKey: string | null }) {
   const [visible, setVisible] = useState(false);
   const prevKey = useRef<string | null>(null);
@@ -352,150 +242,3 @@ function BeloteFlash({ announced }: { announced: ("belote" | "rebelote")[] }) {
   );
 }
 
-function CollectSlot({
-  className,
-  card,
-  dataId,
-  gatherX,
-  gatherY,
-  gatherRot,
-  flyX,
-  flyY,
-}: {
-  className: string;
-  card?: Card;
-  dataId: string;
-  gatherX: string;
-  gatherY: string;
-  gatherRot: string;
-  flyX: string;
-  flyY: string;
-}) {
-  if (!card) return null;
-  return (
-    <div className={`absolute ${className}`} data-id={`${dataId}-slot`}>
-      <div
-        className="trick-collect-card"
-        style={
-          {
-            "--gather-x": gatherX,
-            "--gather-y": gatherY,
-            "--gather-rot": gatherRot,
-            "--fly-x": flyX,
-            "--fly-y": flyY,
-          } as React.CSSProperties
-        }
-      >
-        <PlayingCard card={card} size="lg" dataId={dataId} />
-      </div>
-    </div>
-  );
-}
-
-function SlotBox({
-  className,
-  card,
-  dataId,
-  enterFrom,
-  delay,
-}: {
-  className: string;
-  card?: Card;
-  dataId: string;
-  enterFrom: "top" | "left" | "right" | "bottom";
-  delay: number;
-}) {
-  return (
-    <div className={`absolute ${className}`} data-id={`${dataId}-slot`}>
-      <PlayedSlot card={card} dataId={dataId} enterFrom={enterFrom} delay={delay} />
-    </div>
-  );
-}
-
-function PlayedSlot({
-  card,
-  dataId,
-  enterFrom,
-  delay,
-}: {
-  card?: Card;
-  dataId?: string;
-  enterFrom: "top" | "left" | "right" | "bottom";
-  delay: number;
-}) {
-  if (!card) {
-    return <div className="h-24 w-16 rounded-xl bg-[rgba(32,40,58,0.12)]" data-id={dataId} />;
-  }
-  return <AnimatedPlayedCard key={cardId(card)} card={card} dataId={dataId} enterFrom={enterFrom} delay={delay} />;
-}
-
-function AnimatedPlayedCard({
-  card,
-  dataId,
-  enterFrom,
-  delay,
-}: {
-  card: Card;
-  dataId?: string;
-  enterFrom: "top" | "left" | "right" | "bottom";
-  delay: number;
-}) {
-  return (
-    <div
-      className="played-card-enter will-change-transform"
-      style={{ ...animationStart(enterFrom), animationDelay: `${delay}ms` }}
-      data-id={dataId ? `${dataId}-anim` : undefined}
-    >
-      <PlayingCard card={card} size="lg" dataId={dataId} />
-    </div>
-  );
-}
-
-function animationStart(enterFrom: "top" | "left" | "right" | "bottom") {
-  if (enterFrom === "top") return { "--played-card-from": "translate3d(0,-210px,0) scale(0.7) rotate(-10deg)" };
-  if (enterFrom === "left") return { "--played-card-from": "translate3d(-210px,0,0) scale(0.7) rotate(-14deg)" };
-  if (enterFrom === "right") return { "--played-card-from": "translate3d(210px,0,0) scale(0.7) rotate(14deg)" };
-  return { "--played-card-from": "translate3d(0,210px,0) scale(0.7) rotate(10deg)" };
-}
-
-const FAN_STEP_H = 22;
-const CARD_W_MD = 56;
-
-function CardBackFanH({ count }: { count: number }) {
-  const n = Math.min(count, 8);
-  if (n === 0) return <div className="h-24 w-14" />;
-  const totalW = CARD_W_MD + (n - 1) * FAN_STEP_H;
-  return (
-    <div className="relative h-24" style={{ width: totalW }}>
-      {Array.from({ length: n }, (_, i) => (
-        <div key={i} className="absolute bottom-0" style={{ left: i * FAN_STEP_H, zIndex: i }}>
-          <CardBack size="md" />
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function CardBackStackV({ count }: { count: number }) {
-  const n = Math.min(count, 8);
-  if (n === 0) return <div className="h-14 w-20" />;
-  return (
-    <div className="relative w-20" style={{ height: 56 + (n - 1) * 7 }}>
-      {Array.from({ length: n }, (_, i) => (
-        <div key={i} className="absolute" style={{ top: i * 7, zIndex: i }}>
-          <LandscapeCardBack />
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function LandscapeCardBack() {
-  return (
-    <div className="relative h-14 w-20">
-      <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rotate-90">
-        <CardBack size="md" />
-      </div>
-    </div>
-  );
-}

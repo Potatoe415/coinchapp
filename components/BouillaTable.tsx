@@ -10,7 +10,8 @@ import { EmojiButton, type EmojiReaction } from "./EmojiButton";
 import { isConnected, playerName, relativeSeat } from "./gameTableHelpers";
 import { GameInfoButton, HostRow, type EmojiControls, type HostControls } from "./GameHud";
 import { PlayerBadge } from "./PlayerBadge";
-import { CardBack, PlayingCard } from "./PlayingCard";
+import { PlayingCard } from "./PlayingCard";
+import { CardBackFanH, CardBackStackV, CompletedTrickHold, PlayedCardStage, type TableSeats } from "./TrickStage";
 
 /** This table only ever renders a Bouilla game: narrow the shared, multi-game
  *  `GameView` down to its Bouilla-specific view/botViews shape. */
@@ -32,8 +33,9 @@ export interface BouillaActions {
   onSendEmoji?: (emoji: string) => void;
 }
 
-const HAND_STEP = 36;
-const CARD_W_LG = 64;
+/** Bouilla hands start at 13 cards - almost double Coinche's 8 - so opponent
+ *  fans/stacks are allowed to go wider before capping. */
+const MAX_HAND_COUNT = 13;
 
 function cardKey(card: Card): string {
   return `${card.rank}${card.suit}`;
@@ -67,7 +69,7 @@ export function BouillaTable({
     });
   }
 
-  const seats = {
+  const seats: TableSeats = {
     top: relativeSeat(mySeat, 2),
     left: relativeSeat(mySeat, 3),
     right: relativeSeat(mySeat, 1),
@@ -76,6 +78,13 @@ export function BouillaTable({
   const legalSet = new Set(view.legalCards.map(cardKey));
   const myTurnToPlay = view.phase === "playing" && view.turn === mySeat;
   const trickBySeat = new Map<number, Card>(view.currentTrick.cards.map((p) => [p.seat, p.card]));
+  const lastTrickBySeat = view.lastTrick
+    ? new Map<number, Card>(view.lastTrick.cards.map((p) => [p.seat, p.card]))
+    : null;
+  const lastTrickKey = view.lastTrick
+    ? view.lastTrick.cards.map((p) => `${p.seat}:${cardKey(p.card)}`).join("|")
+    : null;
+  const lastTrickWinner = view.lastTrick?.winner ?? null;
 
   async function onPlay(card: Card) {
     if (!myTurnToPlay || !legalSet.has(cardKey(card)) || busy) return;
@@ -114,10 +123,10 @@ export function BouillaTable({
         <OpponentTop gv={gv} view={view} seat={seats.top} reaction={reactions?.get(seats.top)} />
         <OpponentSide gv={gv} view={view} seat={seats.left} side="left" reaction={reactions?.get(seats.left)} />
         <OpponentSide gv={gv} view={view} seat={seats.right} side="right" reaction={reactions?.get(seats.right)} />
-        <PlayedSlot className="top-[36%] left-1/2 -translate-x-1/2" card={trickBySeat.get(seats.top)} dataId="bouilla-played-top" />
-        <PlayedSlot className="top-[45%] left-[27%]" card={trickBySeat.get(seats.left)} dataId="bouilla-played-left" />
-        <PlayedSlot className="top-[45%] right-[27%]" card={trickBySeat.get(seats.right)} dataId="bouilla-played-right" />
-        <PlayedSlot className="bottom-[25%] left-1/2 -translate-x-1/2" card={trickBySeat.get(seats.bottom)} dataId="bouilla-played-bottom" />
+        <PlayedCardStage seats={seats} trickBySeat={trickBySeat} />
+        {lastTrickBySeat && lastTrickKey && (
+          <CompletedTrickHold key={lastTrickKey} seats={seats} trickBySeat={lastTrickBySeat} winner={lastTrickWinner} />
+        )}
         <BouillaRoundOverlay gv={gv} view={view} onNextRound={actions.onNextRound} nextRoundGate={gv.nextDealGate} />
         {emojiOn && actions.onSendEmoji && <EmojiButton myReaction={reactions?.get(mySeat)} onSelect={actions.onSendEmoji} />}
         <HandFan hand={view.myHand} legalSet={legalSet} myTurnToPlay={myTurnToPlay} onCardClick={onPlay} />
@@ -295,7 +304,7 @@ function OpponentTop({
 }) {
   return (
     <div className="absolute left-1/2 top-[13%] flex -translate-x-1/2 flex-col items-center" data-id="bouilla-table-top">
-      <CardBackFanH count={view.handCounts[seat]} />
+      <CardBackFanH count={view.handCounts[seat]} maxCount={MAX_HAND_COUNT} />
       <div className="mt-2" data-id="bouilla-table-top-badge">
         <PlayerBadge
           name={playerName(gv, seat)}
@@ -332,7 +341,7 @@ function OpponentSide({
   return (
     <div className={`absolute top-[41%] flex items-center gap-0 ${sideClass}`} data-id={`bouilla-table-${side}`}>
       <div className={handShiftClass}>
-        <CardBackStackV count={view.handCounts[seat]} />
+        <CardBackStackV count={view.handCounts[seat]} maxCount={MAX_HAND_COUNT} />
       </div>
       <div className={`${badgeNudgeClass} ${badgeRotateClass}`}>
         <PlayerBadge
@@ -351,19 +360,13 @@ function OpponentSide({
   );
 }
 
-function PlayedSlot({ className, card, dataId }: { className: string; card?: Card; dataId: string }) {
-  return (
-    <div className={`absolute ${className}`} data-id={`${dataId}-slot`}>
-      {card ? (
-        <div className="played-card-enter will-change-transform" data-id={`${dataId}-anim`}>
-          <PlayingCard card={card} size="lg" dataId={dataId} />
-        </div>
-      ) : (
-        <div className="h-24 w-16 rounded-xl bg-[rgba(32,40,58,0.12)]" data-id={dataId} />
-      )}
-    </div>
-  );
-}
+const HAND_STEP = 36;
+const CARD_W_LG = 64;
+/** Widest the hand fan is allowed to get, comfortably inside even a narrow phone
+ *  viewport (this table's own container caps at 460px, but real phones can be
+ *  narrower) - the step between cards shrinks below `HAND_STEP` once the hand
+ *  (up to 13 cards) would otherwise overflow the screen. */
+const MAX_FAN_WIDTH = 340;
 
 function HandFan({
   hand,
@@ -378,7 +381,8 @@ function HandFan({
 }) {
   const sorted = [...hand].sort((a, b) => (a.suit === b.suit ? 0 : a.suit < b.suit ? -1 : 1));
   const n = sorted.length;
-  const fanW = n > 1 ? CARD_W_LG + (n - 1) * HAND_STEP : CARD_W_LG;
+  const step = n > 1 ? Math.min(HAND_STEP, (MAX_FAN_WIDTH - CARD_W_LG) / (n - 1)) : HAND_STEP;
+  const fanW = n > 1 ? CARD_W_LG + (n - 1) * step : CARD_W_LG;
 
   return (
     <section className="absolute inset-x-0 bottom-0 z-20 pb-3" data-id="bouilla-action-area">
@@ -392,7 +396,7 @@ function HandFan({
               <div
                 key={key}
                 className="absolute bottom-0 transition-transform duration-150"
-                style={{ left: i * HAND_STEP, zIndex: isPlayable ? 50 + i : i }}
+                style={{ left: i * step, zIndex: isPlayable ? 50 + i : i }}
               >
                 <PlayingCard
                   card={card}
@@ -408,41 +412,5 @@ function HandFan({
         </div>
       </div>
     </section>
-  );
-}
-
-const FAN_STEP_H = 22;
-const CARD_W_MD = 56;
-
-function CardBackFanH({ count }: { count: number }) {
-  const n = Math.min(count, 13);
-  if (n === 0) return <div className="h-24 w-14" />;
-  const totalW = CARD_W_MD + (n - 1) * FAN_STEP_H * 0.6;
-  return (
-    <div className="relative h-24" style={{ width: totalW }}>
-      {Array.from({ length: n }, (_, i) => (
-        <div key={i} className="absolute bottom-0" style={{ left: i * FAN_STEP_H * 0.6, zIndex: i }}>
-          <CardBack size="md" />
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function CardBackStackV({ count }: { count: number }) {
-  const n = Math.min(count, 13);
-  if (n === 0) return <div className="h-14 w-20" />;
-  return (
-    <div className="relative w-20" style={{ height: 56 + (n - 1) * 4 }}>
-      {Array.from({ length: n }, (_, i) => (
-        <div key={i} className="absolute" style={{ top: i * 4, zIndex: i }}>
-          <div className="relative h-14 w-20">
-            <div className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 rotate-90">
-              <CardBack size="md" />
-            </div>
-          </div>
-        </div>
-      ))}
-    </div>
   );
 }
