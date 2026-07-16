@@ -32,6 +32,10 @@ export interface RoundResult {
   round: Round;
   roundIndex: number;
   penalties: SeatScores;
+  /** Set when one seat swept the round (all 13 tricks, all 13 clubs, or all 4
+   *  queens): that seat pays nothing and every other seat pays the round's max
+   *  penalty instead of the usual per-card tally. */
+  sweepSeat?: Seat;
 }
 
 export interface GameState {

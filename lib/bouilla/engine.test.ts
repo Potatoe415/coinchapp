@@ -30,7 +30,10 @@ describe("engine", () => {
     expect(scored.tricks).toHaveLength(13);
     expect(scored.lastRoundResult?.round).toBe("tricks");
     const totalPenalty = scored.totalScores.reduce((a, b) => a + b, 0);
-    expect(totalPenalty).toBe(13 * 5); // "tricks" round: 5 pts per trick, 13 tricks total.
+    // Normally 13 tricks * 5 pts = 65 pts total, split across whoever won each trick.
+    // If one seat happened to sweep all 13 tricks ("Capot"), the other 3 seats each
+    // pay that 65 pts instead, for 3 * 65 = 195 pts total.
+    expect([13 * 5, 3 * 13 * 5]).toContain(totalPenalty);
   });
 
   it("advances through all 6 rounds to a finished match", () => {

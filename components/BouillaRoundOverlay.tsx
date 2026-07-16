@@ -31,7 +31,9 @@ export function BouillaRoundOverlay({
   }
   useEffect(() => {
     if (!shouldShow) return;
-    const timer = window.setTimeout(() => setVisible(true), 1200);
+    // Longer than the trick-collect animation (1500ms, see TrickStage.tsx) so the
+    // last trick's cards finish flying off before the score overlay covers them.
+    const timer = window.setTimeout(() => setVisible(true), 2000);
     return () => window.clearTimeout(timer);
   }, [shouldShow]);
 
@@ -75,6 +77,11 @@ export function BouillaRoundOverlay({
               <h2 className="text-2xl font-black text-[var(--accent-cyan)]" data-id="bouilla-round-result-title">
                 {ROUND_LABEL_FR[result.round]}
               </h2>
+              {result.sweepSeat !== undefined && (
+                <p className="mt-1 text-sm font-bold text-[var(--accent-yellow)]" data-id="bouilla-round-capot">
+                  Capot ! {playerName(gv, result.sweepSeat)} a tout raflé — tout le monde d&apos;autre prend le maximum.
+                </p>
+              )}
               <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
                 {seats.map((seat) => (
                   <div key={seat} className="rounded-lg bg-[rgba(255,250,242,0.12)] py-2 px-2" data-id={`bouilla-round-score-${seat}`}>

@@ -91,4 +91,46 @@ describe("applyPlay", () => {
     expect(next.tricks).toHaveLength(13);
     expect(next.tricks[12].winner).toBe(3);
   });
+
+  it("kingSpades: ends the round the instant the king of spades is captured, not after 13 tricks", () => {
+    const state = playingState({
+      turn: 0,
+      roundIndex: 3, // "kingSpades"
+      hands: [[card("K", "S")], [card("2", "H")], [card("3", "H")], [card("4", "H")]],
+    });
+    let next = applyPlay(state, 0, card("K", "S"));
+    next = applyPlay(next, 1, card("2", "H"));
+    next = applyPlay(next, 2, card("3", "H"));
+    next = applyPlay(next, 3, card("4", "H"));
+    expect(next.phase).toBe("scoring");
+    expect(next.tricks).toHaveLength(1);
+  });
+
+  it("kingSpades: a trick without the king keeps the round going", () => {
+    const state = playingState({
+      turn: 0,
+      roundIndex: 3, // "kingSpades"
+      hands: [[card("2", "S")], [card("2", "H")], [card("3", "H")], [card("4", "H")]],
+    });
+    let next = applyPlay(state, 0, card("2", "S"));
+    next = applyPlay(next, 1, card("2", "H"));
+    next = applyPlay(next, 2, card("3", "H"));
+    next = applyPlay(next, 3, card("4", "H"));
+    expect(next.phase).toBe("playing");
+    expect(next.tricks).toHaveLength(1);
+  });
+
+  it("everything: capturing the king of spades does not end the round early (still needs all 13 tricks)", () => {
+    const state = playingState({
+      turn: 0,
+      roundIndex: 5, // "everything"
+      hands: [[card("K", "S")], [card("2", "H")], [card("3", "H")], [card("4", "H")]],
+    });
+    let next = applyPlay(state, 0, card("K", "S"));
+    next = applyPlay(next, 1, card("2", "H"));
+    next = applyPlay(next, 2, card("3", "H"));
+    next = applyPlay(next, 3, card("4", "H"));
+    expect(next.phase).toBe("playing");
+    expect(next.tricks).toHaveLength(1);
+  });
 });

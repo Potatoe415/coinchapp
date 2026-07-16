@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
-import type { Card, PlayerView } from "@/lib/bouilla";
+import { useEffect, useRef, useState } from "react";
+import { cardStrength, type Card, type PlayerView } from "@/lib/bouilla";
 import type { GameView } from "@/lib/server/view";
 import { BouillaRoundOverlay } from "./BouillaRoundOverlay";
 import { BouillaScoreboard } from "./BouillaScoreboard";
@@ -129,7 +129,12 @@ export function BouillaTable({
         )}
         <BouillaRoundOverlay gv={gv} view={view} onNextRound={actions.onNextRound} nextRoundGate={gv.nextDealGate} />
         {emojiOn && actions.onSendEmoji && <EmojiButton myReaction={reactions?.get(mySeat)} onSelect={actions.onSendEmoji} />}
-        <HandFan hand={view.myHand} legalSet={legalSet} myTurnToPlay={myTurnToPlay} onCardClick={onPlay} />
+        {/* Hidden once scoring/finished: "kingSpades" can end a round with cards still
+            in hand (see lib/bouilla/trick.ts), which would otherwise show through the
+            round overlay above. */}
+        {view.phase === "playing" && (
+          <HandFan hand={view.myHand} legalSet={legalSet} myTurnToPlay={myTurnToPlay} onCardClick={onPlay} />
+        )}
       </div>
       <div className="flex-1" aria-hidden="true" />
       {scoreboardOpen && <BouillaScoreboard gv={gv} view={view} onClose={() => setScoreboardOpen(false)} />}
@@ -362,11 +367,24 @@ function OpponentSide({
 
 const HAND_STEP = 36;
 const CARD_W_LG = 64;
-/** Widest the hand fan is allowed to get, comfortably inside even a narrow phone
- *  viewport (this table's own container caps at 460px, but real phones can be
- *  narrower) - the step between cards shrinks below `HAND_STEP` once the hand
- *  (up to 13 cards) would otherwise overflow the screen. */
-const MAX_FAN_WIDTH = 340;
+/** Kept clear on each side of the hand fan, whatever the actual screen width. */
+const HAND_EDGE_MARGIN = 12;
+/** Fallback max fan width for the very first paint, before the container's real
+ *  width is measured (see `HandFan`) - avoids a hardcoded guess driving layout
+ *  on phones narrower or wider than this. */
+const DEFAULT_MAX_FAN_WIDTH = 340;
+
+/** Same suit order as Coinche's hand (`GameTable.tsx`'s `SUIT_ORDER`), kept in
+ *  sync for a consistent hand layout across both games. No trump in Bouilla, so
+ *  cards only ever sort by suit then rank (`cardStrength`, ace-high). */
+const SUIT_ORDER: Record<string, number> = { S: 0, H: 1, C: 2, D: 3 };
+
+function sortHand(hand: Card[]): Card[] {
+  return [...hand].sort((a, b) => {
+    if (a.suit !== b.suit) return SUIT_ORDER[a.suit] - SUIT_ORDER[b.suit];
+    return cardStrength(a) - cardStrength(b);
+  });
+}
 
 function HandFan({
   hand,
@@ -379,14 +397,27 @@ function HandFan({
   myTurnToPlay: boolean;
   onCardClick: (card: Card) => void;
 }) {
-  const sorted = [...hand].sort((a, b) => (a.suit === b.suit ? 0 : a.suit < b.suit ? -1 : 1));
+  const containerRef = useRef<HTMLDivElement>(null);
+  const [maxFanWidth, setMaxFanWidth] = useState(DEFAULT_MAX_FAN_WIDTH);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const update = () => setMaxFanWidth(el.clientWidth - HAND_EDGE_MARGIN * 2);
+    update();
+    const observer = new ResizeObserver(update);
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  const sorted = sortHand(hand);
   const n = sorted.length;
-  const step = n > 1 ? Math.min(HAND_STEP, (MAX_FAN_WIDTH - CARD_W_LG) / (n - 1)) : HAND_STEP;
+  const step = n > 1 ? Math.min(HAND_STEP, Math.max(0, maxFanWidth - CARD_W_LG) / (n - 1)) : HAND_STEP;
   const fanW = n > 1 ? CARD_W_LG + (n - 1) * step : CARD_W_LG;
 
   return (
     <section className="absolute inset-x-0 bottom-0 z-20 pb-3" data-id="bouilla-action-area">
-      <div className="relative flex h-[8.5rem] w-full items-end justify-center" data-id="bouilla-my-hand">
+      <div ref={containerRef} className="relative flex h-[8.5rem] w-full items-end justify-center" data-id="bouilla-my-hand">
         <div className="relative h-full" style={{ width: fanW }}>
           {sorted.map((card, i) => {
             const key = cardKey(card);

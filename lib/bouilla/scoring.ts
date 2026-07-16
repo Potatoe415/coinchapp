@@ -1,10 +1,21 @@
-import { trickPenalty } from "./rounds";
+import { CAPOT_PENALTY, sweepWinner, trickPenalty } from "./rounds";
 import { ROUND_ORDER } from "./types";
-import type { GameState, RoundResult, SeatScores } from "./types";
+import type { GameState, RoundResult, Seat, SeatScores } from "./types";
 
-/** Sum, per seat, the penalty points won across every completed trick of the round. */
+/** "Capot": one seat swept the round, so it pays nothing and every other seat
+ *  pays the round's max penalty instead of the usual per-card tally. */
+function capotResult(round: RoundResult["round"], roundIndex: number, sweepSeat: Seat): RoundResult {
+  const amount = CAPOT_PENALTY[round] ?? 0;
+  const penalties = [0, 1, 2, 3].map((seat) => (seat === sweepSeat ? 0 : amount)) as SeatScores;
+  return { round, roundIndex, penalties, sweepSeat };
+}
+
+/** Sum, per seat, the penalty points won across every completed trick of the round -
+ *  unless one seat swept it, in which case the "Capot" bonus applies instead. */
 export function computeRoundResult(state: GameState): RoundResult {
   const round = ROUND_ORDER[state.roundIndex];
+  const sweepSeat = sweepWinner(round, state.tricks);
+  if (sweepSeat !== null) return capotResult(round, state.roundIndex, sweepSeat);
   const penalties: SeatScores = [0, 0, 0, 0];
   state.tricks.forEach((trick, index) => {
     const isLastTrick = index === state.tricks.length - 1;

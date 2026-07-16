@@ -1,10 +1,16 @@
 import { describe, expect, it } from "vitest";
 import { computeRoundResult, finalizeRound } from "./scoring";
 import { card, scoringState } from "./test-utils";
-import type { Trick } from "./types";
+import type { Rank, Trick } from "./types";
 
 function trickWonBy(winner: 0 | 1 | 2 | 3, cards: ReturnType<typeof card>[]): Trick {
   return { leader: 0, cards: cards.map((c, seat) => ({ seat: seat as 0 | 1 | 2 | 3, card: c })), winner };
+}
+
+/** A full 13-trick round, every trick won by the same seat (a "Capot" sweep). */
+function allTricksWonBy(winner: 0 | 1 | 2 | 3): Trick[] {
+  const ranks: Rank[] = ["2", "3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A"];
+  return ranks.map((rank) => trickWonBy(winner, [card(rank, "H")]));
 }
 
 describe("computeRoundResult", () => {
@@ -28,6 +34,21 @@ describe("computeRoundResult", () => {
     const result = computeRoundResult(state);
     expect(result.round).toBe("lastTrick");
     expect(result.penalties).toEqual([0, 0, 0, 100]);
+  });
+
+  it("Capot: sweeping all 13 tricks flips the penalty onto the other 3 seats", () => {
+    const state = scoringState(0, allTricksWonBy(2)); // roundIndex 0 = "tricks"
+    const result = computeRoundResult(state);
+    expect(result.sweepSeat).toBe(2);
+    expect(result.penalties).toEqual([65, 65, 0, 65]); // 13 * 5
+  });
+
+  it("Capot: sweeping every trick in the cumulative round charges the full combined max", () => {
+    const state = scoringState(5, allTricksWonBy(1)); // roundIndex 5 = "everything"
+    const result = computeRoundResult(state);
+    expect(result.sweepSeat).toBe(1);
+    // 13*5 (tricks) + 13*10 (clubs) + 4*20 (queens) + 50 (king) + 100 (last trick) = 425
+    expect(result.penalties).toEqual([425, 0, 425, 425]);
   });
 });
 

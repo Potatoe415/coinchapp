@@ -1,5 +1,6 @@
 import { nextSeat } from "@/lib/cards";
-import { cardStrength, sameCard } from "./cards";
+import { cardStrength, isKingOfSpades, sameCard } from "./cards";
+import { ROUND_ORDER } from "./types";
 import type { Card, GameState, PlayedCard, Seat, Trick } from "./types";
 
 /** Seat currently winning the given (partial) trick. No trump: only led-suit cards can win. */
@@ -29,7 +30,9 @@ export function isLegalPlay(state: GameState, seat: Seat, card: Card): boolean {
 }
 
 /** Apply a card play. Resolves the trick when complete and advances the turn.
- *  A round ends after 13 tricks (the full 52-card pack, 13 cards per seat). */
+ *  A round normally ends after 13 tricks (the full 52-card pack, 13 cards per
+ *  seat) - except "kingSpades", which ends the instant the king of spades is
+ *  captured, since nothing else in that round can still change the score. */
 export function applyPlay(state: GameState, seat: Seat, card: Card): GameState {
   if (state.phase !== "playing") throw new Error("not_playing");
   if (state.turn !== seat) throw new Error("not_your_turn");
@@ -53,7 +56,8 @@ export function applyPlay(state: GameState, seat: Seat, card: Card): GameState {
   const winner = trickWinner(trickCards);
   const completed: Trick = { leader: state.currentTrick.leader, cards: trickCards, winner };
   const tricks = [...state.tricks, completed];
-  const done = tricks.length === 13;
+  const kingOfSpadesFell = ROUND_ORDER[state.roundIndex] === "kingSpades" && completed.cards.some((p) => isKingOfSpades(p.card));
+  const done = tricks.length === 13 || kingOfSpadesFell;
   return {
     ...state,
     hands,

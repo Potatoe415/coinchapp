@@ -17,7 +17,7 @@ export function BouillaScoreboard({
   onClose: () => void;
 }) {
   const seats = [0, 1, 2, 3];
-  const penaltiesByRound = new Map(view.roundHistory.map((r) => [r.round, r.penalties]));
+  const resultByRound = new Map(view.roundHistory.map((r) => [r.round, r]));
 
   return (
     <div
@@ -55,16 +55,21 @@ export function BouillaScoreboard({
             </thead>
             <tbody>
               {ROUND_ORDER.map((round, index) => {
-                const penalties = penaltiesByRound.get(round);
-                const isCurrent = index === view.roundIndex && view.phase !== "finished" && !penalties;
+                const result = resultByRound.get(round);
+                const isCurrent = index === view.roundIndex && view.phase !== "finished" && !result;
                 return (
                   <tr key={round} className="border-t border-[var(--card-face)]/10" data-id={`scoreboard-row-${round}`}>
                     <td className={`py-1.5 pr-2 font-medium ${isCurrent ? "text-[var(--accent-cyan)]" : "text-[var(--card-face)]/80"}`}>
                       {ROUND_LABEL_FR[round]}
+                      {result?.sweepSeat !== undefined && (
+                        <span className="block text-[0.65rem] font-normal text-[var(--accent-yellow)]" data-id={`scoreboard-capot-${round}`}>
+                          Capot ({playerName(gv, result.sweepSeat)})
+                        </span>
+                      )}
                     </td>
                     {seats.map((seat) => (
                       <td key={seat} className="px-1 py-1.5 text-center text-[var(--card-face)]/80" data-id={`scoreboard-cell-${round}-${seat}`}>
-                        {penalties ? penalties[seat] : isCurrent ? "…" : "—"}
+                        {result ? result.penalties[seat] : isCurrent ? "…" : "—"}
                       </td>
                     ))}
                   </tr>
