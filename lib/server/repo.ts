@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { getServiceClient } from "@/lib/supabase/server";
 import type { AnyGameState, GameRow, GameStatus, PlayerRow } from "@/lib/supabase/types";
 
@@ -25,21 +26,17 @@ export function teamForSeat(seat: number): "A" | "B" {
   return seat % 2 === 0 ? "A" : "B";
 }
 
+/** Neither query depends on the other's result, so they run concurrently: on every
+ *  card play and every realtime-triggered refetch, this halves one of several
+ *  sequential Supabase round trips that otherwise compound into a visible delay. */
 export async function loadGame(gameId: string): Promise<LoadedGame> {
   const supabase = getServiceClient();
   const cutoffIso = activeGameCutoffIso();
-  const { data: game, error } = await supabase
-    .from("games")
-    .select("*")
-    .eq("id", gameId)
-    .gte("created_at", cutoffIso)
-    .single();
+  const [{ data: game, error }, { data: players }] = await Promise.all([
+    supabase.from("games").select("*").eq("id", gameId).gte("created_at", cutoffIso).single(),
+    supabase.from("game_players").select("*").eq("game_id", gameId).order("seat"),
+  ]);
   if (error || !game) throw new Error("game_not_found");
-  const { data: players } = await supabase
-    .from("game_players")
-    .select("*")
-    .eq("game_id", gameId)
-    .order("seat");
   return { game: game as GameRow, players: (players ?? []) as PlayerRow[] };
 }
 
@@ -107,20 +104,22 @@ export function isSeatLive(
 
 /**
  * Presence heartbeat: refresh a seat's last-seen timestamp (not authoritative
- * game state, so no version bump / realtime tick). Also updates the
- * in-memory row so an `isSeatLive` check right after in the same request sees
- * it immediately.
+ * game state, so no version bump / realtime tick). Updates the in-memory row
+ * immediately, so an `isSeatLive` check right after in the same request sees
+ * it - but the actual write never blocks the response: nothing the caller
+ * needs to know depends on it, so it runs via `after()` once the response is
+ * already on its way, shaving one more sequential round trip off every
+ * `getView` (called on every card played and every realtime refetch).
  */
-export async function touchPresence(loaded: LoadedGame, seat: number): Promise<void> {
-  const supabase = getServiceClient();
+export function touchPresence(loaded: LoadedGame, seat: number): void {
   const now = new Date().toISOString();
-  await supabase
-    .from("game_players")
-    .update({ last_seen_at: now })
-    .eq("game_id", loaded.game.id)
-    .eq("seat", seat);
   const player = loaded.players.find((p) => p.seat === seat);
-  if (player) player.last_seen_at = now;
+  if (!player) return;
+  player.last_seen_at = now;
+  const gameId = loaded.game.id;
+  after(() =>
+    getServiceClient().from("game_players").update({ last_seen_at: now }).eq("game_id", gameId).eq("seat", seat),
+  );
 }
 
 /**
@@ -129,6 +128,12 @@ export async function touchPresence(loaded: LoadedGame, seat: number): Promise<v
  * computed before another actor already advanced the state) can never
  * overwrite newer progress. Returns the new version, or throws
  * "version_conflict" if the row moved under us.
+ *
+ * The `game_events` row is only a backup realtime signal (`useGameView`'s
+ * primary path is the caller's own explicit `notify()` broadcast, sent right
+ * after this resolves - see `docs/TECH.md`): it never needs to block the
+ * response, so it is inserted via `after()` instead of a third sequential
+ * round trip on every card played.
  */
 async function updateVersioned(
   game: GameRow,
@@ -144,7 +149,7 @@ async function updateVersioned(
     .select("id");
   if (error) throw new Error("persist_failed");
   if (!data || data.length === 0) throw new Error("version_conflict");
-  await supabase.from("game_events").insert({ game_id: game.id, version });
+  after(() => getServiceClient().from("game_events").insert({ game_id: game.id, version }));
   return version;
 }
 

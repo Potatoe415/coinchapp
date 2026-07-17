@@ -82,9 +82,10 @@ async function loadForAction(gameId: string): Promise<{
   state: AnyGameState;
   gameType: GameType;
 }> {
-  const uid = await getUserId();
+  // Neither call depends on the other's result: run them concurrently instead
+  // of paying for both round trips back-to-back on every submitted move.
+  const [uid, loaded] = await Promise.all([getUserId(), loadGame(gameId)]);
   if (!uid) throw new Error("not_authenticated");
-  const loaded = await loadGame(gameId);
   const seat = seatOf(uid, loaded.players);
   if (seat === null) throw new Error("not_a_member");
   if (!loaded.game.state) throw new Error("game_not_started");
@@ -118,9 +119,8 @@ export async function nextDeal(gameId: string): Promise<void> {
 
 /** Host-only: submit the move for the bot seat whose turn it currently is. */
 export async function submitBotMove(gameId: string, seat: Seat, move: BotMove): Promise<void> {
-  const uid = await getUserId();
+  const [uid, loaded] = await Promise.all([getUserId(), loadGame(gameId)]);
   if (!uid) throw new Error("not_authenticated");
-  const loaded = await loadGame(gameId);
   if (loaded.game.host_user_id !== uid) throw new Error("not_host");
   const state = loaded.game.state;
   if (!state) throw new Error("game_not_started");
@@ -184,10 +184,11 @@ async function advanceStaleTurns(loaded: LoadedGame): Promise<void> {
 }
 
 export async function getView(gameId: string): Promise<GameView> {
-  const uid = await getUserId();
-  const loaded = await loadGame(gameId);
+  // Same reasoning as loadForAction: this runs on every card played and every
+  // realtime tick, so the two independent round trips are worth overlapping.
+  const [uid, loaded] = await Promise.all([getUserId(), loadGame(gameId)]);
   const mySeat = seatOf(uid, loaded.players);
-  if (mySeat !== null) await touchPresence(loaded, mySeat);
+  if (mySeat !== null) touchPresence(loaded, mySeat);
   await advanceStaleTurns(loaded);
   return buildView(loaded, uid);
 }

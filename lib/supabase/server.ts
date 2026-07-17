@@ -31,9 +31,17 @@ export function getServiceClient() {
   });
 }
 
-/** Current user id from the cookie session, or null. */
+/**
+ * Current user id from the cookie session, or null. Uses `getClaims()`
+ * instead of `getUser()`: both verify the JWT, but `getClaims()` does so
+ * locally (no network round trip) whenever the project uses asymmetric
+ * signing keys, falling back to the same server call `getUser()` always
+ * makes otherwise. This runs on every server action and every `getView`
+ * poll/refetch, so the difference is worth the deprecated-elsewhere pattern
+ * (see docs/DECISIONS.md for the latency/security tradeoff this accepts).
+ */
 export async function getUserId(): Promise<string | null> {
   const supabase = await getUserClient();
-  const { data } = await supabase.auth.getUser();
-  return data.user?.id ?? null;
+  const { data } = await supabase.auth.getClaims();
+  return data?.claims.sub ?? null;
 }
