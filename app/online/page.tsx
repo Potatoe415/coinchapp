@@ -22,7 +22,7 @@ export default function OnlinePage() {
 
 function OnlinePageInner() {
   const router = useRouter();
-  const { t } = useI18n();
+  const { locale, t } = useI18n();
   const isBouilla = useSearchParams().get("game") === "bouilla";
   const gameType: GameType = isBouilla ? "bouilla" : "coinche";
   const [name, setName] = useState("");
@@ -65,10 +65,10 @@ function OnlinePageInner() {
 
       <header className="text-center">
         <h1 className="text-3xl font-black tracking-tight text-[var(--surface)]" data-id="online-title">
-          {isBouilla ? "la Bouilla en ligne" : t("playOnline")}
+          {isBouilla ? t("bouillaOnlineTitle") : t("playOnline")}
         </h1>
         <p className="text-sm text-[var(--foreground)]/75">
-          {isBouilla ? "Crée ou rejoins une table à 4, chacun pour soi." : t("onlineSubtitle")}
+          {isBouilla ? t("bouillaOnlineSubtitle") : t("onlineSubtitle")}
         </p>
       </header>
 
@@ -102,6 +102,7 @@ function OnlinePageInner() {
             run(() =>
               createGame({
                 displayName: name,
+                locale,
                 gameType,
                 settings: isBouilla
                   ? {}
@@ -139,7 +140,7 @@ function OnlinePageInner() {
             disabled={busy || code.length !== ROOM_CODE_LENGTH}
             onClick={() =>
               run(async () => {
-                const joined = await joinGame({ roomCode: code, displayName: name });
+                const joined = await joinGame({ roomCode: code, displayName: name, locale });
                 return { ...joined, roomCode: code };
               })
             }

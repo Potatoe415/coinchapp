@@ -16,7 +16,7 @@ function swapPlayers(players: LobbyPlayer[], from: number, to: number): LobbyPla
 }
 
 export function Lobby({ gv, onChange }: { gv: GameView; onChange: () => Promise<void> }) {
-  const { t } = useI18n();
+  const { locale, t } = useI18n();
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -164,7 +164,7 @@ export function Lobby({ gv, onChange }: { gv: GameView; onChange: () => Promise<
           <button
             data-id="lobby-join-button"
             disabled={busy || !canJoin}
-            onClick={() => act(() => joinGame({ roomCode: gv.roomCode, displayName: name }))}
+            onClick={() => act(() => joinGame({ roomCode: gv.roomCode, displayName: name, locale }))}
             className="rounded-lg bg-[var(--accent-cyan)] px-4 py-2 font-bold text-[var(--surface)] disabled:opacity-50"
           >
             {t("join")}

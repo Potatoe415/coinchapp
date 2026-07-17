@@ -1,16 +1,17 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useState } from "react";
 import { useI18n } from "@/lib/client/i18n";
-import { CAPOT_VALUE, cardId, GENERALE_VALUE, isTrump, RANKS, teamOf, trumpStrength, type Bid, type Card, type PlayedCard, type PlayerView, type TrumpMode } from "@/lib/coinche";
+import { useOptimisticPlay } from "@/lib/client/useOptimisticPlay";
+import { CAPOT_VALUE, cardId, GENERALE_VALUE, isTrump, RANKS, teamOf, trumpStrength, type Bid, type Card, type PlayerView, type TrumpMode } from "@/lib/coinche";
 import type { GameView } from "@/lib/server/view";
 import { BiddingPanel, type BidPayload, type CurrentLiveBid } from "./BiddingPanel";
 import { EmojiButton, type EmojiReaction } from "./EmojiButton";
 import { GameHud } from "./GameHud";
 import { GameTableScene } from "./GameTableScene";
 import { playerName, relativeSeat } from "./gameTableHelpers";
+import { HandCardSlot } from "./HandCardSlot";
 import { isRedSuit, trumpModeLabel } from "./labels";
-import { PlayingCard } from "./PlayingCard";
 
 /** This table only ever renders a Coinche game: narrow the shared, multi-game
  *  `GameView` down to its Coinche-specific view/botViews shape. */
@@ -45,7 +46,7 @@ const SUIT_ORDER: Record<string, number> = { S: 0, H: 1, C: 2, D: 3 };
  */
 function computeBimKey(
   view: { trump: import("@/lib/coinche").TrumpMode | null; tricks: import("@/lib/coinche").Trick[] },
-  trickCards: PlayedCard[],
+  trickCards: { seat: number; card: Card }[],
 ): string | null {
   const { trump, tricks } = view;
   if (!trump || trump === "SA" || trump === "TA") return null;
@@ -91,8 +92,6 @@ function deriveLiveBid(bids: Bid[]): { bid: Bid; coinched: boolean; surcoinched:
   return { bid: highest, coinched, surcoinched };
 }
 
-type PendingPlayedCard = PlayedCard;
-
 function sortHand(hand: Card[], trump: TrumpMode | null): Card[] {
   return [...hand].sort((a, b) => {
     const aTrump = isTrump(a, trump);
@@ -107,10 +106,13 @@ function sortHand(hand: Card[], trump: TrumpMode | null): Card[] {
 export function GameTable({ gv, actions, reactions }: { gv: CoincheGameView; actions: GameActions; reactions?: Map<number, EmojiReaction> }) {
   const view = gv.view!;
   const mySeat = gv.mySeat!;
-  const [busy, setBusy] = useState(false);
-  const [pendingPlayed, setPendingPlayed] = useState<PendingPlayedCard | null>(null);
-  const [preSelected, setPreSelected] = useState<string | null>(null);
   const [emojiOn, setEmojiOn] = useState(true);
+  const { legalSet, myTurnToPlay, optimisticHand, trickCards, preSelectedId, tapCard } = useOptimisticPlay(
+    view,
+    mySeat,
+    cardId,
+    actions.onPlay,
+  );
 
   useEffect(() => {
     // Post-hydration browser read: deferred to after mount to avoid an SSR/client mismatch.
@@ -124,101 +126,21 @@ export function GameTable({ gv, actions, reactions }: { gv: CoincheGameView; act
       return !v;
     });
   }
-  const legalSet = new Set(view.legalCards.map(cardId));
-  const myTurnToPlay = view.phase === "playing" && view.turn === mySeat;
-  const pendingCardId = pendingPlayed ? cardId(pendingPlayed.card) : null;
-  const optimisticHand =
-    pendingPlayed && pendingPlayed.seat === mySeat
-      ? view.myHand.filter((card) => cardId(card) !== pendingCardId)
-      : view.myHand;
-  const handCount = view.myHand.length;
-
-  async function onPlay(card: Card) {
-    if (!myTurnToPlay || !legalSet.has(cardId(card)) || busy) return;
-    setPreSelected(null);
-    setBusy(true);
-    setPendingPlayed({ seat: mySeat, card });
-    try {
-      await actions.onPlay(card);
-    } catch {
-      setPendingPlayed(null);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  // Keep a ref to the latest onPlay so timeout/turn-driven auto-play uses fresh state.
-  const onPlayRef = useRef<(card: Card) => Promise<void>>(async () => {});
-  useEffect(() => {
-    onPlayRef.current = onPlay;
-  });
-
-  // Clear the optimistic pending card once the server view reflects the play.
-  if (pendingPlayed) {
-    const inCurrentTrick = view.currentTrick.cards.some(
-      (played) => played.seat === pendingPlayed.seat && cardId(played.card) === pendingCardId,
-    );
-    const inLastTrick =
-      view.lastTrick?.cards.some(
-        (played) => played.seat === pendingPlayed.seat && cardId(played.card) === pendingCardId,
-      ) ?? false;
-    const stillInHand = view.myHand.some((card) => cardId(card) === pendingCardId);
-    if ((inCurrentTrick || inLastTrick) && !stillInHand) setPendingPlayed(null);
-  }
-
-  // Drop a pre-selection that is no longer legal now that it is our turn.
-  if (myTurnToPlay && preSelected !== null && !legalSet.has(preSelected)) {
-    setPreSelected(null);
-  }
-
-  // Auto-play only when it's the very last card in hand.
-  useEffect(() => {
-    if (!myTurnToPlay || busy || handCount !== 1) return;
-    const card = view.myHand[0];
-    const timer = window.setTimeout(() => void onPlayRef.current(card), 700);
-    return () => window.clearTimeout(timer);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [myTurnToPlay, busy, handCount]);
-
-  // Auto-play a legal pre-selected card when it becomes our turn.
-  useEffect(() => {
-    if (!myTurnToPlay || busy || preSelected === null || handCount === 1) return;
-    const card = view.myHand.find((c) => cardId(c) === preSelected);
-    if (card && legalSet.has(preSelected)) void onPlayRef.current(card);
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [myTurnToPlay, busy]);
   const seats = {
     top: relativeSeat(mySeat, 2),
     left: relativeSeat(mySeat, 3),
     right: relativeSeat(mySeat, 1),
     bottom: mySeat,
   };
-  const trickCards = [...view.currentTrick.cards];
-  const pendingInLastTrick =
-    pendingPlayed !== null &&
-    (view.lastTrick?.cards.some((c) => c.seat === pendingPlayed.seat && cardId(c.card) === pendingCardId) ?? false);
-  if (pendingPlayed && !pendingInLastTrick && !trickCards.some((played) => played.seat === pendingPlayed.seat)) {
-    trickCards.push(pendingPlayed);
-  }
-  const trickBySeat = new Map<number, Card>(trickCards.map((c: PlayedCard) => [c.seat, c.card]));
+  const trickBySeat = new Map<number, Card>(trickCards.map((c) => [c.seat, c.card]));
   const lastTrickBySeat = view.lastTrick
-    ? new Map<number, Card>(view.lastTrick.cards.map((c: PlayedCard) => [c.seat, c.card]))
+    ? new Map<number, Card>(view.lastTrick.cards.map((c) => [c.seat, c.card]))
     : null;
   const lastTrickKey = view.lastTrick
     ? view.lastTrick.cards.map((played) => `${played.seat}:${cardId(played.card)}`).join("|")
     : null;
   const lastTrickWinner = view.lastTrick?.winner ?? null;
   const bimTrickKey = computeBimKey(view, trickCards);
-
-  function onCardClick(card: Card) {
-    if (myTurnToPlay) {
-      if (!busy) void onPlay(card);
-    } else if (view.phase === "playing") {
-      // Pre-selection is always allowed (even while bots are playing).
-      const id = cardId(card);
-      setPreSelected((prev) => (prev === id ? null : id));
-    }
-  }
 
   return (
     <main
@@ -272,9 +194,9 @@ export function GameTable({ gv, actions, reactions }: { gv: CoincheGameView; act
           mySeat={mySeat}
           legalSet={legalSet}
           myTurnToPlay={myTurnToPlay}
-          preSelected={preSelected}
+          preSelectedId={preSelectedId}
           onBid={actions.onBid}
-          onCardClick={onCardClick}
+          onCardTap={tapCard}
         />
       </div>
       <div className="flex-1" aria-hidden="true" />
@@ -290,15 +212,15 @@ function HandFan({
   trump,
   legalSet,
   myTurnToPlay,
-  preSelected,
-  onCardClick,
+  preSelectedId,
+  onCardTap,
 }: {
   hand: Card[];
   trump: TrumpMode | null;
   legalSet: Set<string>;
   myTurnToPlay: boolean;
-  preSelected: string | null;
-  onCardClick: (card: Card) => void;
+  preSelectedId: string | null;
+  onCardTap: (card: Card) => void;
 }) {
   const sorted = sortHand(hand, trump);
   const n = sorted.length;
@@ -307,63 +229,25 @@ function HandFan({
   return (
     <div className="relative flex h-[8.5rem] w-full items-end justify-center" data-id="my-hand">
       <div className="relative h-full" style={{ width: fanW }}>
-        {sorted.map((card, i) => (
-          <HandCard
-            key={cardId(card)}
-            card={card}
-            index={i}
-            legalSet={legalSet}
-            myTurnToPlay={myTurnToPlay}
-            isPreSelected={preSelected === cardId(card)}
-            onCardClick={onCardClick}
-          />
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function HandCard({
-  card,
-  index,
-  legalSet,
-  myTurnToPlay,
-  isPreSelected,
-  onCardClick,
-}: {
-  card: Card;
-  index: number;
-  legalSet: Set<string>;
-  myTurnToPlay: boolean;
-  isPreSelected: boolean;
-  onCardClick: (card: Card) => void;
-}) {
-  const isPlayable = myTurnToPlay && legalSet.has(cardId(card));
-  const isDimmed = myTurnToPlay && !legalSet.has(cardId(card));
-  // Keep the hand visually stable while playing online: only explicit pre-selection lifts a card.
-  const lift = isPreSelected ? "translateY(-28px)" : "none";
-
-  // When it's my turn: let PlayingCard render a <button> and handle the click.
-  // When it's not my turn (pre-selection mode): PlayingCard renders a <div> (no onClick →
-  // not disabled), and the outer div captures the click.
-  const playCardClick = myTurnToPlay ? () => onCardClick(card) : undefined;
-  const preselectClick = !myTurnToPlay ? () => onCardClick(card) : undefined;
-
-  return (
-    <div
-      className="absolute bottom-0 transition-transform duration-150"
-      style={{ left: index * HAND_STEP, zIndex: isPreSelected ? 60 + index : isPlayable ? 50 + index : index, transform: lift }}
-      onClick={preselectClick}
-    >
-      <div className={isPreSelected ? "rounded-lg ring-2 ring-[var(--accent-yellow)]" : undefined}>
-        <PlayingCard
-          card={card}
-          size="lg"
-          dataId={`hand-card-${cardId(card)}`}
-          playable={isPlayable}
-          dimmed={isDimmed}
-          onClick={playCardClick}
-        />
+        {sorted.map((card, i) => {
+          const id = cardId(card);
+          const isPlayable = myTurnToPlay && legalSet.has(id);
+          const isPreSelected = preSelectedId === id;
+          return (
+            <HandCardSlot
+              key={id}
+              card={card}
+              left={i * HAND_STEP}
+              zIndex={isPreSelected ? 60 + i : isPlayable ? 50 + i : i}
+              isPlayable={isPlayable}
+              isDimmed={myTurnToPlay && !isPlayable}
+              isPreSelected={isPreSelected}
+              myTurnToPlay={myTurnToPlay}
+              dataId={`hand-card-${id}`}
+              onTap={() => onCardTap(card)}
+            />
+          );
+        })}
       </div>
     </div>
   );
@@ -376,9 +260,9 @@ function ActionDock({
   mySeat,
   legalSet,
   myTurnToPlay,
-  preSelected,
+  preSelectedId,
   onBid,
-  onCardClick,
+  onCardTap,
 }: {
   view: PlayerView;
   hand: Card[];
@@ -386,9 +270,9 @@ function ActionDock({
   mySeat: number;
   legalSet: Set<string>;
   myTurnToPlay: boolean;
-  preSelected: string | null;
+  preSelectedId: string | null;
   onBid: (payload: BidPayload) => Promise<void> | void;
-  onCardClick: (card: Card) => void;
+  onCardTap: (card: Card) => void;
 }) {
   const [previewTrump, setPreviewTrump] = useState<TrumpMode | null>(null);
   return (
@@ -399,8 +283,8 @@ function ActionDock({
         trump={view.trump ?? previewTrump}
         legalSet={legalSet}
         myTurnToPlay={myTurnToPlay}
-        preSelected={preSelected}
-        onCardClick={onCardClick}
+        preSelectedId={preSelectedId}
+        onCardTap={onCardTap}
       />
     </section>
   );

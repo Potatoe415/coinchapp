@@ -1,4 +1,5 @@
 import type { Team } from "@/lib/coinche";
+import type { Locale } from "@/lib/client/i18n";
 import type { GameView } from "@/lib/server/view";
 
 export function seatTeam(seat: number): Team {
@@ -13,8 +14,9 @@ export function relativeSeat(mySeat: number, offset: number): number {
   return (mySeat + offset) % 4;
 }
 
-export function playerName(gv: GameView, seat: number): string {
-  return gv.players.find((p) => p.seat === seat)?.displayName ?? `Siège ${seat + 1}`;
+export function playerName(gv: GameView, seat: number, locale: Locale = "fr"): string {
+  const fallback = locale === "fr" ? "Siège" : "Seat";
+  return gv.players.find((p) => p.seat === seat)?.displayName ?? `${fallback} ${seat + 1}`;
 }
 
 /** Whether the seat's responsible party (the seat's own user, or the host

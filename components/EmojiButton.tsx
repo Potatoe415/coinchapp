@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useI18n } from "@/lib/client/i18n";
 
 export type EmojiReaction = { emoji: string; id: number };
 
@@ -13,6 +14,7 @@ export function EmojiButton({
   myReaction?: EmojiReaction;
   onSelect: (emoji: string) => void;
 }) {
+  const { t } = useI18n();
   const [open, setOpen] = useState(false);
 
   function pick(emoji: string) {
@@ -63,7 +65,7 @@ export function EmojiButton({
         className="flex h-11 w-11 items-center justify-center rounded-full bg-black/50 text-2xl shadow-lg backdrop-blur-sm transition-all hover:bg-black/70 active:scale-95"
         onClick={() => setOpen((v) => !v)}
         data-id="emoji-button"
-        aria-label="Envoyer un emoji"
+        aria-label={t("sendEmoji")}
       >
         😊
       </button>

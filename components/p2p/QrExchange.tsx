@@ -80,6 +80,7 @@ function CodeReveal({ value }: { value: string }) {
 
 /** Live camera QR scanner. Calls onScan once with the first decoded payload. */
 export function QrScanner({ onScan }: { onScan: (text: string) => void }) {
+  const { t } = useI18n();
   const videoRef = useRef<HTMLVideoElement>(null);
   const onScanRef = useRef(onScan);
   const [error, setError] = useState(false);
@@ -115,7 +116,7 @@ export function QrScanner({ onScan }: { onScan: (text: string) => void }) {
   if (error) {
     return (
       <p data-id="qr-scanner-error" className="text-center text-sm text-[var(--accent-red)]">
-        Caméra indisponible — utilisez le collage manuel.
+        {t("cameraUnavailable")}
       </p>
     );
   }

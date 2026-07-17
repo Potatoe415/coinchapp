@@ -1,8 +1,9 @@
 "use client";
 
 import { ROUND_ORDER, type PlayerView } from "@/lib/bouilla";
+import { useI18n } from "@/lib/client/i18n";
 import type { GameView } from "@/lib/server/view";
-import { ROUND_LABEL_FR } from "./bouillaLabels";
+import { ROUND_LABEL } from "./bouillaLabels";
 import { playerName } from "./gameTableHelpers";
 
 /** Rounds (rows) x seats (columns) penalty table, the natural scoreboard for this
@@ -16,6 +17,7 @@ export function BouillaScoreboard({
   view: PlayerView;
   onClose: () => void;
 }) {
+  const { locale, t } = useI18n();
   const seats = [0, 1, 2, 3];
   const resultByRound = new Map(view.roundHistory.map((r) => [r.round, r]));
 
@@ -31,10 +33,11 @@ export function BouillaScoreboard({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="mb-3 flex items-center justify-between">
-          <h2 className="text-lg font-black text-[var(--card-face)]">Tableau des scores</h2>
+          <h2 className="text-lg font-black text-[var(--card-face)]">{t("scoreboard")}</h2>
           <button
             data-id="bouilla-scoreboard-close"
             onClick={onClose}
+            aria-label={t("close")}
             className="rounded-lg px-3 py-1 text-sm font-medium text-[var(--card-face)]/60 hover:text-[var(--card-face)]"
           >
             ✕
@@ -44,11 +47,11 @@ export function BouillaScoreboard({
           <table className="w-full text-sm" data-id="bouilla-scoreboard-table">
             <thead>
               <tr className="text-left text-[var(--card-face)]/60">
-                <th className="py-1 pr-2 font-semibold">Manche</th>
+                <th className="py-1 pr-2 font-semibold">{t("round")}</th>
                 {seats.map((seat) => (
                   <th key={seat} className="px-1 py-1 text-center font-semibold" data-id={`scoreboard-header-${seat}`}>
-                    {playerName(gv, seat)}
-                    {seat === view.mySeat && " (vous)"}
+                    {playerName(gv, seat, locale)}
+                    {seat === view.mySeat && ` (${t("you")})`}
                   </th>
                 ))}
               </tr>
@@ -60,10 +63,10 @@ export function BouillaScoreboard({
                 return (
                   <tr key={round} className="border-t border-[var(--card-face)]/10" data-id={`scoreboard-row-${round}`}>
                     <td className={`py-1.5 pr-2 font-medium ${isCurrent ? "text-[var(--accent-cyan)]" : "text-[var(--card-face)]/80"}`}>
-                      {ROUND_LABEL_FR[round]}
+                      {ROUND_LABEL[locale][round]}
                       {result?.sweepSeat !== undefined && (
                         <span className="block text-[0.65rem] font-normal text-[var(--accent-yellow)]" data-id={`scoreboard-capot-${round}`}>
-                          Capot ({playerName(gv, result.sweepSeat)})
+                          Capot ({playerName(gv, result.sweepSeat, locale)})
                         </span>
                       )}
                     </td>
@@ -76,7 +79,7 @@ export function BouillaScoreboard({
                 );
               })}
               <tr className="border-t-2 border-[var(--card-face)]/25 font-black" data-id="scoreboard-total-row">
-                <td className="py-2 pr-2 text-[var(--card-face)]">Total</td>
+                <td className="py-2 pr-2 text-[var(--card-face)]">{t("total")}</td>
                 {seats.map((seat) => (
                   <td key={seat} className="px-1 py-2 text-center text-[var(--card-face)]" data-id={`scoreboard-total-${seat}`}>
                     {view.totalScores[seat]}
@@ -86,7 +89,7 @@ export function BouillaScoreboard({
             </tbody>
           </table>
         </div>
-        <p className="mt-3 text-center text-xs text-[var(--card-face)]/60">Le moins de points gagne.</p>
+        <p className="mt-3 text-center text-xs text-[var(--card-face)]/60">{t("lowestScoreWins")}</p>
       </div>
     </div>
   );

@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Coinche en ligne",
-  description: "Jeu de Coinche multijoueur jouable dans le navigateur.",
+  title: "Coinchapp — Coinche et la Bouilla",
+  description: "Jouez à la Coinche et à la Bouilla dans votre navigateur.",
 };
 
 export const viewport = {

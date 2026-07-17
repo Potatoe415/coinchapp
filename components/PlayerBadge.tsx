@@ -1,3 +1,6 @@
+"use client";
+
+import { useI18n } from "@/lib/client/i18n";
 import type { Team } from "@/lib/coinche";
 import type { EmojiReaction } from "./EmojiButton";
 
@@ -25,6 +28,7 @@ export function PlayerBadge({
   dataId,
   orientation = "horizontal",
 }: PlayerBadgeProps) {
+  const { t } = useI18n();
   const teamClass = team === "A" ? "text-team-a" : "text-team-b";
   const turnClass = isTurn ? "underline decoration-2 underline-offset-2" : "";
   const dimClass = connected ? "" : "opacity-50";
@@ -40,7 +44,7 @@ export function PlayerBadge({
           {name}
           {isDealer && <span className="mt-1 text-[10px]">D</span>}
         </div>
-        {!connected && <DisconnectedDot />}
+        {!connected && <DisconnectedDot label={t("disconnected")} />}
         {reaction && (
           <span key={reaction.id} className="emoji-react text-xl leading-none" data-id="player-emoji-reaction">
             {reaction.emoji}
@@ -57,7 +61,7 @@ export function PlayerBadge({
         {name}
         {isDealer && <span className="ml-1 align-middle text-[10px]">D</span>}
       </div>
-      {!connected && <DisconnectedDot />}
+      {!connected && <DisconnectedDot label={t("disconnected")} />}
       {reaction && (
         <span key={reaction.id} className="emoji-react text-2xl leading-none" data-id="player-emoji-reaction">
           {reaction.emoji}
@@ -67,12 +71,12 @@ export function PlayerBadge({
   );
 }
 
-function DisconnectedDot() {
+function DisconnectedDot({ label }: { label: string }) {
   return (
     <span
       className="h-2 w-2 shrink-0 rounded-full bg-[var(--accent-red)]/70"
       data-id="player-disconnected-dot"
-      aria-label="Déconnecté"
+      aria-label={label}
     />
   );
 }

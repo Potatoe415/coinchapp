@@ -4,11 +4,13 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { RulesModal } from "@/components/RulesModal";
+import { useI18n } from "@/lib/client/i18n";
 
 /** Same layout/mode picker as the home screen, but every button reuses the existing
  *  /local, /online, /adhoc routes with `?game=bouilla` instead of a duplicated tree. */
 export default function BouillaPage() {
   const router = useRouter();
+  const { t } = useI18n();
   const [showRules, setShowRules] = useState(false);
 
   return (
@@ -25,7 +27,7 @@ export default function BouillaPage() {
         href="/"
         className="absolute left-4 top-4 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white/70"
         data-id="bouilla-home-back"
-        aria-label="Retour à l'accueil"
+        aria-label={t("backHome")}
       >
         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
       </Link>
@@ -40,8 +42,8 @@ export default function BouillaPage() {
           onClick={() => router.push("/local?game=bouilla")}
           className="w-full rounded-2xl bg-[var(--accent-yellow)] px-4 py-5 text-lg font-black text-[var(--surface)] shadow-lg"
         >
-          Jouer en local
-          <span className="mt-0.5 block text-xs font-medium text-[var(--surface)]/80">Contre 3 bots, hors ligne</span>
+          {t("playLocal")}
+          <span className="mt-0.5 block text-xs font-medium text-[var(--surface)]/80">{t("localOfflineNote")}</span>
         </button>
 
         <button
@@ -49,7 +51,7 @@ export default function BouillaPage() {
           onClick={() => router.push("/online?game=bouilla")}
           className="w-full rounded-2xl bg-[var(--accent-cyan)] px-4 py-5 text-lg font-black text-[var(--surface)] shadow-lg"
         >
-          Jouer en ligne
+          {t("playOnline")}
         </button>
 
         <button
@@ -57,8 +59,8 @@ export default function BouillaPage() {
           onClick={() => router.push("/adhoc?game=bouilla")}
           className="w-full rounded-2xl bg-[var(--accent-green)] px-4 py-5 text-lg font-black text-[var(--surface)] shadow-lg"
         >
-          Sans internet
-          <span className="mt-0.5 block text-xs font-medium text-[var(--surface)]/80">Bots + amis en direct</span>
+          {t("playAdhoc")}
+          <span className="mt-0.5 block text-xs font-medium text-[var(--surface)]/80">{t("adhocOfflineNote")}</span>
         </button>
       </div>
 
@@ -68,7 +70,7 @@ export default function BouillaPage() {
           onClick={() => setShowRules(true)}
           className="rounded-lg border border-white/40 bg-transparent px-4 py-2 text-sm font-medium text-white/70 transition hover:border-white/60 hover:text-white/90 active:scale-95"
         >
-          Règles
+          {t("rulesButton")}
         </button>
       </div>
 

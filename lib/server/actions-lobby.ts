@@ -53,6 +53,11 @@ function cleanName(name: string, fallback: string): string {
   return trimmed.length > 0 ? trimmed : fallback;
 }
 
+function playerNameFallback(locale: "fr" | "en" | undefined, seat?: number): string {
+  const label = locale === "en" ? "Player" : "Joueur";
+  return seat === undefined ? label : `${label} ${seat + 1}`;
+}
+
 function normalizeRoomCode(code: string): string {
   const normalized = (code ?? "").trim().toUpperCase();
   if (!ROOM_CODE_REGEX.test(normalized)) throw new Error("invalid_room_code");
@@ -67,6 +72,7 @@ async function requireUser(): Promise<string> {
 
 export async function createGame(input: {
   displayName: string;
+  locale?: "fr" | "en";
   gameType?: GameType;
   settings: Partial<GameSettings>;
 }): Promise<{ gameId: string; roomCode: string }> {
@@ -94,7 +100,7 @@ export async function createGame(input: {
     game_id: gameId,
     seat: 0,
     user_id: uid,
-    display_name: cleanName(input.displayName, "Joueur"),
+    display_name: cleanName(input.displayName, playerNameFallback(input.locale)),
     is_bot: false,
     team: teamForSeat(0),
   });
@@ -123,6 +129,7 @@ function pickJoinSeat(loaded: LoadedGame): { seat: number; mode: "insert" | "rep
 export async function joinGame(input: {
   roomCode: string;
   displayName: string;
+  locale?: "fr" | "en";
 }): Promise<{ gameId: string; seat: number }> {
   const uid = await requireUser();
   const roomCode = normalizeRoomCode(input.roomCode);
@@ -137,7 +144,7 @@ export async function joinGame(input: {
   if (!target) throw new Error("game_full");
 
   const supabase = getServiceClient();
-  const name = cleanName(input.displayName, `Joueur ${target.seat + 1}`);
+  const name = cleanName(input.displayName, playerNameFallback(input.locale, target.seat));
   if (target.mode === "insert") {
     await supabase.from("game_players").insert({
       game_id: loaded.game.id,

@@ -3,8 +3,9 @@
 import Link from "next/link";
 import { useEffect, useState } from "react";
 import type { PlayerView } from "@/lib/bouilla";
+import { formatText, useI18n } from "@/lib/client/i18n";
 import type { GameView, NextDealGate } from "@/lib/server/view";
-import { ROUND_LABEL_FR } from "./bouillaLabels";
+import { ROUND_LABEL } from "./bouillaLabels";
 import { playerName } from "./gameTableHelpers";
 
 export function BouillaRoundOverlay({
@@ -18,6 +19,7 @@ export function BouillaRoundOverlay({
   onNextRound: () => Promise<void> | void;
   nextRoundGate?: NextDealGate;
 }) {
+  const { locale, t } = useI18n();
   const [busy, setBusy] = useState(false);
   const result = view.lastRoundResult;
   const finished = view.phase === "finished";
@@ -48,17 +50,17 @@ export function BouillaRoundOverlay({
         {finished ? (
           <>
             <h2 className="text-2xl font-black text-[var(--accent-yellow)]" data-id="bouilla-winner">
-              {iAmWinner ? "Vous gagnez !" : "Partie terminée"}
+              {iAmWinner ? t("youWin") : t("gameFinished")}
             </h2>
             <p className="mt-2 text-sm text-[var(--card-face)]/80">
               {view.winners && view.winners.length > 0
-                ? `Vainqueur${view.winners.length > 1 ? "s" : ""} : ${view.winners.map((s) => playerName(gv, s)).join(", ")}`
+                ? `${t(view.winners.length > 1 ? "winners" : "winner")} : ${view.winners.map((s) => playerName(gv, s, locale)).join(", ")}`
                 : ""}
             </p>
             <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
               {seats.map((seat) => (
                 <div key={seat} className="rounded-lg bg-[rgba(255,250,242,0.12)] py-2 px-2" data-id={`bouilla-final-score-${seat}`}>
-                  <p className="text-xs text-[var(--card-face)]/65">{playerName(gv, seat)}</p>
+                  <p className="text-xs text-[var(--card-face)]/65">{playerName(gv, seat, locale)}</p>
                   <p className="text-lg font-bold">{view.totalScores[seat]}</p>
                 </div>
               ))}
@@ -68,26 +70,26 @@ export function BouillaRoundOverlay({
               data-id="finished-home-button"
               className="mt-5 inline-block rounded-lg bg-[var(--accent-yellow)] px-5 py-2.5 font-bold text-[var(--surface)]"
             >
-              Nouvelle partie
+              {t("newGame")}
             </Link>
           </>
         ) : (
           result && (
             <>
               <h2 className="text-2xl font-black text-[var(--accent-cyan)]" data-id="bouilla-round-result-title">
-                {ROUND_LABEL_FR[result.round]}
+                {ROUND_LABEL[locale][result.round]}
               </h2>
               {result.sweepSeat !== undefined && (
                 <p className="mt-1 text-sm font-bold text-[var(--accent-yellow)]" data-id="bouilla-round-capot">
-                  Capot ! {playerName(gv, result.sweepSeat)} a tout raflé — tout le monde d&apos;autre prend le maximum.
+                  {formatText(t("sweepResult"), { player: playerName(gv, result.sweepSeat, locale) })}
                 </p>
               )}
               <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
                 {seats.map((seat) => (
                   <div key={seat} className="rounded-lg bg-[rgba(255,250,242,0.12)] py-2 px-2" data-id={`bouilla-round-score-${seat}`}>
-                    <p className="text-xs text-[var(--card-face)]/65">{playerName(gv, seat)}</p>
+                    <p className="text-xs text-[var(--card-face)]/65">{playerName(gv, seat, locale)}</p>
                     <p className="text-lg font-bold">+{result.penalties[seat]}</p>
-                    <p className="text-xs text-[var(--card-face)]/65">total {view.totalScores[seat]}</p>
+                    <p className="text-xs text-[var(--card-face)]/65">{t("total")} {view.totalScores[seat]}</p>
                   </div>
                 ))}
               </div>
@@ -105,8 +107,11 @@ export function BouillaRoundOverlay({
                 className="mt-5 w-full rounded-lg bg-[var(--accent-cyan)] px-5 py-2.5 font-bold text-[var(--surface)] disabled:opacity-50"
               >
                 {nextRoundGate?.iAmReady
-                  ? `En attente des joueurs (${nextRoundGate.readyCount}/${nextRoundGate.humanCount})`
-                  : "Manche suivante"}
+                  ? formatText(t("waitingPlayersReady"), {
+                      ready: nextRoundGate.readyCount,
+                      total: nextRoundGate.humanCount,
+                    })
+                  : t("nextRound")}
               </button>
             </>
           )

@@ -53,10 +53,10 @@ function LocalSetupPageInner() {
 
       <header className="text-center">
         <h1 className="text-3xl font-black tracking-tight text-[var(--surface)]" data-id="local-title">
-          {isBouilla ? "la Bouilla en local" : t("playLocal")}
+          {isBouilla ? t("bouillaLocalTitle") : t("playLocal")}
         </h1>
         <p className="text-sm text-[var(--foreground)]/75">
-          {isBouilla ? "4 joueurs, chacun pour soi, contre des bots." : t("localSubtitle")}
+          {isBouilla ? t("bouillaLocalSubtitle") : t("localSubtitle")}
         </p>
       </header>
 

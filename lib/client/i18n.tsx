@@ -25,11 +25,17 @@ const TRANSLATIONS = {
     playLocal: "Jouer en local",
     localSubtitle: "Préparez votre partie contre 3 bots.",
     localOfflineNote: "Hors-ligne, contre 3 bots",
+    bouillaLocalTitle: "la Bouilla en local",
+    bouillaLocalSubtitle: "4 joueurs, chacun pour soi, contre des bots.",
     playOnline: "Jouer en ligne",
     onlineSubtitle: "Créez une partie ou rejoignez une room existante.",
+    bouillaOnlineTitle: "la Bouilla en ligne",
+    bouillaOnlineSubtitle: "Créez ou rejoignez une table à 4, chacun pour soi.",
     playAdhoc: "Jouer sans internet",
     adhocOfflineNote: "Réseau local, entre vos appareils",
     adhocSubtitle: "Connectez vos téléphones sur le même réseau (Wi-Fi ou partage de connexion), sans internet.",
+    bouillaAdhocTitle: "la Bouilla sans internet",
+    bouillaAdhocSubtitle: "Bots + vrais joueurs en direct, sans compte ni connexion.",
     hostGame: "Héberger une partie",
     joinGame: "Rejoindre une partie",
     humanOpponents: "Joueurs humains à inviter",
@@ -92,6 +98,7 @@ const TRANSLATIONS = {
     cardPoints: "pts de plis",
     stats: "Statistiques",
     gameInfo: "Infos partie",
+    gameInfoNumber: "No. Info partie",
     currentHost: "Hôte actuel",
     becomeHost: "Devenir hôte",
     youAreHost: "Vous êtes l'hôte",
@@ -122,6 +129,16 @@ const TRANSLATIONS = {
     punchMed: "Normal",
     punchHigh: "Agressif",
     rulesButton: "Règles",
+    appTitle: "Coinchapp — Coinche et la Bouilla",
+    appDescription: "Jouez à la Coinche et à la Bouilla dans votre navigateur.",
+    emojiReactions: "Réactions emoji", scoreboard: "Tableau des scores",
+    round: "Manche", lowestScoreWins: "Le moins de points gagne.",
+    youWin: "Vous gagnez !", gameFinished: "Partie terminée",
+    winner: "Vainqueur", winners: "Vainqueurs",
+    sweepResult: "Capot ! {player} a tout raflé — tous les autres prennent le maximum.",
+    nextRound: "Manche suivante", disconnected: "Déconnecté", sendEmoji: "Envoyer un emoji",
+    cameraUnavailable: "Caméra indisponible — utilisez le collage manuel.",
+    defaultYouName: "Vous", defaultPlayerName: "Joueur {seat}",
   },
   en: {
     backToDashboard: "Back to dashboard",
@@ -135,11 +152,17 @@ const TRANSLATIONS = {
     playLocal: "Play local",
     localSubtitle: "Prepare your game against 3 bots.",
     localOfflineNote: "Offline, against 3 bots",
+    bouillaLocalTitle: "Play la Bouilla locally",
+    bouillaLocalSubtitle: "Four-player free-for-all against bots.",
     playOnline: "Play online",
     onlineSubtitle: "Create a game or join an existing room.",
+    bouillaOnlineTitle: "Play la Bouilla online",
+    bouillaOnlineSubtitle: "Create or join a four-player free-for-all table.",
     playAdhoc: "Play without internet",
     adhocOfflineNote: "Local network, between your devices",
     adhocSubtitle: "Connect your phones on the same network (Wi-Fi or hotspot), no internet needed.",
+    bouillaAdhocTitle: "Play la Bouilla offline",
+    bouillaAdhocSubtitle: "Bots and real players together, with no account or internet connection.",
     hostGame: "Host a game",
     joinGame: "Join a game",
     humanOpponents: "Human players to invite",
@@ -202,6 +225,7 @@ const TRANSLATIONS = {
     cardPoints: "trick pts",
     stats: "Stats",
     gameInfo: "Game info",
+    gameInfoNumber: "Game info no.",
     currentHost: "Current host",
     becomeHost: "Become host",
     youAreHost: "You are the host",
@@ -232,6 +256,16 @@ const TRANSLATIONS = {
     punchMed: "Medium",
     punchHigh: "High",
     rulesButton: "Rules",
+    appTitle: "Coinchapp — Coinche and la Bouilla",
+    appDescription: "Play Coinche and la Bouilla in your browser.",
+    emojiReactions: "Emoji reactions", scoreboard: "Scoreboard",
+    round: "Round", lowestScoreWins: "Lowest score wins.",
+    youWin: "You win!", gameFinished: "Game over",
+    winner: "Winner", winners: "Winners",
+    sweepResult: "Capot! {player} swept everything — everyone else takes the maximum penalty.",
+    nextRound: "Next round", disconnected: "Disconnected", sendEmoji: "Send an emoji",
+    cameraUnavailable: "Camera unavailable — paste the code manually.",
+    defaultYouName: "You", defaultPlayerName: "Player {seat}",
   },
 } as const;
 
@@ -252,6 +286,10 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     window.localStorage.setItem(STORAGE_KEY, locale);
     document.documentElement.lang = locale;
+    document.title = TRANSLATIONS[locale].appTitle;
+    document
+      .querySelector('meta[name="description"]')
+      ?.setAttribute("content", TRANSLATIONS[locale].appDescription);
   }, [locale]);
 
   const value = useMemo<I18nContextValue>(

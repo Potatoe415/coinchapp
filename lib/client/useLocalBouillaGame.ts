@@ -4,11 +4,12 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { beginNextRound, createInitialState, redact, startNextRound, submitPlay, type Card, type GameState } from "@/lib/bouilla";
 import type { BouillaActions } from "@/components/BouillaTable";
 import type { GameView } from "@/lib/server/view";
+import { useI18n } from "./i18n";
 import { runBotLoop, seededRng, wait } from "./cardGameDriver";
 import { bouillaEngine, decideBouillaAction } from "./bouillaEngineAdapter";
 
 const BOTS = [false, true, true, true];
-const NAMES = ["Vous", "Adam", "Jane", "Lea"];
+const BOT_NAMES = ["", "Adam", "Jane", "Lea"];
 /** Must match the CSS trick-collect animation duration. */
 const COLLECT_DELAY_MS = 1500;
 /** Simulated thinking time before each bot move: the heuristic bot has no
@@ -22,6 +23,7 @@ function startState(seed: number): GameState {
 /** Fully offline single-player Bouilla game: you are seat 0, the rest are bots.
  *  Runs the pure rules engine in the browser, no network. */
 export function useLocalBouillaGame(seed: number): { gv: GameView; actions: BouillaActions } {
+  const { t } = useI18n();
   const [state, setState] = useState<GameState>(() => startState(seed));
   // Mirror of `state` for the async bot loop, kept in sync without waiting for a render.
   const stateRef = useRef(state);
@@ -76,9 +78,9 @@ export function useLocalBouillaGame(seed: number): { gv: GameView; actions: Boui
     status: state.phase === "finished" ? "finished" : "playing",
     settings: {},
     version: 0,
-    players: NAMES.map((name, seat) => ({
+    players: BOT_NAMES.map((name, seat) => ({
       seat,
-      displayName: name,
+      displayName: seat === 0 ? t("defaultYouName") : name,
       isBot: seat !== 0,
       team: seat % 2 === 0 ? "A" : "B",
       connected: true,

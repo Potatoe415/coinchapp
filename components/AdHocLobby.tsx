@@ -3,7 +3,7 @@
 import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
-import { useI18n } from "@/lib/client/i18n";
+import { formatText, useI18n } from "@/lib/client/i18n";
 import type { Seat } from "@/lib/coinche";
 import type { GameSettings } from "@/lib/supabase/types";
 import type { P2PConnection } from "@/lib/client/p2p/connection";
@@ -39,13 +39,13 @@ function toSettings(v: GameSetupValues): GameSettings {
   };
 }
 
-function buildRoster(hostName: string, humanCount: number): RosterEntry[] {
-  const roster: RosterEntry[] = [{ seat: 0, displayName: hostName || "Vous", isBot: false }];
+function buildRoster(hostName: string, humanCount: number, youName: string, playerNameTemplate: string): RosterEntry[] {
+  const roster: RosterEntry[] = [{ seat: 0, displayName: hostName || youName, isBot: false }];
   for (let seat = 1; seat <= 3; seat++) {
     const human = seat <= humanCount;
     roster.push({
       seat: seat as Seat,
-      displayName: human ? `Joueur ${seat + 1}` : BOT_NAMES[seat],
+      displayName: human ? formatText(playerNameTemplate, { seat: seat + 1 }) : BOT_NAMES[seat],
       isBot: !human,
     });
   }
@@ -71,7 +71,7 @@ export function AdHocLobby() {
 
   const onHostReady = useCallback(
     (conns: Map<Seat, P2PConnection>) => {
-      const roster = buildRoster(name, humanCount);
+      const roster = buildRoster(name, humanCount, t("defaultYouName"), t("defaultPlayerName"));
       if (isBouilla) {
         setBouillaHostConfig({ mySeat: 0, roster, connections: conns, seed });
       } else {
@@ -79,7 +79,7 @@ export function AdHocLobby() {
       }
       setPhase("host-play");
     },
-    [name, humanCount, setup, seed, isBouilla],
+    [name, humanCount, setup, seed, isBouilla, t],
   );
 
   if (phase === "host-play" && hostConfig) return <P2PHostGame config={hostConfig} />;
@@ -138,10 +138,10 @@ function Shell({ children, isBouilla }: { children: React.ReactNode; isBouilla: 
       </Link>
       <header className="text-center">
         <h1 className="text-3xl font-black tracking-tight text-white" data-id="adhoc-title">
-          {isBouilla ? "la Bouilla sans internet" : t("playAdhoc")}
+          {isBouilla ? t("bouillaAdhocTitle") : t("playAdhoc")}
         </h1>
         <p className="text-sm text-white/70">
-          {isBouilla ? "Bots + vrais joueurs en direct, sans compte ni connexion." : t("adhocSubtitle")}
+          {isBouilla ? t("bouillaAdhocSubtitle") : t("adhocSubtitle")}
         </p>
       </header>
       {children}
