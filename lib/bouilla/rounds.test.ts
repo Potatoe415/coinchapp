@@ -149,6 +149,20 @@ describe("sweepAliveFor", () => {
     expect(sweepAliveFor(0, "kingSpades", allTricksWonBy(0, 5))).toBe(false);
     expect(sweepAliveFor(0, "lastTrick", allTricksWonBy(0, 5))).toBe(false);
   });
+
+  it("tricks/everything/clubs/queens: not alive for anyone before a single trick has been played (no evidence yet, not a vacuous truth)", () => {
+    expect(sweepAliveFor(0, "tricks", [])).toBe(false);
+    expect(sweepAliveFor(1, "tricks", [])).toBe(false);
+    expect(sweepAliveFor(0, "everything", [])).toBe(false);
+    expect(sweepAliveFor(0, "clubs", [])).toBe(false);
+    expect(sweepAliveFor(0, "queens", [])).toBe(false);
+  });
+
+  it("clubs/queens: not alive yet if no club/queen has appeared in any completed trick", () => {
+    const heartsOnly = allTricksWonBy(0, 3); // allTricksWonBy deals only hearts, see helper above
+    expect(sweepAliveFor(0, "clubs", heartsOnly)).toBe(false);
+    expect(sweepAliveFor(0, "queens", heartsOnly)).toBe(false);
+  });
 });
 
 describe("trickMattersForSweep", () => {

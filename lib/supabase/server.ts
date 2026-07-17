@@ -39,9 +39,20 @@ export function getServiceClient() {
  * makes otherwise. This runs on every server action and every `getView`
  * poll/refetch, so the difference is worth the deprecated-elsewhere pattern
  * (see docs/DECISIONS.md for the latency/security tradeoff this accepts).
+ *
+ * `getClaims()` can throw outright (e.g. a JWKS fetch failure) instead of
+ * returning `{ error }` like the rest of the auth API - that would otherwise
+ * take down the whole Server Component render. Falls back to the
+ * always-safe `getUser()` so a transient verification hiccup degrades to a
+ * slower call instead of a hard crash.
  */
 export async function getUserId(): Promise<string | null> {
   const supabase = await getUserClient();
-  const { data } = await supabase.auth.getClaims();
-  return data?.claims.sub ?? null;
+  try {
+    const { data } = await supabase.auth.getClaims();
+    return data?.claims.sub ?? null;
+  } catch {
+    const { data } = await supabase.auth.getUser();
+    return data.user?.id ?? null;
+  }
 }

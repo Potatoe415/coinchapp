@@ -8,7 +8,7 @@ export const QUEEN_PENALTY = 20;
 export const KING_OF_SPADES_PENALTY = 50;
 export const LAST_TRICK_PENALTY = 100;
 
-const TRICKS_PER_ROUND = 13;
+export const TRICKS_PER_ROUND = 13;
 export const CLUBS_PER_DECK = 13;
 export const QUEENS_PER_DECK = 4;
 
@@ -118,18 +118,23 @@ export function sweepWinner(round: Round, tricks: Trick[]): Seat | null {
 
 /** True if `seat` is still the only seat that could end up sweeping `round`, given
  *  the tricks played *so far* this round (mid-round, unlike `sweepWinner` which
- *  needs the round to be over). Trivially true before any relevant trick has gone
- *  to someone else - a bot can use this to decide whether to keep pushing for the
- *  "Capot" bonus (pay 0) instead of its usual duck-the-danger play. */
+ *  needs the round to be over). Requires at least one relevant completed trick as
+ *  evidence - `[].every(...)` is vacuously true, which would otherwise make this
+ *  true for all 4 seats simultaneously before a single trick has been played, and
+ *  make the bot try to win the very first trick of the round for no reason. A bot
+ *  can use this to decide whether to keep pushing for the "Capot" bonus (pay 0)
+ *  instead of its usual duck-the-danger play. */
 export function sweepAliveFor(seat: Seat, round: Round, tricks: Trick[]): boolean {
   switch (round) {
     case "tricks":
     case "everything":
-      return tricks.every((t) => t.winner === seat);
+      return tricks.length > 0 && tricks.every((t) => t.winner === seat);
     case "clubs":
-      return tricks.every((t) => clubCount(t) === 0 || t.winner === seat);
+      return tricks.some((t) => clubCount(t) > 0) && tricks.every((t) => clubCount(t) === 0 || t.winner === seat);
     case "queens":
-      return tricks.every((t) => queenCount(t) === 0 || t.winner === seat);
+      return (
+        tricks.some((t) => queenCount(t) > 0) && tricks.every((t) => queenCount(t) === 0 || t.winner === seat)
+      );
     default:
       return false;
   }

@@ -1,13 +1,19 @@
 import { cardStrength, isClub, isKingOfSpades, isQueen } from "./cards";
 import { submitPlay } from "./engine";
 import { redact, type PlayerView } from "./redact";
-import { CLUBS_PER_DECK, QUEENS_PER_DECK, sweepAliveFor, trickMattersForSweep } from "./rounds";
+import { CLUBS_PER_DECK, QUEENS_PER_DECK, TRICKS_PER_ROUND, sweepAliveFor, trickMattersForSweep } from "./rounds";
 import type { Card, GameState, PlayedCard, Round, Seat, Suit, Trick } from "./types";
 
 const SEATS: Seat[] = [0, 1, 2, 3];
 
+/** Relative weights matching the real penalty ratio (50 / 20 / 10 points): the
+ *  king of spades is worth 5x a club, a queen 2x a club, at baseline. */
+const KING_OF_SPADES_WEIGHT = 5;
+const QUEEN_WEIGHT = 2;
+const CLUB_WEIGHT = 1;
+
 /** How costly it would be to win a trick holding this card, for the active round.
- *  "everything" inherits every rule at once, so all three weights apply together.
+ *  "everything" inherits every rule at once, so all weights apply together.
  *  Queens/clubs get scaled up as fewer copies remain unseen (`publicCards`, every
  *  card already played this round): the last one left is riskier to be caught
  *  holding than one of several, since there are fewer tricks left to safely dump
@@ -15,13 +21,16 @@ const SEATS: Seat[] = [0, 1, 2, 3];
 function cardDanger(card: Card, round: Round, publicCards: Card[]): number {
   let danger = 0;
   if (round === "kingSpades" || round === "everything") {
-    if (isKingOfSpades(card)) danger += 3;
+    if (isKingOfSpades(card)) danger += KING_OF_SPADES_WEIGHT;
   }
   if (round === "queens" || round === "everything") {
-    if (isQueen(card)) danger += 2 * dangerScale(QUEENS_PER_DECK, publicCards.filter(isQueen).length);
+    if (isQueen(card)) danger += QUEEN_WEIGHT * dangerScale(QUEENS_PER_DECK, publicCards.filter(isQueen).length);
   }
   if (round === "clubs" || round === "everything") {
-    if (isClub(card)) danger += 1 * dangerScale(CLUBS_PER_DECK, publicCards.filter(isClub).length);
+    if (isClub(card)) danger += CLUB_WEIGHT * dangerScale(CLUBS_PER_DECK, publicCards.filter(isClub).length);
+  }
+  if (round === "lastTrick" || round === "everything") {
+    danger += lastTrickDanger(card, publicCards);
   }
   return danger;
 }
@@ -31,6 +40,25 @@ function cardDanger(card: Card, round: Round, publicCards: Card[]): number {
 function dangerScale(total: number, fallen: number): number {
   const remaining = Math.max(1, total - fallen);
   return total / remaining;
+}
+
+/** Last N tricks of the round where holding a control card (Q/K/A) becomes a real
+ *  liability: one of these is the card most likely to still be stuck in hand when
+ *  the actual last trick comes around, this round's single biggest penalty
+ *  (100 pts). Zero outside this window, so it doesn't crowd out the void-suit lead
+ *  preference (`chooseLead`) during normal play, only in the run-up to the end. */
+const LATE_ROUND_WINDOW = 4;
+
+function isControlCard(card: Card): boolean {
+  return card.rank === "Q" || card.rank === "K" || card.rank === "A";
+}
+
+function lastTrickDanger(card: Card, publicCards: Card[]): number {
+  if (!isControlCard(card)) return 0;
+  const tricksPlayedSoFar = Math.floor(publicCards.length / 4);
+  const tricksRemaining = TRICKS_PER_ROUND - tricksPlayedSoFar;
+  if (tricksRemaining > LATE_ROUND_WINDOW) return 0;
+  return LATE_ROUND_WINDOW - tricksRemaining + 1;
 }
 
 function byLeastDanger(round: Round, publicCards: Card[]): (a: Card, b: Card) => number {

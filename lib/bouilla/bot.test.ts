@@ -112,6 +112,48 @@ describe("chooseCard", () => {
     expect(chooseCard(redact(state, 0)).rank).toBe("K");
   });
 
+  it("does not switch to try-to-win mode on the very first trick of a round, before any evidence of a Capot exists", () => {
+    const state = playingState({
+      turn: 0,
+      roundIndex: 0, // tricks
+      hands: [[card("3", "H"), card("A", "H")], [], [], []],
+      trick: [{ seat: 3, card: card("5", "H") }],
+      tricks: [], // no completed tricks yet this round: sweepAliveFor must not be vacuously true
+    });
+    // Before the fix, `[].every(...)` made sweepAliveFor vacuously true for every seat,
+    // so the bot would try to win with the Ace instead of ducking behind the led 5.
+    expect(chooseCard(redact(state, 0)).rank).toBe("3");
+  });
+
+  it("leads the lowest safe card, not the highest, on an empty-tricks first lead of the round", () => {
+    const state = playingState({
+      turn: 0,
+      roundIndex: 0, // tricks
+      hands: [[card("2", "H"), card("A", "H")], [], [], []],
+      trick: [],
+      tricks: [],
+    });
+    expect(chooseCard(redact(state, 0)).rank).toBe("2");
+  });
+
+  it("lastTrick: near the end of the round, protects a held control card (Q/K/A) over exploiting a void-suit lead", () => {
+    const voidCreatingTrick = completedTrick([card("2", "H"), card("3", "D"), card("4", "H"), card("5", "H")], 2);
+    const spadesFiller = Array.from({ length: 9 }, () =>
+      completedTrick([card("2", "S"), card("3", "S"), card("4", "S"), card("5", "S")], 1),
+    );
+    const state = playingState({
+      turn: 0,
+      roundIndex: 4, // lastTrick
+      hands: [[card("5", "D"), card("K", "H")], [], [], []],
+      trick: [],
+      tricks: [voidCreatingTrick, ...spadesFiller], // 10 tricks played -> only 3 left, inside the late-round window
+    });
+    // Seat 1 is void in hearts (didn't follow the "2H" lead above), so the old logic
+    // would prefer leading the King of Hearts to bait seat 1's free discard. With only
+    // 3 tricks left, the King is now flagged as a control card worth protecting instead.
+    expect(chooseCard(redact(state, 0)).suit).toBe("D");
+  });
+
   it("Capot: leads a held queen to grab it away from an opponent sweeping the queens round", () => {
     const state = playingState({
       turn: 0,
