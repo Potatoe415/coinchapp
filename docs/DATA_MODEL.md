@@ -97,8 +97,9 @@ Online-only (not ad-hoc/local): each human turn is measured against `games.turn_
 - 1st consecutive miss: after `settings.stillThereTimeoutSec` (default 15) total silence, the server auto-plays a random legal card (or, during Coinche bidding, the same heuristic bid the 45s browser-gone safety net uses) and sets `missed_turns_in_row = 1`.
 - 2nd consecutive miss: the same seat gets only a 5s window before the seat permanently becomes a bot (`is_bot = true`, `user_id = null`) - the stuck turn is played once with the heuristic bot, and every turn after that is driven by the host's bot runner like any other bot seat.
 - Any successful self-play resets `missed_turns_in_row` to 0.
+- A tap anywhere on screen while the banner is showing also counts as presence: `markStillHere` resets `missed_turns_in_row` to 0 and restarts `turn_started_at`, dismissing the banner without requiring an actual play.
 
-Implemented in `lib/server/idle-timer.ts` (`decideIdleAction` is pure/unit-tested; `advanceIdleTurns` does the DB side effects), called from `getView` right before the coarser 45s `advanceStaleTurns` safety net. Client side: `lib/client/useStillThereTimer.ts` shows a non-blocking countdown banner and proactively refetches at the deadline; the `useGameView` 15s poll still enforces it even if that tab is fully closed.
+Implemented in `lib/server/idle-timer.ts` (`decideIdleAction` is pure/unit-tested; `advanceIdleTurns` does the DB side effects; `markSeatPresent` backs the tap-to-dismiss action), called from `getView` right before the coarser 45s `advanceStaleTurns` safety net. Client side: `lib/client/useStillThereTimer.ts` shows a non-blocking countdown banner, proactively refetches at the deadline, and attaches a one-shot `pointerdown` listener on `document` while the banner shows to call `markStillHere`; the `useGameView` 15s poll still enforces it even if that tab is fully closed.
 
 ---
 
