@@ -46,7 +46,7 @@ export function PlayerBadge({
         </div>
         {!connected && <DisconnectedDot label={t("disconnected")} />}
         {reaction && (
-          <span key={reaction.id} className="emoji-react text-4xl leading-none" data-id="player-emoji-reaction">
+          <span key={reaction.id} className="emoji-react text-6xl leading-none" data-id="player-emoji-reaction">
             {reaction.emoji}
           </span>
         )}
@@ -63,7 +63,7 @@ export function PlayerBadge({
       </div>
       {!connected && <DisconnectedDot label={t("disconnected")} />}
       {reaction && (
-        <span key={reaction.id} className="emoji-react text-4xl leading-none" data-id="player-emoji-reaction">
+        <span key={reaction.id} className="emoji-react text-7xl leading-none" data-id="player-emoji-reaction">
           {reaction.emoji}
         </span>
       )}

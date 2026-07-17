@@ -50,7 +50,7 @@ export function EmojiButton({
             {EMOJIS.map((emoji) => (
               <button
                 key={emoji}
-                className="text-4xl leading-none transition-transform hover:scale-125 active:scale-110"
+                className="text-2xl leading-none transition-transform hover:scale-125 active:scale-110"
                 onClick={() => pick(emoji)}
                 data-id={`emoji-pick-${emoji}`}
                 aria-label={emoji}
