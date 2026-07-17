@@ -90,6 +90,10 @@ export function useLocalBouillaGame(seed: number): { gv: GameView; actions: Boui
     hostUserId: null,
     hostSeat: 0,
     isHost: true,
+    // Local play never runs the server-side idle-turn timer (no Server Actions
+    // involved at all): these are inert placeholders.
+    turnStartedAt: null,
+    myMissedTurnsInRow: 0,
   };
 
   return { gv, actions };

@@ -47,16 +47,24 @@ export function useBotRunner(
     let cancelled = false;
     void (async () => {
       busyRef.current = true;
+      // TEMP diagnostic: pinpointing an intermittent ~5s bot delay report. Remove once resolved.
+      const t0 = performance.now();
       try {
         const action =
           gv.gameType === "bouilla"
             ? await decideBouillaAction(botView as BouillaPlayerView)
             : await decideCoinche(botView as CoinchePlayerView);
         if (cancelled) return;
+        const t1 = performance.now();
         await submitBotMove(gameId, turn as Seat, toMove(action));
+        const t2 = performance.now();
         if (!cancelled) {
           notify();
           await refetch();
+          const t3 = performance.now();
+          console.debug(
+            `[bot] seat ${turn} decide=${Math.round(t1 - t0)}ms submit=${Math.round(t2 - t1)}ms refetch=${Math.round(t3 - t2)}ms total=${Math.round(t3 - t0)}ms`,
+          );
         }
       } catch {
         // Host may have changed, or a version conflict means another actor

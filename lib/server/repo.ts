@@ -153,13 +153,26 @@ async function updateVersioned(
   return version;
 }
 
-/** Persist a new authoritative state and emit a realtime tick. */
+/**
+ * Persist a new authoritative state and emit a realtime tick. Whenever the turn
+ * moves to a different seat, also stamps `turn_started_at` - the anchor the
+ * idle-turn timer (lib/server/idle-timer.ts) measures elapsed silence against.
+ * Mutates `game.turn_started_at` in place so a caller that keeps looping over
+ * the same in-memory `game` (e.g. `advanceStaleTurns`/`advanceIdleTurns`) sees
+ * the fresh value without an extra read.
+ */
 export async function persistGame(
   game: GameRow,
   state: AnyGameState,
   status: GameStatus,
 ): Promise<number> {
-  return updateVersioned(game, { state, status });
+  const patch: Record<string, unknown> = { state, status };
+  if (game.state?.turn !== state.turn) {
+    const turnStartedAt = new Date().toISOString();
+    patch.turn_started_at = turnStartedAt;
+    game.turn_started_at = turnStartedAt;
+  }
+  return updateVersioned(game, patch);
 }
 
 /** Bump the version and emit a tick without changing the game state (lobby). */

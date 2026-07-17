@@ -105,7 +105,7 @@ function OnlinePageInner() {
                 locale,
                 gameType,
                 settings: isBouilla
-                  ? {}
+                  ? { stillThereTimeoutSec: setup.stillThereTimeoutSec }
                   : {
                       targetPoints: setup.target,
                       countContractOnlyIfMade: setup.countContractOnlyIfMade,
@@ -116,6 +116,7 @@ function OnlinePageInner() {
                       allowToutAtoutSansAtout: setup.allowToutAtoutSansAtout,
                       requireMorePointsToWin: setup.requireMorePointsToWin,
                       botPunch: setup.botPunch,
+                      stillThereTimeoutSec: setup.stillThereTimeoutSec,
                     },
               }),
             )
@@ -151,14 +152,14 @@ function OnlinePageInner() {
         </div>
       </section>
 
-      {!isBouilla && (
-        <GameSettingsPanel
-          values={setup}
-          onChange={setSetup}
-          idPrefix="online"
-          title={t("gameSettings")}
-        />
-      )}
+      <GameSettingsPanel
+        values={setup}
+        onChange={setSetup}
+        idPrefix="online"
+        title={t("gameSettings")}
+        coincheFields={!isBouilla}
+        showStillThereTimeout
+      />
     </main>
   );
 }

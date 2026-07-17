@@ -39,6 +39,9 @@ create table public.games (
   version integer not null default 0,
   -- User id of the client that runs the bots ("host"); reassigned by becomeHost.
   host_user_id uuid,
+  -- When state.turn last changed (see lib/server/repo.ts persistGame). Anchors the
+  -- "are you still there?" idle-turn timer (lib/server/idle-timer.ts).
+  turn_started_at timestamptz not null default now(),
   created_at timestamptz not null default now()
 );
 
@@ -58,6 +61,10 @@ create table public.game_players (
   -- Drives the "connected" flag in the redacted view - computed on read, not
   -- stored (replaces the old always-true `connected` column).
   last_seen_at timestamptz not null default now(),
+  -- Consecutive missed turns for this seat (idle-turn timer). Reset to 0 on any
+  -- successful self-play; incremented by an auto-play, then a second miss in a
+  -- row converts the seat to a permanent bot (see lib/server/idle-timer.ts).
+  missed_turns_in_row integer not null default 0,
   created_at timestamptz not null default now(),
   unique (game_id, seat)
 );

@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useI18n } from "@/lib/client/i18n";
 import { useBotRunner } from "@/lib/client/useBotRunner";
 import { useGameView } from "@/lib/client/useGameView";
+import { useStillThereTimer } from "@/lib/client/useStillThereTimer";
 import { ensureAnonAuth } from "@/lib/client/auth";
 import { becomeHost, nextDeal, placeBid, playCard } from "@/lib/server/actions-game";
 import type { Card } from "@/lib/coinche";
@@ -15,6 +16,7 @@ import { Lobby } from "./Lobby";
 import { GameTable, type GameActions, type CoincheGameView } from "./GameTable";
 import { BouillaTable, type BouillaActions, type BouillaGameView } from "./BouillaTable";
 import type { BidPayload } from "./BiddingPanel";
+import { StillThereModal } from "./StillThereModal";
 
 const REACTION_TTL = 3000;
 
@@ -25,6 +27,7 @@ export function GameRoom({ gameId }: { gameId: string }) {
   const { t } = useI18n();
   const { view, loading, error, refetch, notify, forceResync } = useGameView(gameId);
   useBotRunner(gameId, view, refetch, notify);
+  const stillThere = useStillThereTimer(view, refetch);
 
   const [reactions, setReactions] = useState<Map<number, EmojiReaction>>(new Map());
   const timers = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map());
@@ -145,10 +148,16 @@ export function GameRoom({ gameId }: { gameId: string }) {
     );
   }
 
-  if (view.gameType === "bouilla") {
-    return <BouillaTable gv={view as BouillaGameView} actions={bouillaActions} reactions={reactions} />;
-  }
-  return <GameTable gv={view as CoincheGameView} actions={coincheActions} reactions={reactions} />;
+  return (
+    <>
+      {stillThere.show && <StillThereModal secondsLeft={stillThere.secondsLeft} />}
+      {view.gameType === "bouilla" ? (
+        <BouillaTable gv={view as BouillaGameView} actions={bouillaActions} reactions={reactions} />
+      ) : (
+        <GameTable gv={view as CoincheGameView} actions={coincheActions} reactions={reactions} />
+      )}
+    </>
+  );
 }
 
 function Centered({ children }: { children: React.ReactNode }) {

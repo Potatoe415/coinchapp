@@ -74,6 +74,10 @@ export function buildSeatView(
     hostUserId: null,
     hostSeat,
     isHost: seat === hostSeat,
+    // Ad-hoc (P2P) never runs the server-side idle-turn timer: there is no
+    // Server Action loop to enforce it, so these are inert placeholders.
+    turnStartedAt: null,
+    myMissedTurnsInRow: 0,
   };
 }
 
@@ -98,5 +102,7 @@ export function buildBouillaSeatView(
     hostUserId: null,
     hostSeat,
     isHost: seat === hostSeat,
+    turnStartedAt: null,
+    myMissedTurnsInRow: 0,
   };
 }

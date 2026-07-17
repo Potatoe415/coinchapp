@@ -30,6 +30,13 @@ export interface GameView {
   players: LobbyPlayer[];
   mySeat: number | null;
   view: AnyPlayerView | null;
+  /** Epoch ms when the current turn started; anchors the client-side "are you
+   *  still there?" countdown (lib/client/useStillThereTimer.ts). Null outside
+   *  active play. */
+  turnStartedAt: number | null;
+  /** My own seat's consecutive missed-turn count (0 unless I've already missed
+   *  a turn this game). Drives whether the countdown shows immediately. */
+  myMissedTurnsInRow: number;
   /** User id of the client that runs the bots. */
   hostUserId: string | null;
   /** Seat of the host, or null if the host has no seat. */
@@ -77,6 +84,7 @@ export function buildView(loaded: LoadedGame, uid: string | null): GameView {
   const view = game.state && mySeat !== null ? redactForSeat(game, mySeat as 0 | 1 | 2 | 3) : null;
   const isHost = uid !== null && game.host_user_id === uid;
   const hostSeat = players.find((p) => p.user_id === game.host_user_id)?.seat ?? null;
+  const myMissedTurnsInRow = players.find((p) => p.seat === mySeat)?.missed_turns_in_row ?? 0;
   return {
     gameId: game.id,
     roomCode: game.room_code,
@@ -87,6 +95,8 @@ export function buildView(loaded: LoadedGame, uid: string | null): GameView {
     players: lobbyPlayers,
     mySeat,
     view,
+    turnStartedAt: view ? new Date(game.turn_started_at).getTime() : null,
+    myMissedTurnsInRow,
     hostUserId: game.host_user_id,
     hostSeat,
     isHost,

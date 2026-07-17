@@ -22,6 +22,12 @@ function sanitizePoints(val: number | undefined, fallback: number): number {
   return Number.isFinite(val) && (val as number) >= 0 ? Math.floor(val as number) : fallback;
 }
 
+const STILL_THERE_TIMEOUT_OPTIONS = [10, 15, 20, 30];
+
+function sanitizeStillThereTimeoutSec(val: number | undefined): number {
+  return STILL_THERE_TIMEOUT_OPTIONS.includes(val ?? 0) ? (val as number) : 15;
+}
+
 function sanitizeCoincheSettings(input: Partial<GameSettings>): GameSettings {
   const targetPoints = TARGET_OPTIONS.includes(input.targetPoints ?? 0)
     ? (input.targetPoints as number)
@@ -36,12 +42,16 @@ function sanitizeCoincheSettings(input: Partial<GameSettings>): GameSettings {
     allowToutAtoutSansAtout: input.allowToutAtoutSansAtout === true,
     requireMorePointsToWin: input.requireMorePointsToWin !== false,
     botPunch: BOT_PUNCH_LEVELS.includes(input.botPunch ?? "med") ? (input.botPunch ?? "med") : "med",
+    stillThereTimeoutSec: sanitizeStillThereTimeoutSec(input.stillThereTimeoutSec),
   };
 }
 
-/** Bouilla has no per-game configuration: its 6 rounds/point values are fixed. */
+/** Bouilla's 6 rounds/point values are fixed - its only configurable setting is
+ *  the idle-turn timer, shared with Coinche (see lib/server/idle-timer.ts). */
 function sanitizeSettings(gameType: GameType, input: Partial<GameSettings>): GameSettings {
-  return gameType === "bouilla" ? {} : sanitizeCoincheSettings(input);
+  return gameType === "bouilla"
+    ? { stillThereTimeoutSec: sanitizeStillThereTimeoutSec(input.stillThereTimeoutSec) }
+    : sanitizeCoincheSettings(input);
 }
 
 function isGameType(value: unknown): value is GameType {
@@ -157,7 +167,7 @@ export async function joinGame(input: {
   } else {
     await supabase
       .from("game_players")
-      .update({ user_id: uid, display_name: name, is_bot: false })
+      .update({ user_id: uid, display_name: name, is_bot: false, missed_turns_in_row: 0 })
       .eq("game_id", loaded.game.id)
       .eq("seat", target.seat);
   }
