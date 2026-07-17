@@ -13,7 +13,7 @@ import {
   type BotMove,
   type WireCard,
 } from "./game-dispatch";
-import { advanceIdleTurns, resetMissedTurns } from "./idle-timer";
+import { advanceIdleTurns, markSeatPresent, resetMissedTurns } from "./idle-timer";
 import { botSeats, isSeatLive, loadGame, persistGame, seatOf, touchGame, touchPresence, type LoadedGame } from "./repo";
 import { buildView, type GameView } from "./view";
 
@@ -62,6 +62,17 @@ export async function playCard(gameId: string, card: WireCard): Promise<void> {
   const next = applyCardPlay(gameType, state, seat, card);
   await commit(loaded, next);
   resetMissedTurns(loaded, seat);
+}
+
+/** A tap anywhere on screen while the idle-turn "are you still there?" banner is
+ *  showing (see `lib/client/useStillThereTimer.ts`) counts as proof of presence:
+ *  clears the miss streak and restarts the silence clock, even though the seat
+ *  has not actually played a card yet. A no-op if it is not currently this
+ *  seat's turn. */
+export async function markStillHere(gameId: string): Promise<void> {
+  const { loaded, seat, state } = await loadForAction(gameId);
+  if (state.turn !== seat) return;
+  await markSeatPresent(loaded, seat);
 }
 
 export async function nextDeal(gameId: string): Promise<void> {

@@ -179,3 +179,16 @@ export async function persistGame(
 export async function touchGame(game: GameRow): Promise<number> {
   return updateVersioned(game, {});
 }
+
+/**
+ * Restart the current turn's silence clock without changing any game state -
+ * used when a player proves presence (e.g. taps the screen while the idle-turn
+ * "are you still there?" banner is showing) without actually playing yet. See
+ * `lib/server/idle-timer.ts` `markSeatPresent`.
+ */
+export async function touchTurnStartedAt(game: GameRow): Promise<number> {
+  const turnStartedAt = new Date().toISOString();
+  const version = await updateVersioned(game, { turn_started_at: turnStartedAt });
+  game.turn_started_at = turnStartedAt;
+  return version;
+}

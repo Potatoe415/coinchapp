@@ -34,7 +34,6 @@ export const DEFAULT_GAME_SETUP: GameSetupValues = {
 };
 
 const TARGETS = [500, 1000, 1500, 2000];
-const STILL_THERE_TIMEOUTS = [10, 15, 20, 30];
 const PUNCH_LABEL_KEY = { low: "punchLow", med: "punchMed", high: "punchHigh" } as const;
 
 interface ToggleProps {
@@ -130,16 +129,15 @@ export function GameSettingsPanel({
         {showStillThereTimeout && (
           <label className="flex items-center justify-between gap-3 text-sm">
             <span className="text-[var(--card-face)]/75">{t("stillThereTimeout")}</span>
-            <select
-              data-id={`${idPrefix}-still-there-timeout-select`}
+            <input
+              type="number"
+              inputMode="numeric"
+              min={1}
+              data-id={`${idPrefix}-still-there-timeout-input`}
               value={values.stillThereTimeoutSec}
-              onChange={(e) => set("stillThereTimeoutSec", Number(e.target.value))}
+              onChange={(e) => set("stillThereTimeoutSec", Math.max(1, Number(e.target.value) || 15))}
               className="w-40 rounded-lg bg-[rgba(255,250,242,0.12)] px-3 py-2 ring-1 ring-[var(--accent-cyan)]/25"
-            >
-              {STILL_THERE_TIMEOUTS.map((seconds) => (
-                <option key={seconds} value={seconds}>{seconds}s</option>
-              ))}
-            </select>
+            />
           </label>
         )}
         {coincheFields && (

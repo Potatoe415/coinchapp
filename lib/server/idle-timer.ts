@@ -19,7 +19,7 @@ import {
   statusFor,
   type HeuristicMove,
 } from "./game-dispatch";
-import { persistGame, type LoadedGame } from "./repo";
+import { persistGame, touchTurnStartedAt, type LoadedGame } from "./repo";
 
 export type IdleAction = "none" | "autoPlay" | "convertToBot";
 
@@ -158,4 +158,18 @@ export function resetMissedTurns(loaded: LoadedGame, seat: number): void {
   after(() =>
     getServiceClient().from("game_players").update({ missed_turns_in_row: 0 }).eq("game_id", gameId).eq("seat", seat),
   );
+}
+
+/**
+ * A tap anywhere on screen while the "are you still there?" banner is showing
+ * (see `useStillThereTimer`) counts as proof of presence, even without an
+ * actual play: clears the miss streak (same effect as `resetMissedTurns`) and
+ * restarts the silence clock, so the banner disappears and the seat gets a
+ * fresh full timeout next time it goes idle - unlike an actual play, this is
+ * on the critical path (the caller awaits it, then refetches to see the
+ * banner disappear), so the version bump is not deferred.
+ */
+export async function markSeatPresent(loaded: LoadedGame, seat: number): Promise<void> {
+  resetMissedTurns(loaded, seat);
+  await touchTurnStartedAt(loaded.game as GameRow);
 }

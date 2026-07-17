@@ -5,7 +5,7 @@ import { useI18n } from "@/lib/client/i18n";
 
 export type EmojiReaction = { emoji: string; id: number };
 
-const EMOJIS = ["👍", "😂", "😮", "😢", "🔥", "👏"];
+const EMOJIS = ["👍", "😂", "😮", "😢", "🔥", "👏", "🖕"];
 
 export function EmojiButton({
   myReaction,
@@ -30,7 +30,7 @@ export function EmojiButton({
       {myReaction && (
         <span
           key={myReaction.id}
-          className="emoji-react text-4xl leading-none"
+          className="emoji-react text-8xl leading-none"
           data-id="my-emoji-reaction"
         >
           {myReaction.emoji}
@@ -50,7 +50,7 @@ export function EmojiButton({
             {EMOJIS.map((emoji) => (
               <button
                 key={emoji}
-                className="text-2xl leading-none transition-transform hover:scale-125 active:scale-110"
+                className="text-4xl leading-none transition-transform hover:scale-125 active:scale-110"
                 onClick={() => pick(emoji)}
                 data-id={`emoji-pick-${emoji}`}
                 aria-label={emoji}

@@ -50,6 +50,8 @@ export default function Home() {
   const [game, setGame] = useState<GameType>("coinche");
   const gameSuffix = game === "bouilla" ? "?game=bouilla" : "";
 
+  const isBouilla = game === "bouilla";
+
   return (
     <main
       className="relative mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-between overflow-hidden"
@@ -58,6 +60,11 @@ export default function Home() {
         backgroundImage: "url('/splashscreen.jpg')",
         backgroundSize: "cover",
         backgroundPosition: "center top",
+        transition: "--accent-yellow 0.3s, --accent-cyan 0.3s",
+        ...(isBouilla && {
+          "--accent-yellow": "var(--accent-red)",
+          "--accent-cyan": "var(--accent-green)",
+        } as React.CSSProperties),
       }}
     >
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { markStillHere } from "@/lib/server/actions-game";
 import type { GameView } from "@/lib/server/view";
 import { DEFAULT_STILL_THERE_TIMEOUT_SEC, STILL_THERE_POPUP_LEAD_MS } from "@/lib/supabase/types";
 
@@ -42,6 +43,7 @@ export function useStillThereTimer(view: GameView | null, refetch: () => Promise
   const turnStartedAt = view?.turnStartedAt ?? null;
   const stillThereTimeoutSec = view?.settings.stillThereTimeoutSec ?? DEFAULT_STILL_THERE_TIMEOUT_SEC;
   const missedTurnsInRow = view?.myMissedTurnsInRow ?? 0;
+  const gameId = view?.gameId ?? null;
 
   const [now, setNow] = useState(() => Date.now());
 
@@ -57,7 +59,23 @@ export function useStillThereTimer(view: GameView | null, refetch: () => Promise
     };
   }, [isMyTurn, turnStartedAt, missedTurnsInRow, stillThereTimeoutSec, refetch]);
 
+  const show = isMyTurn && turnStartedAt !== null && now >= idleWindow(turnStartedAt, missedTurnsInRow, stillThereTimeoutSec).showAt;
+
+  // A tap anywhere on screen while the banner shows proves presence: tell the
+  // server (so the miss streak and silence clock reset) and refetch so this
+  // hook sees the fresh `turnStartedAt`/`myMissedTurnsInRow` and hides the
+  // banner. Deliberately not `preventDefault`/`stopPropagation`-ing so a tap
+  // that also lands on a card still plays it normally.
+  useEffect(() => {
+    if (!show || !gameId) return;
+    const dismiss = () => {
+      void markStillHere(gameId).finally(() => void refetch());
+    };
+    document.addEventListener("pointerdown", dismiss, { once: true });
+    return () => document.removeEventListener("pointerdown", dismiss);
+  }, [show, gameId, refetch]);
+
   if (!isMyTurn || turnStartedAt === null) return { show: false, secondsLeft: 0 };
-  const { showAt, deadlineAt } = idleWindow(turnStartedAt, missedTurnsInRow, stillThereTimeoutSec);
-  return { show: now >= showAt, secondsLeft: Math.max(0, Math.ceil((deadlineAt - now) / 1000)) };
+  const { deadlineAt } = idleWindow(turnStartedAt, missedTurnsInRow, stillThereTimeoutSec);
+  return { show, secondsLeft: Math.max(0, Math.ceil((deadlineAt - now) / 1000)) };
 }
