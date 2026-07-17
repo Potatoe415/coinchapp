@@ -17,8 +17,6 @@ import { advanceIdleTurns, resetMissedTurns } from "./idle-timer";
 import { botSeats, isSeatLive, loadGame, persistGame, seatOf, touchGame, touchPresence, type LoadedGame } from "./repo";
 import { buildView, type GameView } from "./view";
 
-export type { BotMove, WireCard };
-
 /** Above this silence, whoever is responsible for the current turn (a human,
  * or the host for a bot seat) is presumed gone for good, and the simple
  * heuristic bot plays their turn instead so the table never freezes forever.

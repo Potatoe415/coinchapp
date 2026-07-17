@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useRef } from "react";
-import { submitBotMove, type BotMove } from "@/lib/server/actions-game";
+import { submitBotMove } from "@/lib/server/actions-game";
+import type { BotMove } from "@/lib/server/game-dispatch";
 import type { Seat } from "@/lib/coinche";
 import type { GameView } from "@/lib/server/view";
 import type { BotPunch } from "@/lib/coinche";
