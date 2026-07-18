@@ -125,7 +125,7 @@ function GameInfoPanel({
   lastTrickPts: number | null;
   onClose: () => void;
 }) {
-  const { t } = useI18n();
+  const { t, locale, setLocale } = useI18n();
   return (
     <div
       className="fixed inset-0 z-40 flex items-center justify-center bg-black/50 px-6"
@@ -202,6 +202,26 @@ function GameInfoPanel({
             {t("restartGame")}
           </button>
         )}
+        <div className="mb-3 flex items-center justify-between" data-id="language-row">
+          <span className="text-sm text-[var(--card-face)]/80">{t("language")}</span>
+          <div className="flex gap-1" data-id="language-switcher-game">
+            {(["fr", "en"] as const).map((lang) => (
+              <button
+                key={lang}
+                data-id={`language-btn-${lang}`}
+                onClick={() => setLocale(lang)}
+                className={[
+                  "rounded px-2 py-1 text-xs font-bold transition-colors",
+                  locale === lang
+                    ? "bg-[var(--accent-cyan)] text-[var(--surface)]"
+                    : "bg-[var(--card-face)]/10 text-[var(--card-face)]/70",
+                ].join(" ")}
+              >
+                {lang.toUpperCase()}
+              </button>
+            ))}
+          </div>
+        </div>
         <button
           data-id="game-info-close-button"
           onClick={onClose}
