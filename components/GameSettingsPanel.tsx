@@ -2,6 +2,7 @@
 
 import { useI18n } from "@/lib/client/i18n";
 import { BOT_PUNCH_LEVELS, type BotPunch } from "@/lib/coinche";
+import { STILL_THERE_TIMEOUT_OPTIONS } from "@/lib/supabase/types";
 import { ParamPresetPicker } from "./ParamPresetPicker";
 import type { ParamPreset } from "@/lib/client/useParamPresets";
 
@@ -16,7 +17,8 @@ export interface GameSetupValues {
   requireMorePointsToWin: boolean;
   botPunch: BotPunch;
   /** Seconds of silence on a human's turn before the "are you still there?"
-   *  idle timer kicks in. Shared by both games (see docs/DATA_MODEL.md). */
+   *  idle timer kicks in. Shared by both games (see docs/DATA_MODEL.md). One of
+   *  `STILL_THERE_TIMEOUT_OPTIONS`, chosen via a discrete slider. */
   stillThereTimeoutSec: number;
 }
 
@@ -127,18 +129,32 @@ export function GameSettingsPanel({
       </div>
       <div className="grid grid-cols-1 gap-3">
         {showStillThereTimeout && (
-          <label className="flex items-center justify-between gap-3 text-sm">
-            <span className="text-[var(--card-face)]/75">{t("stillThereTimeout")}</span>
+          <div className="flex flex-col gap-1.5 text-sm" data-id={`${idPrefix}-still-there-timeout-row`}>
+            <div className="flex items-center justify-between">
+              <span className="text-[var(--card-face)]/75">{t("stillThereTimeout")}</span>
+              <span
+                className="font-bold text-[var(--accent-yellow)]"
+                data-id={`${idPrefix}-still-there-timeout-value`}
+              >
+                {values.stillThereTimeoutSec}s
+              </span>
+            </div>
             <input
-              type="number"
-              inputMode="numeric"
-              min={1}
-              data-id={`${idPrefix}-still-there-timeout-input`}
-              value={values.stillThereTimeoutSec}
-              onChange={(e) => set("stillThereTimeoutSec", Math.max(1, Number(e.target.value) || 15))}
-              className="w-40 rounded-lg bg-[rgba(255,250,242,0.12)] px-3 py-2 ring-1 ring-[var(--accent-cyan)]/25"
+              type="range"
+              min={0}
+              max={STILL_THERE_TIMEOUT_OPTIONS.length - 1}
+              step={1}
+              value={(STILL_THERE_TIMEOUT_OPTIONS as readonly number[]).indexOf(values.stillThereTimeoutSec)}
+              onChange={(e) => set("stillThereTimeoutSec", STILL_THERE_TIMEOUT_OPTIONS[Number(e.target.value)])}
+              data-id={`${idPrefix}-still-there-timeout-slider`}
+              className="w-full accent-[var(--accent-yellow)]"
             />
-          </label>
+            <div className="flex justify-between text-xs text-[var(--card-face)]/50">
+              {STILL_THERE_TIMEOUT_OPTIONS.map((sec) => (
+                <span key={sec}>{sec}</span>
+              ))}
+            </div>
+          </div>
         )}
         {coincheFields && (
           <>

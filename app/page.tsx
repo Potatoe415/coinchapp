@@ -62,8 +62,8 @@ export default function Home() {
         backgroundPosition: "center top",
         transition: "--accent-yellow 0.3s, --accent-cyan 0.3s",
         ...(isBouilla && {
-          "--accent-yellow": "var(--accent-red)",
-          "--accent-cyan": "var(--accent-green)",
+          "--accent-yellow": "#ee6e63",
+          "--accent-cyan": "#f3c247",
         } as React.CSSProperties),
       }}
     >

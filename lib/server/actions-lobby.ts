@@ -3,7 +3,7 @@
 import { beginNextDeal, BOT_PUNCH_LEVELS, createInitialState } from "@/lib/coinche";
 import { beginNextRound, createInitialState as createInitialBouillaState } from "@/lib/bouilla";
 import { getServiceClient, getUserId } from "@/lib/supabase/server";
-import type { AnyGameState, GameRow, GameSettings, GameType } from "@/lib/supabase/types";
+import { STILL_THERE_TIMEOUT_OPTIONS, type AnyGameState, type GameRow, type GameSettings, type GameType } from "@/lib/supabase/types";
 import {
   findGameByCode,
   loadGame,
@@ -22,10 +22,8 @@ function sanitizePoints(val: number | undefined, fallback: number): number {
   return Number.isFinite(val) && (val as number) >= 0 ? Math.floor(val as number) : fallback;
 }
 
-const STILL_THERE_TIMEOUT_OPTIONS = [10, 15, 20, 30];
-
 function sanitizeStillThereTimeoutSec(val: number | undefined): number {
-  return STILL_THERE_TIMEOUT_OPTIONS.includes(val ?? 0) ? (val as number) : 15;
+  return (STILL_THERE_TIMEOUT_OPTIONS as readonly number[]).includes(val ?? 0) ? (val as number) : 15;
 }
 
 function sanitizeCoincheSettings(input: Partial<GameSettings>): GameSettings {

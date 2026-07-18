@@ -154,9 +154,14 @@ async function updateVersioned(
 }
 
 /**
- * Persist a new authoritative state and emit a realtime tick. Whenever the turn
- * moves to a different seat, also stamps `turn_started_at` - the anchor the
- * idle-turn timer (lib/server/idle-timer.ts) measures elapsed silence against.
+ * Persist a new authoritative state and emit a realtime tick. Always stamps
+ * `turn_started_at` to now - the anchor the idle-turn timer
+ * (lib/server/idle-timer.ts) measures elapsed silence against. Every call here
+ * follows an actual move, so `state.turn` is always a fresh decision point for
+ * whoever it names next - even when that happens to be the same seat as
+ * before (e.g. winning a trick as its last player means leading the next one
+ * too): that is still a brand-new turn and must not inherit whatever time the
+ * previous one already used, or the popup can appear almost immediately.
  * Mutates `game.turn_started_at` in place so a caller that keeps looping over
  * the same in-memory `game` (e.g. `advanceStaleTurns`/`advanceIdleTurns`) sees
  * the fresh value without an extra read.
@@ -166,12 +171,9 @@ export async function persistGame(
   state: AnyGameState,
   status: GameStatus,
 ): Promise<number> {
-  const patch: Record<string, unknown> = { state, status };
-  if (game.state?.turn !== state.turn) {
-    const turnStartedAt = new Date().toISOString();
-    patch.turn_started_at = turnStartedAt;
-    game.turn_started_at = turnStartedAt;
-  }
+  const turnStartedAt = new Date().toISOString();
+  const patch: Record<string, unknown> = { state, status, turn_started_at: turnStartedAt };
+  game.turn_started_at = turnStartedAt;
   return updateVersioned(game, patch);
 }
 

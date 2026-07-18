@@ -24,6 +24,11 @@ export interface GameSettings {
  *  Bouilla before this setting existed). */
 export const DEFAULT_STILL_THERE_TIMEOUT_SEC = 15;
 
+/** The only selectable values for `stillThereTimeoutSec`, in order - the setup
+ *  slider (`GameSettingsPanel.tsx`) and the server-side sanitizer
+ *  (`lib/server/actions-lobby.ts`) both index into this same list. */
+export const STILL_THERE_TIMEOUT_OPTIONS = [10, 15, 20, 30, 60] as const;
+
 /** Fixed length of the visible "are you still there?" countdown, in ms. Only the
  *  total timeout above is configurable; this trailing slice is always 5s. */
 export const STILL_THERE_POPUP_LEAD_MS = 5000;
