@@ -12,6 +12,7 @@ import {
   seatOf,
   teamForSeat,
   touchGame,
+  touchTurnStartedAt,
 } from "./repo";
 import type { LoadedGame } from "./repo";
 
@@ -170,6 +171,78 @@ export async function joinGame(input: {
       .eq("seat", target.seat);
   }
   await touchGame(loaded.game);
+  return { gameId: loaded.game.id, seat: target.seat };
+}
+
+export interface RoomPreview {
+  gameId: string;
+  gameType: GameType;
+  status: GameRow["status"];
+  players: { seat: number; displayName: string; isBot: boolean }[];
+}
+
+/** Read-only lookup for the join screen: lets it show an in-progress game's
+ *  seats (and which ones are bots) before the caller commits to joining.
+ *  No auth required - exposes only seat/name/bot-flag, never hands or state. */
+export async function previewRoomByCode(roomCode: string): Promise<RoomPreview | null> {
+  let normalized: string;
+  try {
+    normalized = normalizeRoomCode(roomCode);
+  } catch {
+    return null;
+  }
+  const loaded = await findGameByCode(normalized);
+  if (!loaded) return null;
+  return {
+    gameId: loaded.game.id,
+    gameType: loaded.game.game_type,
+    status: loaded.game.status,
+    players: loaded.players.map((p) => ({ seat: p.seat, displayName: p.display_name, isBot: p.is_bot })),
+  };
+}
+
+/** Join an already-started game by taking over a specific bot seat (the
+ *  human-chosen counterpart to the idle-turn timer's automatic bot
+ *  conversion in `idle-timer.ts`). Rejects if that seat is no longer a bot -
+ *  e.g. someone else just took it - so two players tapping the same seat at
+ *  once can't both win it. */
+export async function joinBotSeat(input: {
+  roomCode: string;
+  seat: number;
+  displayName: string;
+  locale?: "fr" | "en";
+}): Promise<{ gameId: string; seat: number }> {
+  const uid = await requireUser();
+  const roomCode = normalizeRoomCode(input.roomCode);
+  const loaded = await findGameByCode(roomCode);
+  if (!loaded) throw new Error("game_not_found");
+  if (loaded.game.status !== "playing") throw new Error("game_not_joinable");
+
+  const existingSeat = seatOf(uid, loaded.players);
+  if (existingSeat !== null) return { gameId: loaded.game.id, seat: existingSeat };
+
+  const target = loaded.players.find((p) => p.seat === input.seat);
+  if (!target || !target.is_bot) throw new Error("seat_not_available");
+
+  const supabase = getServiceClient();
+  const name = cleanName(input.displayName, playerNameFallback(input.locale, target.seat));
+  await supabase
+    .from("game_players")
+    .update({ user_id: uid, display_name: name, is_bot: false, missed_turns_in_row: 0 })
+    .eq("game_id", loaded.game.id)
+    .eq("seat", target.seat);
+
+  // Reset the idle-turn clock only if this seat is the one currently on the
+  // clock - otherwise it would unfairly extend some other seat's timeout.
+  // Either way the game row's version must bump so other clients' realtime
+  // subscription (tied to `games` row changes, not `game_players`) picks up
+  // the new occupant.
+  if (loaded.game.state && (loaded.game.state as { turn?: number }).turn === target.seat) {
+    await touchTurnStartedAt(loaded.game as GameRow);
+  } else {
+    await touchGame(loaded.game);
+  }
+
   return { gameId: loaded.game.id, seat: target.seat };
 }
 

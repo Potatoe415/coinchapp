@@ -8,6 +8,8 @@ import { useGameView } from "@/lib/client/useGameView";
 import { useStillThereTimer } from "@/lib/client/useStillThereTimer";
 import { ensureAnonAuth } from "@/lib/client/auth";
 import { becomeHost, nextDeal, placeBid, playCard } from "@/lib/server/actions-game";
+import { joinBotSeat } from "@/lib/server/actions-lobby";
+import { BotSeatPicker } from "./BotSeatPicker";
 import type { Card } from "@/lib/coinche";
 import type { Card as BouillaCard } from "@/lib/bouilla";
 import { createClient } from "@/lib/supabase/client";
@@ -24,12 +26,13 @@ type EmojiPayload = { seat: number; emoji: string };
 type Channel = ReturnType<ReturnType<typeof createClient>["channel"]>;
 
 export function GameRoom({ gameId }: { gameId: string }) {
-  const { t } = useI18n();
+  const { t, locale } = useI18n();
   const { view, loading, error, refetch, notify, forceResync } = useGameView(gameId);
   useBotRunner(gameId, view, refetch, notify);
   const stillThere = useStillThereTimer(view, refetch);
 
   const [reactions, setReactions] = useState<Map<number, EmojiReaction>>(new Map());
+  const [joiningBotSeat, setJoiningBotSeat] = useState(false);
   const timers = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map());
   const channelRef = useRef<Channel | null>(null);
 
@@ -77,6 +80,17 @@ export function GameRoom({ gameId }: { gameId: string }) {
     await refetch();
   };
   const onForceSync = () => forceResync();
+  const onJoinBotSeat = async (seat: number, displayName: string) => {
+    if (!view) return;
+    setJoiningBotSeat(true);
+    try {
+      await joinBotSeat({ roomCode: view.roomCode, seat, displayName, locale });
+      notify();
+      await refetch();
+    } finally {
+      setJoiningBotSeat(false);
+    }
+  };
 
   const coincheActions: GameActions = {
     onBid: async (payload: BidPayload) => {
@@ -136,6 +150,16 @@ export function GameRoom({ gameId }: { gameId: string }) {
   }
 
   if (view.mySeat === null || !view.view) {
+    // Mid-game, a non-member can still take over a bot seat directly (see
+    // BotSeatPicker); a finished game or one with no bot seat left falls
+    // back to the plain spectator notice.
+    if (view.status === "playing" && view.players.some((p) => p.isBot)) {
+      return (
+        <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-5 px-5 py-8" data-id="game-spectator-join">
+          <BotSeatPicker players={view.players} busy={joiningBotSeat} onJoinSeat={onJoinBotSeat} />
+        </main>
+      );
+    }
     return (
       <Centered>
         <p className="mb-3" data-id="game-spectator-notice">

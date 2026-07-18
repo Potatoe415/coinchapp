@@ -3,11 +3,12 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
-import { createGame, joinGame } from "@/lib/server/actions-lobby";
+import { createGame, joinGame, joinBotSeat, previewRoomByCode, type RoomPreview } from "@/lib/server/actions-lobby";
 import { ensureAnonAuth } from "@/lib/client/auth";
 import { useI18n } from "@/lib/client/i18n";
 import { GameSettingsPanel, DEFAULT_GAME_SETUP } from "@/components/GameSettingsPanel";
 import type { GameSetupValues } from "@/components/GameSettingsPanel";
+import { BotSeatPicker } from "@/components/BotSeatPicker";
 import type { GameType } from "@/lib/supabase/types";
 
 const ROOM_CODE_LENGTH = 3;
@@ -30,6 +31,7 @@ function OnlinePageInner() {
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [preview, setPreview] = useState<RoomPreview | null>(null);
 
   useEffect(() => {
     const fromUrl = new URLSearchParams(window.location.search).get("code");
@@ -38,6 +40,26 @@ function OnlinePageInner() {
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setCode(fromUrl.toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, ROOM_CODE_LENGTH));
   }, []);
+
+  // A room in progress lets a newcomer pick which bot seat to take over
+  // directly from here (see BotSeatPicker), instead of the plain join button.
+  useEffect(() => {
+    let cancelled = false;
+    const timer = setTimeout(() => {
+      if (cancelled) return;
+      if (code.length !== ROOM_CODE_LENGTH) {
+        setPreview(null);
+        return;
+      }
+      void previewRoomByCode(code).then((result) => {
+        if (!cancelled) setPreview(result);
+      });
+    }, 300);
+    return () => {
+      cancelled = true;
+      clearTimeout(timer);
+    };
+  }, [code]);
 
   async function run(action: () => Promise<{ gameId: string; roomCode?: string }>) {
     setBusy(true);
@@ -136,20 +158,37 @@ function OnlinePageInner() {
             maxLength={ROOM_CODE_LENGTH}
             className="w-32 rounded-lg bg-[rgba(255,250,242,0.12)] px-3 py-2 text-center font-mono text-lg tracking-widest text-[var(--card-face)] outline-none ring-1 ring-[var(--accent-cyan)]/25 focus:ring-[var(--accent-yellow)]"
           />
-          <button
-            data-id="join-game-button"
-            disabled={busy || code.length !== ROOM_CODE_LENGTH}
-            onClick={() =>
-              run(async () => {
-                const joined = await joinGame({ roomCode: code, displayName: name, locale });
-                return { ...joined, roomCode: code };
-              })
-            }
-            className="flex-1 rounded-lg bg-[rgba(255,250,242,0.16)] px-4 py-3 font-bold disabled:opacity-50"
-          >
-            {t("join")}
-          </button>
+          {preview?.status !== "playing" && (
+            <button
+              data-id="join-game-button"
+              disabled={busy || code.length !== ROOM_CODE_LENGTH}
+              onClick={() =>
+                run(async () => {
+                  const joined = await joinGame({ roomCode: code, displayName: name, locale });
+                  return { ...joined, roomCode: code };
+                })
+              }
+              className="flex-1 rounded-lg bg-[rgba(255,250,242,0.16)] px-4 py-3 font-bold disabled:opacity-50"
+            >
+              {t("join")}
+            </button>
+          )}
         </div>
+
+        {preview?.status === "playing" && (
+          <div className="mt-4">
+            <BotSeatPicker
+              players={preview.players}
+              busy={busy}
+              onJoinSeat={(seat, displayName) =>
+                run(async () => {
+                  const joined = await joinBotSeat({ roomCode: code, seat, displayName, locale });
+                  return { ...joined, roomCode: code };
+                })
+              }
+            />
+          </div>
+        )}
       </section>
 
       <GameSettingsPanel

@@ -12,6 +12,11 @@ export function BouillaScoreTable({ gv, view }: { gv: GameView; view: PlayerView
   const seats = [0, 1, 2, 3];
   const resultByRound = new Map(view.roundHistory.map((r) => [r.round, r]));
 
+  const lastResult = view.lastRoundResult;
+  const lastRound = lastResult?.round;
+  const lastRoundMin = lastResult ? Math.min(...seats.map((s) => lastResult.penalties[s])) : Infinity;
+  const lastRoundBestSeats = lastResult ? seats.filter((s) => lastResult.penalties[s] === lastRoundMin) : [];
+
   return (
     <>
       <div className="overflow-x-auto">
@@ -20,7 +25,11 @@ export function BouillaScoreTable({ gv, view }: { gv: GameView; view: PlayerView
             <tr className="text-left text-[var(--card-face)]/60">
               <th className="py-1 pr-2 font-semibold">{t("round")}</th>
               {seats.map((seat) => (
-                <th key={seat} className="px-1 py-1 text-center font-semibold" data-id={`scoreboard-header-${seat}`}>
+                <th
+                  key={seat}
+                  className={`px-1 py-1 text-center font-semibold transition-colors ${lastRoundBestSeats.includes(seat) ? "text-[var(--accent-cyan)]" : ""}`}
+                  data-id={`scoreboard-header-${seat}`}
+                >
                   {playerName(gv, seat, locale)}
                   {seat === view.mySeat && ` (${t("you")})`}
                 </th>
@@ -31,9 +40,14 @@ export function BouillaScoreTable({ gv, view }: { gv: GameView; view: PlayerView
             {ROUND_ORDER.map((round, index) => {
               const result = resultByRound.get(round);
               const isCurrent = index === view.roundIndex && view.phase !== "finished" && !result;
+              const isLastCompleted = round === lastRound;
               return (
-                <tr key={round} className="border-t border-[var(--card-face)]/10" data-id={`scoreboard-row-${round}`}>
-                  <td className={`py-1.5 pr-2 font-medium ${isCurrent ? "text-[var(--accent-cyan)]" : "text-[var(--card-face)]/80"}`}>
+                <tr
+                  key={round}
+                  className={`border-t border-[var(--card-face)]/10 ${isLastCompleted ? "bg-[var(--accent-cyan)]/10" : ""}`}
+                  data-id={`scoreboard-row-${round}`}
+                >
+                  <td className={`py-1.5 pr-2 font-medium ${isCurrent ? "text-[var(--accent-cyan)]" : isLastCompleted ? "text-[var(--card-face)]" : "text-[var(--card-face)]/80"}`}>
                     {ROUND_LABEL[locale][round]}
                     {result?.sweepSeat !== undefined && (
                       <span className="block text-[0.65rem] font-normal text-[var(--accent-yellow)]" data-id={`scoreboard-capot-${round}`}>
@@ -42,7 +56,11 @@ export function BouillaScoreTable({ gv, view }: { gv: GameView; view: PlayerView
                     )}
                   </td>
                   {seats.map((seat) => (
-                    <td key={seat} className="px-1 py-1.5 text-center text-[var(--card-face)]/80" data-id={`scoreboard-cell-${round}-${seat}`}>
+                    <td
+                      key={seat}
+                      className={`px-1 py-1.5 text-center ${isLastCompleted && lastRoundBestSeats.includes(seat) ? "font-bold text-[var(--accent-cyan)]" : "text-[var(--card-face)]/80"}`}
+                      data-id={`scoreboard-cell-${round}-${seat}`}
+                    >
                       {result ? result.penalties[seat] : isCurrent ? "…" : "—"}
                     </td>
                   ))}
