@@ -251,12 +251,40 @@ function startInitialState(gameType: GameType, settings: GameSettings): AnyGameS
   }));
 }
 
-export async function startGame(gameId: string): Promise<void> {
+/** Fisher-Yates shuffle; returns a new array. */
+function shuffled<T>(arr: T[]): T[] {
+  const result = [...arr];
+  for (let i = result.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [result[i], result[j]] = [result[j], result[i]];
+  }
+  return result;
+}
+
+/** Shuffle the 4 occupants across the 4 seat rows. Teams stay tied to the seat
+ *  (even = A, odd = B). Only user_id / display_name / is_bot are swapped. */
+async function shuffleSeatsInPlace(gameId: string, players: import("@/lib/supabase/types").PlayerRow[]): Promise<void> {
+  const supabase = getServiceClient();
+  const byCurrentSeat = [...players].sort((a, b) => a.seat - b.seat);
+  const newOccupants = shuffled(byCurrentSeat);
+  await Promise.all(
+    newOccupants.map((p, seatIdx) =>
+      supabase
+        .from("game_players")
+        .update({ user_id: p.user_id, display_name: p.display_name, is_bot: p.is_bot, missed_turns_in_row: 0 })
+        .eq("game_id", gameId)
+        .eq("seat", seatIdx),
+    ),
+  );
+}
+
+export async function startGame(gameId: string, randomize = false): Promise<void> {
   await requireUser();
   const loaded = await loadGame(gameId);
   if (loaded.game.status !== "lobby") throw new Error("already_started");
   if (loaded.players.length < 4) throw new Error("need_four_players");
 
+  if (randomize) await shuffleSeatsInPlace(gameId, loaded.players);
   const state = startInitialState(loaded.game.game_type, loaded.game.settings);
   await persistGame(loaded.game as GameRow, state, state.phase === "finished" ? "finished" : "playing");
 }

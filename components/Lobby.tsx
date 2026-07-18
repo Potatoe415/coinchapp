@@ -20,6 +20,7 @@ export function Lobby({ gv, onChange }: { gv: GameView; onChange: () => Promise<
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [randomizeSeats, setRandomizeSeats] = useState(true);
   const [copied, setCopied] = useState(false);
   const [selectedSeat, setSelectedSeat] = useState<number | null>(null);
   const [optimisticPlayers, setOptimisticPlayers] = useState<LobbyPlayer[] | null>(null);
@@ -180,10 +181,22 @@ export function Lobby({ gv, onChange }: { gv: GameView; onChange: () => Promise<
           >
             {t("fillBots")}
           </button>
+          <label
+            data-id="lobby-randomize-seats"
+            className="flex cursor-pointer items-center gap-2 self-start text-sm text-[var(--foreground)]/70"
+          >
+            <input
+              type="checkbox"
+              checked={randomizeSeats}
+              onChange={(e) => setRandomizeSeats(e.target.checked)}
+              className="h-4 w-4 accent-[var(--accent-cyan)]"
+            />
+            {t("randomizeSeats")}
+          </label>
           <button
             data-id="lobby-start-button"
             disabled={busy || !full}
-            onClick={() => act(() => startGame(gv.gameId))}
+            onClick={() => act(() => startGame(gv.gameId, randomizeSeats))}
             className="rounded-lg bg-[var(--accent-yellow)] px-4 py-3 font-bold text-[var(--surface)] disabled:opacity-40"
           >
             {full ? t("startGame") : t("waitingFourPlayers")}

@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import type { PlayerView } from "@/lib/bouilla";
 import { formatText, useI18n } from "@/lib/client/i18n";
 import type { GameView, NextDealGate } from "@/lib/server/view";
+import { BouillaScoreTable } from "./BouillaScoreboard";
 import { ROUND_LABEL } from "./bouillaLabels";
 import { playerName } from "./gameTableHelpers";
 
@@ -42,28 +43,22 @@ export function BouillaRoundOverlay({
   if (!visible) return null;
 
   const iAmWinner = finished && !!view.winners?.includes(view.mySeat);
-  const seats = [0, 1, 2, 3];
 
   return (
-    <div className="absolute inset-0 z-20 flex items-center justify-center bg-[var(--surface-overlay)] px-6" data-id="bouilla-round-overlay">
-      <div className="relative z-10 w-full max-w-sm rounded-2xl bg-[var(--surface)] p-6 text-center text-[var(--card-face)] ring-1 ring-[var(--accent-cyan)]/30">
+    <div className="absolute inset-0 z-20 flex items-center justify-center bg-[var(--surface-overlay)] px-4" data-id="bouilla-round-overlay">
+      <div className="relative z-10 w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl bg-[var(--surface)] p-6 text-center text-[var(--card-face)] ring-1 ring-[var(--accent-cyan)]/30">
         {finished ? (
           <>
             <h2 className="text-2xl font-black text-[var(--accent-yellow)]" data-id="bouilla-winner">
               {iAmWinner ? t("youWin") : t("gameFinished")}
             </h2>
-            <p className="mt-2 text-sm text-[var(--card-face)]/80">
+            <p className="mt-1 text-sm text-[var(--card-face)]/80">
               {view.winners && view.winners.length > 0
                 ? `${t(view.winners.length > 1 ? "winners" : "winner")} : ${view.winners.map((s) => playerName(gv, s, locale)).join(", ")}`
                 : ""}
             </p>
-            <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
-              {seats.map((seat) => (
-                <div key={seat} className="rounded-lg bg-[rgba(255,250,242,0.12)] py-2 px-2" data-id={`bouilla-final-score-${seat}`}>
-                  <p className="text-xs text-[var(--card-face)]/65">{playerName(gv, seat, locale)}</p>
-                  <p className="text-lg font-bold">{view.totalScores[seat]}</p>
-                </div>
-              ))}
+            <div className="mt-4 text-left">
+              <BouillaScoreTable gv={gv} view={view} />
             </div>
             <Link
               href="/"
@@ -84,14 +79,8 @@ export function BouillaRoundOverlay({
                   {formatText(t("sweepResult"), { player: playerName(gv, result.sweepSeat, locale) })}
                 </p>
               )}
-              <div className="mt-4 grid grid-cols-2 gap-2 text-sm">
-                {seats.map((seat) => (
-                  <div key={seat} className="rounded-lg bg-[rgba(255,250,242,0.12)] py-2 px-2" data-id={`bouilla-round-score-${seat}`}>
-                    <p className="text-xs text-[var(--card-face)]/65">{playerName(gv, seat, locale)}</p>
-                    <p className="text-lg font-bold">+{result.penalties[seat]}</p>
-                    <p className="text-xs text-[var(--card-face)]/65">{t("total")} {view.totalScores[seat]}</p>
-                  </div>
-                ))}
+              <div className="mt-4 text-left">
+                <BouillaScoreTable gv={gv} view={view} />
               </div>
               <button
                 data-id="bouilla-next-round-button"

@@ -5,7 +5,7 @@ import { useI18n } from "@/lib/client/i18n";
 
 export type EmojiReaction = { emoji: string; id: number };
 
-const EMOJIS = ["👍", "😂", "😮", "😢", "🔥", "👏", "🖕"];
+const EMOJIS = ["👍", "😂", "😮", "😢", "🔥", "👏", "🖕", "🍑", "💩", "🐦", "🪦", "🤡"];
 
 export function EmojiButton({
   myReaction,

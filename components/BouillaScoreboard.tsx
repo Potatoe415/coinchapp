@@ -6,8 +6,66 @@ import type { GameView } from "@/lib/server/view";
 import { ROUND_LABEL } from "./bouillaLabels";
 import { playerName } from "./gameTableHelpers";
 
-/** Rounds (rows) x seats (columns) penalty table, the natural scoreboard for this
- *  golf-style game (least points wins), shown as a toggle-able overlay panel. */
+/** Rounds × seats penalty table. Reusable inline or inside the overlay. */
+export function BouillaScoreTable({ gv, view }: { gv: GameView; view: PlayerView }) {
+  const { locale, t } = useI18n();
+  const seats = [0, 1, 2, 3];
+  const resultByRound = new Map(view.roundHistory.map((r) => [r.round, r]));
+
+  return (
+    <>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm" data-id="bouilla-scoreboard-table">
+          <thead>
+            <tr className="text-left text-[var(--card-face)]/60">
+              <th className="py-1 pr-2 font-semibold">{t("round")}</th>
+              {seats.map((seat) => (
+                <th key={seat} className="px-1 py-1 text-center font-semibold" data-id={`scoreboard-header-${seat}`}>
+                  {playerName(gv, seat, locale)}
+                  {seat === view.mySeat && ` (${t("you")})`}
+                </th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {ROUND_ORDER.map((round, index) => {
+              const result = resultByRound.get(round);
+              const isCurrent = index === view.roundIndex && view.phase !== "finished" && !result;
+              return (
+                <tr key={round} className="border-t border-[var(--card-face)]/10" data-id={`scoreboard-row-${round}`}>
+                  <td className={`py-1.5 pr-2 font-medium ${isCurrent ? "text-[var(--accent-cyan)]" : "text-[var(--card-face)]/80"}`}>
+                    {ROUND_LABEL[locale][round]}
+                    {result?.sweepSeat !== undefined && (
+                      <span className="block text-[0.65rem] font-normal text-[var(--accent-yellow)]" data-id={`scoreboard-capot-${round}`}>
+                        Capot ({playerName(gv, result.sweepSeat, locale)})
+                      </span>
+                    )}
+                  </td>
+                  {seats.map((seat) => (
+                    <td key={seat} className="px-1 py-1.5 text-center text-[var(--card-face)]/80" data-id={`scoreboard-cell-${round}-${seat}`}>
+                      {result ? result.penalties[seat] : isCurrent ? "…" : "—"}
+                    </td>
+                  ))}
+                </tr>
+              );
+            })}
+            <tr className="border-t-2 border-[var(--card-face)]/25 font-black" data-id="scoreboard-total-row">
+              <td className="py-2 pr-2 text-[var(--card-face)]">{t("total")}</td>
+              {seats.map((seat) => (
+                <td key={seat} className="px-1 py-2 text-center text-[var(--card-face)]" data-id={`scoreboard-total-${seat}`}>
+                  {view.totalScores[seat]}
+                </td>
+              ))}
+            </tr>
+          </tbody>
+        </table>
+      </div>
+      <p className="mt-3 text-center text-xs text-[var(--card-face)]/60">{t("lowestScoreWins")}</p>
+    </>
+  );
+}
+
+/** Rounds × seats penalty table shown as a dismissible overlay panel. */
 export function BouillaScoreboard({
   gv,
   view,
@@ -17,9 +75,7 @@ export function BouillaScoreboard({
   view: PlayerView;
   onClose: () => void;
 }) {
-  const { locale, t } = useI18n();
-  const seats = [0, 1, 2, 3];
-  const resultByRound = new Map(view.roundHistory.map((r) => [r.round, r]));
+  const { t } = useI18n();
 
   return (
     <div
@@ -43,53 +99,7 @@ export function BouillaScoreboard({
             ✕
           </button>
         </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-sm" data-id="bouilla-scoreboard-table">
-            <thead>
-              <tr className="text-left text-[var(--card-face)]/60">
-                <th className="py-1 pr-2 font-semibold">{t("round")}</th>
-                {seats.map((seat) => (
-                  <th key={seat} className="px-1 py-1 text-center font-semibold" data-id={`scoreboard-header-${seat}`}>
-                    {playerName(gv, seat, locale)}
-                    {seat === view.mySeat && ` (${t("you")})`}
-                  </th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {ROUND_ORDER.map((round, index) => {
-                const result = resultByRound.get(round);
-                const isCurrent = index === view.roundIndex && view.phase !== "finished" && !result;
-                return (
-                  <tr key={round} className="border-t border-[var(--card-face)]/10" data-id={`scoreboard-row-${round}`}>
-                    <td className={`py-1.5 pr-2 font-medium ${isCurrent ? "text-[var(--accent-cyan)]" : "text-[var(--card-face)]/80"}`}>
-                      {ROUND_LABEL[locale][round]}
-                      {result?.sweepSeat !== undefined && (
-                        <span className="block text-[0.65rem] font-normal text-[var(--accent-yellow)]" data-id={`scoreboard-capot-${round}`}>
-                          Capot ({playerName(gv, result.sweepSeat, locale)})
-                        </span>
-                      )}
-                    </td>
-                    {seats.map((seat) => (
-                      <td key={seat} className="px-1 py-1.5 text-center text-[var(--card-face)]/80" data-id={`scoreboard-cell-${round}-${seat}`}>
-                        {result ? result.penalties[seat] : isCurrent ? "…" : "—"}
-                      </td>
-                    ))}
-                  </tr>
-                );
-              })}
-              <tr className="border-t-2 border-[var(--card-face)]/25 font-black" data-id="scoreboard-total-row">
-                <td className="py-2 pr-2 text-[var(--card-face)]">{t("total")}</td>
-                {seats.map((seat) => (
-                  <td key={seat} className="px-1 py-2 text-center text-[var(--card-face)]" data-id={`scoreboard-total-${seat}`}>
-                    {view.totalScores[seat]}
-                  </td>
-                ))}
-              </tr>
-            </tbody>
-          </table>
-        </div>
-        <p className="mt-3 text-center text-xs text-[var(--card-face)]/60">{t("lowestScoreWins")}</p>
+        <BouillaScoreTable gv={gv} view={view} />
       </div>
     </div>
   );
