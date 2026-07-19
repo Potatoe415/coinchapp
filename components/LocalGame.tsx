@@ -2,6 +2,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import { useLocalGame } from "@/lib/client/useLocalGame";
+import { LOCAL_COINCHE_STORAGE_KEY, clearPersistedGame } from "@/lib/client/localGamePersistence";
 import type { BotPunch, ScoringRules } from "@/lib/coinche";
 import type { EmojiReaction } from "./EmojiButton";
 import { GameTable, type CoincheGameView } from "./GameTable";
@@ -27,7 +28,10 @@ export function LocalGame({
       seed={seed + gameKey * 131071}
       scoringRules={scoringRules}
       botPunch={botPunch}
-      onReset={() => setGameKey((k) => k + 1)}
+      onReset={() => {
+        clearPersistedGame(LOCAL_COINCHE_STORAGE_KEY);
+        setGameKey((k) => k + 1);
+      }}
     />
   );
 }

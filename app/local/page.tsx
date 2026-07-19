@@ -6,6 +6,11 @@ import { Suspense, useState } from "react";
 import { useI18n } from "@/lib/client/i18n";
 import { GameSettingsPanel, DEFAULT_GAME_SETUP } from "@/components/GameSettingsPanel";
 import type { GameSetupValues } from "@/components/GameSettingsPanel";
+import {
+  LOCAL_BOUILLA_STORAGE_KEY,
+  LOCAL_COINCHE_STORAGE_KEY,
+  clearPersistedGame,
+} from "@/lib/client/localGamePersistence";
 
 export default function LocalSetupPage() {
   return (
@@ -22,6 +27,10 @@ function LocalSetupPageInner() {
   const [setup, setSetup] = useState<GameSetupValues>(DEFAULT_GAME_SETUP);
 
   function startLocalGame() {
+    // A deliberate "start" from setup always begins a fresh match: clear any
+    // abandoned in-progress save so it can't get resumed by mistake.
+    clearPersistedGame(LOCAL_COINCHE_STORAGE_KEY);
+    clearPersistedGame(LOCAL_BOUILLA_STORAGE_KEY);
     if (isBouilla) {
       router.push("/local/play?game=bouilla");
       return;

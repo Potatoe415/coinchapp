@@ -2,6 +2,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import { useLocalBouillaGame } from "@/lib/client/useLocalBouillaGame";
+import { LOCAL_BOUILLA_STORAGE_KEY, clearPersistedGame } from "@/lib/client/localGamePersistence";
 import type { EmojiReaction } from "./EmojiButton";
 import { BouillaTable, type BouillaGameView } from "./BouillaTable";
 
@@ -9,7 +10,16 @@ const REACTION_TTL = 3000;
 
 export function BouillaLocalGame({ seed }: { seed: number }) {
   const [gameKey, setGameKey] = useState(0);
-  return <BouillaLocalGameInner key={gameKey} seed={seed + gameKey * 131071} onReset={() => setGameKey((k) => k + 1)} />;
+  return (
+    <BouillaLocalGameInner
+      key={gameKey}
+      seed={seed + gameKey * 131071}
+      onReset={() => {
+        clearPersistedGame(LOCAL_BOUILLA_STORAGE_KEY);
+        setGameKey((k) => k + 1);
+      }}
+    />
+  );
 }
 
 function BouillaLocalGameInner({ seed, onReset }: { seed: number; onReset: () => void }) {

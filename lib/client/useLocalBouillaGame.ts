@@ -7,6 +7,7 @@ import type { GameView } from "@/lib/server/view";
 import { useI18n } from "./i18n";
 import { runBotLoop, seededRng, wait } from "./cardGameDriver";
 import { bouillaEngine, decideBouillaAction } from "./bouillaEngineAdapter";
+import { LOCAL_BOUILLA_STORAGE_KEY, loadPersistedGame, savePersistedGame } from "./localGamePersistence";
 
 const BOTS = [false, true, true, true];
 const BOT_NAMES = ["", "Adam", "Jane", "Lea"];
@@ -31,6 +32,7 @@ export function useLocalBouillaGame(seed: number): { gv: GameView; actions: Boui
   const commit = useCallback((next: GameState) => {
     stateRef.current = next;
     setState(next);
+    savePersistedGame(LOCAL_BOUILLA_STORAGE_KEY, next);
   }, []);
 
   const runBots = useCallback(async () => {
@@ -51,9 +53,15 @@ export function useLocalBouillaGame(seed: number): { gv: GameView; actions: Boui
     }
   }, [commit]);
 
+  /** On mount, resume any saved in-progress match (reload/relaunch-proof
+   *  offline play) before triggering bots' initial turns. */
   useEffect(() => {
+    const saved = loadPersistedGame<GameState>(LOCAL_BOUILLA_STORAGE_KEY);
+    // Mount-only hydration from localStorage, not a reactive state sync.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (saved) commit(saved);
     runBots();
-  }, [runBots]);
+  }, [commit, runBots]);
 
   const actions: BouillaActions = {
     onPlay: async (card: Card) => {

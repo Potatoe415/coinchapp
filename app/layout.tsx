@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { LanguageSwitcher } from "@/components/LanguageSwitcher";
+import { ServiceWorkerRegistration } from "@/components/ServiceWorkerRegistration";
 import { I18nProvider } from "@/lib/client/i18n";
 import "./globals.css";
 
@@ -17,6 +18,11 @@ const geistMono = Geist_Mono({
 export const metadata: Metadata = {
   title: "Coinchapp — Coinche et la Bouilla",
   description: "Jouez à la Coinche et à la Bouilla dans votre navigateur.",
+  appleWebApp: {
+    capable: true,
+    statusBarStyle: "black-translucent",
+    title: "Coinchapp",
+  },
 };
 
 export const viewport = {
@@ -37,6 +43,7 @@ export default function RootLayout({
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
       <body className="min-h-full flex flex-col">
+        <ServiceWorkerRegistration />
         <I18nProvider>
           <LanguageSwitcher />
           {children}

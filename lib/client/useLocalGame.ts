@@ -17,6 +17,7 @@ import type { GameActions } from "@/components/GameTable";
 import type { GameView } from "@/lib/server/view";
 import { runBotLoop, seededRng, wait } from "./cardGameDriver";
 import { coincheEngine } from "./coincheEngineAdapter";
+import { LOCAL_COINCHE_STORAGE_KEY, loadPersistedGame, savePersistedGame } from "./localGamePersistence";
 import { useBotWorker } from "./useBotWorker";
 
 const BOTS = [false, true, true, true];
@@ -47,6 +48,7 @@ export function useLocalGame(
   const commit = useCallback((next: GameState) => {
     stateRef.current = next;
     setState(next);
+    savePersistedGame(LOCAL_COINCHE_STORAGE_KEY, next);
   }, []);
   const decide = useBotWorker(botPunch);
 
@@ -70,10 +72,16 @@ export function useLocalGame(
     }
   }, [commit, decide]);
 
-  /** Trigger bots on mount to handle any initial bot turns (e.g. bot bids first after the dealer). */
+  /** On mount, resume any saved in-progress match (reload/relaunch-proof offline
+   *  play) before triggering bots, which otherwise handles initial bot turns
+   *  (e.g. bot bids first after the dealer). */
   useEffect(() => {
+    const saved = loadPersistedGame<GameState>(LOCAL_COINCHE_STORAGE_KEY);
+    // Mount-only hydration from localStorage, not a reactive state sync.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (saved) commit(saved);
     runBots();
-  }, [runBots]);
+  }, [commit, runBots]);
 
   const actions: GameActions = {
     onBid: async (payload) => {
