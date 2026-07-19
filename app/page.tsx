@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/lib/client/i18n";
+import { useInstallPrompt } from "@/lib/client/useInstallPrompt";
 import { RulesModal } from "@/components/RulesModal";
 import type { GameType } from "@/lib/supabase/types";
 
@@ -20,6 +21,13 @@ async function resetBrowserData() {
   if ("caches" in window) {
     const keys = await caches.keys();
     await Promise.all(keys.map((key) => caches.delete(key)));
+  }
+
+  // Force the app update: an old service worker could otherwise keep serving
+  // a stale cached shell even after caches are cleared above.
+  if ("serviceWorker" in navigator) {
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    await Promise.all(registrations.map((registration) => registration.unregister()));
   }
 
   if ("indexedDB" in window && typeof indexedDB.databases === "function") {
@@ -46,6 +54,7 @@ async function resetBrowserData() {
 export default function Home() {
   const router = useRouter();
   const { t } = useI18n();
+  const { installable, promptInstall } = useInstallPrompt();
   const [showRules, setShowRules] = useState(false);
   const [game, setGame] = useState<GameType>("coinche");
   const gameSuffix = game === "bouilla" ? "?game=bouilla" : "";
@@ -121,6 +130,16 @@ export default function Home() {
             {t("adhocOfflineNote")}
           </span>
         </button>
+
+        {installable && (
+          <button
+            data-id="install-app-button"
+            onClick={promptInstall}
+            className="w-full rounded-2xl border border-white/40 bg-transparent px-4 py-3 text-sm font-bold text-white/85 transition hover:border-white/60 hover:text-white active:scale-95"
+          >
+            {t("installButton")}
+          </button>
+        )}
       </div>
 
       <div className="relative z-10 mt-auto mb-4 flex items-center gap-3 self-center" data-id="home-footer-actions">
