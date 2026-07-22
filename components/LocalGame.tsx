@@ -14,11 +14,13 @@ export function LocalGame({
   seed,
   scoringRules,
   botPunch,
+  botThinkMs,
 }: {
   targetPoints: number;
   seed: number;
   scoringRules: ScoringRules;
   botPunch: BotPunch;
+  botThinkMs: number;
 }) {
   const [gameKey, setGameKey] = useState(0);
   return (
@@ -28,6 +30,7 @@ export function LocalGame({
       seed={seed + gameKey * 131071}
       scoringRules={scoringRules}
       botPunch={botPunch}
+      botThinkMs={botThinkMs}
       onReset={() => {
         clearPersistedGame(LOCAL_COINCHE_STORAGE_KEY);
         setGameKey((k) => k + 1);
@@ -41,15 +44,17 @@ function LocalGameInner({
   seed,
   scoringRules,
   botPunch,
+  botThinkMs,
   onReset,
 }: {
   targetPoints: number;
   seed: number;
   scoringRules: ScoringRules;
   botPunch: BotPunch;
+  botThinkMs: number;
   onReset: () => void;
 }) {
-  const { gv, actions } = useLocalGame(targetPoints, seed, scoringRules, botPunch);
+  const { gv, actions } = useLocalGame(targetPoints, seed, scoringRules, botPunch, botThinkMs);
   const [reactions, setReactions] = useState<Map<number, EmojiReaction>>(new Map());
   const timers = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map());
 

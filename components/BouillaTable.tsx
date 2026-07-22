@@ -314,8 +314,12 @@ function OpponentTop({
 }) {
   const { locale } = useI18n();
   return (
-    <div className="absolute left-1/2 top-[13%] flex -translate-x-1/2 flex-col items-center" data-id="bouilla-table-top">
-      <CardBackFanH count={view.handCounts[seat]} maxCount={MAX_HAND_COUNT} />
+    // z-30: sits above the round overlay (z-20, BouillaRoundOverlay) so this seat's
+    // emoji reaction stays visible while the round's score recap is shown.
+    <div className="absolute left-1/2 top-[13%] z-30 flex -translate-x-1/2 flex-col items-center" data-id="bouilla-table-top">
+      {/* Hidden once scoring/finished: an early round end ("kingSpades"/"queens"/"clubs")
+          can leave cards in hand, which would otherwise show through the round overlay above. */}
+      <CardBackFanH count={view.phase === "playing" ? view.handCounts[seat] : 0} maxCount={MAX_HAND_COUNT} />
       <div className="mt-2" data-id="bouilla-table-top-badge">
         <PlayerBadge
           name={playerName(gv, seat, locale)}
@@ -351,9 +355,11 @@ function OpponentSide({
   const badgeNudgeClass = side === "left" ? "-ml-[50px]" : "-mr-[50px]";
   const badgeRotateClass = side === "right" ? "rotate-180" : "";
   return (
-    <div className={`absolute top-[41%] flex items-center gap-0 ${sideClass}`} data-id={`bouilla-table-${side}`}>
+    // z-30: see OpponentTop above - keeps this seat's emoji reaction visible over the round overlay.
+    <div className={`absolute top-[41%] z-30 flex items-center gap-0 ${sideClass}`} data-id={`bouilla-table-${side}`}>
+      {/* Hidden once scoring/finished: see OpponentTop's matching comment. */}
       <div className={handShiftClass}>
-        <CardBackStackV count={view.handCounts[seat]} maxCount={MAX_HAND_COUNT} />
+        <CardBackStackV count={view.phase === "playing" ? view.handCounts[seat] : 0} maxCount={MAX_HAND_COUNT} />
       </div>
       <div className={`${badgeNudgeClass} ${badgeRotateClass}`}>
         <PlayerBadge

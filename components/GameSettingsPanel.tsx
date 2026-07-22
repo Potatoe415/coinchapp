@@ -2,7 +2,13 @@
 
 import { useI18n } from "@/lib/client/i18n";
 import { BOT_PUNCH_LEVELS, type BotPunch } from "@/lib/coinche";
-import { STILL_THERE_TIMEOUT_OPTIONS } from "@/lib/supabase/types";
+import {
+  BOT_THINK_MS_STEP,
+  DEFAULT_BOT_THINK_MS,
+  MAX_BOT_THINK_MS,
+  MIN_BOT_THINK_MS,
+  STILL_THERE_TIMEOUT_OPTIONS,
+} from "@/lib/supabase/types";
 import { ParamPresetPicker } from "./ParamPresetPicker";
 import type { ParamPreset } from "@/lib/client/useParamPresets";
 
@@ -20,6 +26,9 @@ export interface GameSetupValues {
    *  idle timer kicks in. Shared by both games (see docs/DATA_MODEL.md). One of
    *  `STILL_THERE_TIMEOUT_OPTIONS`, chosen via a discrete slider. */
   stillThereTimeoutSec: number;
+  /** How long a bot "thinks" before playing, in ms. Shared by both games and
+   *  every mode (see `GameSettings.botThinkMs`). */
+  botThinkMs: number;
 }
 
 export const DEFAULT_GAME_SETUP: GameSetupValues = {
@@ -33,6 +42,7 @@ export const DEFAULT_GAME_SETUP: GameSetupValues = {
   requireMorePointsToWin: true,
   botPunch: "med",
   stillThereTimeoutSec: 15,
+  botThinkMs: DEFAULT_BOT_THINK_MS,
 };
 
 const TARGETS = [500, 1000, 1500, 2000];
@@ -128,6 +138,28 @@ export function GameSettingsPanel({
         )}
       </div>
       <div className="grid grid-cols-1 gap-3">
+        <div className="flex flex-col gap-1.5 text-sm" data-id={`${idPrefix}-bot-think-ms-row`}>
+          <div className="flex items-center justify-between">
+            <span className="text-[var(--card-face)]/75">{t("botThinkTime")}</span>
+            <span className="font-bold text-[var(--accent-yellow)]" data-id={`${idPrefix}-bot-think-ms-value`}>
+              {(values.botThinkMs / 1000).toFixed(1)}s
+            </span>
+          </div>
+          <input
+            type="range"
+            min={MIN_BOT_THINK_MS}
+            max={MAX_BOT_THINK_MS}
+            step={BOT_THINK_MS_STEP}
+            value={values.botThinkMs}
+            onChange={(e) => set("botThinkMs", Number(e.target.value))}
+            data-id={`${idPrefix}-bot-think-ms-slider`}
+            className="w-full accent-[var(--accent-yellow)]"
+          />
+          <div className="flex justify-between text-xs text-[var(--card-face)]/50">
+            <span>{t("botThinkFast")}</span>
+            <span>{t("botThinkSlow")}</span>
+          </div>
+        </div>
         {showStillThereTimeout && (
           <div className="flex flex-col gap-1.5 text-sm" data-id={`${idPrefix}-still-there-timeout-row`}>
             <div className="flex items-center justify-between">

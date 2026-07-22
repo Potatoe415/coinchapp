@@ -32,7 +32,7 @@ function LocalSetupPageInner() {
     clearPersistedGame(LOCAL_COINCHE_STORAGE_KEY);
     clearPersistedGame(LOCAL_BOUILLA_STORAGE_KEY);
     if (isBouilla) {
-      router.push("/local/play?game=bouilla");
+      router.push(`/local/play?game=bouilla&botThinkMs=${setup.botThinkMs}`);
       return;
     }
     const params = new URLSearchParams({
@@ -45,6 +45,7 @@ function LocalSetupPageInner() {
       allowSpecialBids: String(setup.allowToutAtoutSansAtout),
       requireMorePointsToWin: String(setup.requireMorePointsToWin),
       botPunch: setup.botPunch,
+      botThinkMs: String(setup.botThinkMs),
     });
     router.push(`/local/play?${params.toString()}`);
   }
@@ -79,14 +80,13 @@ function LocalSetupPageInner() {
         </button>
       </section>
 
-      {!isBouilla && (
-        <GameSettingsPanel
-          values={setup}
-          onChange={setSetup}
-          idPrefix="local"
-          title={t("settings")}
-        />
-      )}
+      <GameSettingsPanel
+        values={setup}
+        onChange={setSetup}
+        idPrefix="local"
+        title={t("settings")}
+        coincheFields={!isBouilla}
+      />
     </main>
   );
 }

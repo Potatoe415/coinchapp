@@ -36,6 +36,7 @@ function toSettings(v: GameSetupValues): GameSettings {
     allowToutAtoutSansAtout: v.allowToutAtoutSansAtout,
     requireMorePointsToWin: v.requireMorePointsToWin,
     botPunch: v.botPunch,
+    botThinkMs: v.botThinkMs,
   };
 }
 
@@ -73,7 +74,7 @@ export function AdHocLobby() {
     (conns: Map<Seat, P2PConnection>) => {
       const roster = buildRoster(name, humanCount, t("defaultYouName"), t("defaultPlayerName"));
       if (isBouilla) {
-        setBouillaHostConfig({ mySeat: 0, roster, connections: conns, seed });
+        setBouillaHostConfig({ mySeat: 0, roster, connections: conns, seed, botThinkMs: setup.botThinkMs });
       } else {
         setHostConfig({ mySeat: 0, roster, connections: conns, settings: toSettings(setup), seed });
       }
@@ -106,9 +107,13 @@ export function AdHocLobby() {
           >
             {t("inviteOpponents")}
           </button>
-          {!isBouilla && (
-            <GameSettingsPanel values={setup} onChange={setSetup} idPrefix="adhoc" title={t("settings")} />
-          )}
+          <GameSettingsPanel
+            values={setup}
+            onChange={setSetup}
+            idPrefix="adhoc"
+            title={t("settings")}
+            coincheFields={!isBouilla}
+          />
         </div>
       )}
       {phase === "host-connect" && <HostFlow humanSeats={humanSeats} onReady={onHostReady} />}

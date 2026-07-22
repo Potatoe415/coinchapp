@@ -1,4 +1,4 @@
-import { cardStrength, isClub, isKingOfSpades, isQueen } from "./cards";
+import { buildDeck, cardId, cardStrength, isClub, isKingOfSpades, isQueen } from "./cards";
 import { submitPlay } from "./engine";
 import { redact, type PlayerView } from "./redact";
 import { CLUBS_PER_DECK, QUEENS_PER_DECK, TRICKS_PER_ROUND, sweepAliveFor, trickMattersForSweep } from "./rounds";
@@ -69,6 +69,27 @@ function byMostDanger(round: Round, publicCards: Card[]): (a: Card, b: Card) => 
   return (a, b) => cardDanger(b, round, publicCards) - cardDanger(a, round, publicCards) || cardStrength(b) - cardStrength(a);
 }
 
+/** Deck cards neither in `myHand` nor already played (`publicCards`): every card
+ *  that could still be sitting in an opponent's hand. */
+function unseenCards(myHand: Card[], publicCards: Card[]): Card[] {
+  const seen = new Set([...myHand, ...publicCards].map(cardId));
+  return buildDeck().filter((c) => !seen.has(cardId(c)));
+}
+
+/** True if leading `card` is a guaranteed win: no unseen card of its suit could beat
+ *  it. This defeats the entire premise behind `chooseLead`'s "lead our least dangerous
+ *  card, so we are unlikely to win it" strategy below - the leader captures the trick
+ *  outright, and every void opponent (see the void-count preference below) can then
+ *  safely dump its own dangerous cards straight into a trick we cannot help but win
+ *  (e.g. leading a bare Ace while holding no lower card of that suit, only for a
+ *  void-forced opponent to drop the king of spades into it). Penalized as heavily as
+ *  the round's single biggest flat risk, so it is never mistaken for "safe" purely for
+ *  lacking a tracked point value of its own. */
+function unbeatableLeadRisk(card: Card, unseen: Card[]): number {
+  const beatable = unseen.some((c) => c.suit === card.suit && cardStrength(c) > cardStrength(card));
+  return beatable ? 0 : KING_OF_SPADES_WEIGHT;
+}
+
 /** Suits each seat can no longer hold, inferred from completed tricks: whenever a
  *  seat didn't follow the led suit, it was void in it then and stays void in it for
  *  the rest of the round (public information every player can also work out). */
@@ -101,9 +122,11 @@ function chooseLead(
     const counted = legal.filter((c) => (round === "clubs" ? isClub(c) : isQueen(c)));
     if (counted.length > 0) return chooseLeadToWin(counted);
   }
+  const unseen = unseenCards(legal, publicCards);
+  const leadDanger = (c: Card) => cardDanger(c, round, publicCards) + unbeatableLeadRisk(c, unseen);
   const voidCount = (suit: Suit) => SEATS.filter((s) => s !== mySeat && voids[s].has(suit)).length;
   return [...legal].sort((a, b) => {
-    const dangerDiff = cardDanger(a, round, publicCards) - cardDanger(b, round, publicCards);
+    const dangerDiff = leadDanger(a) - leadDanger(b);
     if (dangerDiff !== 0) return dangerDiff;
     const voidDiff = voidCount(b.suit) - voidCount(a.suit);
     if (voidDiff !== 0) return voidDiff;

@@ -24,8 +24,6 @@ const BOTS = [false, true, true, true];
 const NAMES = ["Vous", "Adam", "Jane", "Lea"];
 /** Must match the CSS trick-collect animation duration. */
 const COLLECT_DELAY_MS = 1500;
-/** Simulated thinking time before each bot move. Configurable. */
-export const BOT_THINKING_MS = 500;
 
 function startState(targetPoints: number, seed: number, scoringRules: ScoringRules): GameState {
   return beginNextDeal(createInitialState(targetPoints, scoringRules), seededRng(seed));
@@ -38,6 +36,7 @@ export function useLocalGame(
   seed: number,
   scoringRules: ScoringRules,
   botPunch: BotPunch,
+  botThinkMs: number,
 ): { gv: GameView; actions: GameActions } {
   const [state, setState] = useState<GameState>(() =>
     startState(targetPoints, seed, scoringRules),
@@ -50,7 +49,7 @@ export function useLocalGame(
     setState(next);
     savePersistedGame(LOCAL_COINCHE_STORAGE_KEY, next);
   }, []);
-  const decide = useBotWorker(botPunch);
+  const decide = useBotWorker(botPunch, botThinkMs);
 
   /** Advance bot seats one move at a time. The ISMCTS search runs in a Web
    *  Worker and overlaps the minimum thinking delay, so the UI never blocks. */
@@ -64,13 +63,13 @@ export function useLocalGame(
         isBot: (seat) => BOTS[seat],
         decide,
         commit,
-        thinkingMs: BOT_THINKING_MS,
+        thinkingMs: botThinkMs,
         collectDelayMs: COLLECT_DELAY_MS,
       });
     } finally {
       busyRef.current = false;
     }
-  }, [commit, decide]);
+  }, [commit, decide, botThinkMs]);
 
   /** On mount, resume any saved in-progress match (reload/relaunch-proof offline
    *  play) before triggering bots, which otherwise handles initial bot turns

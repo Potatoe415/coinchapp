@@ -113,9 +113,21 @@ describe("roundDecidedEarly", () => {
     expect(roundDecidedEarly("queens", onlyThree)).toBe(false);
   });
 
+  it("clubs: decided once all 13 clubs have fallen, across any number of tricks or seats", () => {
+    const tricks: Trick[] = [
+      trickOf([card("2", "C"), card("3", "C"), card("4", "C"), card("5", "C")], 0),
+      trickOf([card("6", "C"), card("7", "C"), card("8", "C"), card("9", "C")], 1),
+      trickOf([card("10", "C"), card("J", "C"), card("Q", "C"), card("K", "C")], 2),
+      trickOf([card("A", "C"), card("2", "H"), card("3", "H"), card("4", "H")], 0),
+    ];
+    expect(roundDecidedEarly("clubs", tricks)).toBe(true);
+
+    const onlyTwelve = tricks.slice(0, 3);
+    expect(roundDecidedEarly("clubs", onlyTwelve)).toBe(false);
+  });
+
   it("every other round always needs the full round", () => {
     expect(roundDecidedEarly("tricks", allTricksWonBy(0, 12))).toBe(false);
-    expect(roundDecidedEarly("clubs", allTricksWonBy(0, 13))).toBe(false);
     expect(roundDecidedEarly("lastTrick", allTricksWonBy(0, 13))).toBe(false);
     expect(roundDecidedEarly("everything", allTricksWonBy(0, 13))).toBe(false);
   });

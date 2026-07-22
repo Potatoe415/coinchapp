@@ -82,15 +82,18 @@ function soleCollector(tricks: Trick[], counter: (t: Trick) => number, total: nu
 
 /** True once `round` is already fully decided and no further trick can change its
  *  outcome, so play can stop before all 13 tricks: "kingSpades" the instant the
- *  king is captured, "queens" once all 4 queens have fallen (whoever ends up
- *  holding them - unlike `sweepWinner`, this doesn't require a single collector).
- *  Every other round still needs the full round to know the outcome. */
+ *  king is captured, "queens"/"clubs" once all 4 queens/13 clubs have fallen
+ *  (whoever ends up holding them - unlike `sweepWinner`, this doesn't require a
+ *  single collector). Every other round still needs the full round to know the
+ *  outcome. */
 export function roundDecidedEarly(round: Round, tricks: Trick[]): boolean {
   switch (round) {
     case "kingSpades":
       return tricks.some(hasKingOfSpades);
     case "queens":
       return tricks.reduce((sum, t) => sum + queenCount(t), 0) === QUEENS_PER_DECK;
+    case "clubs":
+      return tricks.reduce((sum, t) => sum + clubCount(t), 0) === CLUBS_PER_DECK;
     default:
       return false;
   }

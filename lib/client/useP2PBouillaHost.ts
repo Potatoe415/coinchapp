@@ -9,10 +9,10 @@ import type { P2PConnection } from "./p2p/connection";
 import { buildBouillaSeatView, parseClientMessage, type ClientMessage, type RosterEntry } from "./p2p/protocol";
 import { runBotLoop } from "./cardGameDriver";
 import { bouillaEngine, decideBouillaAction } from "./bouillaEngineAdapter";
+import { DEFAULT_BOT_THINK_MS } from "@/lib/supabase/types";
 
 /** Must match the CSS trick-collect animation duration. */
 const COLLECT_DELAY_MS = 1500;
-const BOT_THINKING_MS = 500;
 
 export interface P2PBouillaHostConfig {
   mySeat: Seat;
@@ -20,6 +20,10 @@ export interface P2PBouillaHostConfig {
   /** Live connection per human (non-host) seat. */
   connections: Map<Seat, P2PConnection>;
   seed: number;
+  /** Paces each bot move: the heuristic bot has no search to overlap, so this
+   *  delay alone drives "reflexion" (see GameSettings.botThinkMs). Defaults to
+   *  `DEFAULT_BOT_THINK_MS` when absent. */
+  botThinkMs?: number;
 }
 
 /**
@@ -29,6 +33,7 @@ export interface P2PBouillaHostConfig {
  */
 export function useP2PBouillaHost(config: P2PBouillaHostConfig): { gv: GameView; actions: BouillaActions } {
   const { mySeat, seed } = config;
+  const botThinkMs = config.botThinkMs ?? DEFAULT_BOT_THINK_MS;
   const [state, setState] = useState<GameState>(() => beginNextRound(createInitialState(), seededRng(seed)));
   const stateRef = useRef(state);
   const [roster, setRoster] = useState<RosterEntry[]>(() => config.roster.map((entry) => ({ ...entry })));
@@ -87,13 +92,13 @@ export function useP2PBouillaHost(config: P2PBouillaHostConfig): { gv: GameView;
         isBot: isBotSeat,
         decide: decideBouillaAction,
         commit,
-        thinkingMs: BOT_THINKING_MS,
+        thinkingMs: botThinkMs,
         collectDelayMs: COLLECT_DELAY_MS,
       });
     } finally {
       busyRef.current = false;
     }
-  }, [commit, isBotSeat]);
+  }, [commit, isBotSeat, botThinkMs]);
 
   const applyRemote = useCallback(
     async (msg: ClientMessage, seat: Seat) => {

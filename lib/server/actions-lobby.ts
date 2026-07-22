@@ -3,7 +3,17 @@
 import { beginNextDeal, BOT_PUNCH_LEVELS, createInitialState } from "@/lib/coinche";
 import { beginNextRound, createInitialState as createInitialBouillaState } from "@/lib/bouilla";
 import { getServiceClient, getUserId } from "@/lib/supabase/server";
-import { STILL_THERE_TIMEOUT_OPTIONS, type AnyGameState, type GameRow, type GameSettings, type GameType } from "@/lib/supabase/types";
+import {
+  BOT_THINK_MS_STEP,
+  DEFAULT_BOT_THINK_MS,
+  MAX_BOT_THINK_MS,
+  MIN_BOT_THINK_MS,
+  STILL_THERE_TIMEOUT_OPTIONS,
+  type AnyGameState,
+  type GameRow,
+  type GameSettings,
+  type GameType,
+} from "@/lib/supabase/types";
 import {
   findGameByCode,
   loadGame,
@@ -27,6 +37,14 @@ function sanitizeStillThereTimeoutSec(val: number | undefined): number {
   return (STILL_THERE_TIMEOUT_OPTIONS as readonly number[]).includes(val ?? 0) ? (val as number) : 15;
 }
 
+/** Clamps to the slider's range and snaps to its step, so a tampered/stale value
+ *  can never push the ISMCTS budget (Coinche) or bot pacing (Bouilla) out of bounds. */
+function sanitizeBotThinkMs(val: number | undefined): number {
+  if (!Number.isFinite(val)) return DEFAULT_BOT_THINK_MS;
+  const snapped = Math.round((val as number) / BOT_THINK_MS_STEP) * BOT_THINK_MS_STEP;
+  return Math.min(MAX_BOT_THINK_MS, Math.max(MIN_BOT_THINK_MS, snapped));
+}
+
 function sanitizeCoincheSettings(input: Partial<GameSettings>): GameSettings {
   const targetPoints = TARGET_OPTIONS.includes(input.targetPoints ?? 0)
     ? (input.targetPoints as number)
@@ -42,14 +60,18 @@ function sanitizeCoincheSettings(input: Partial<GameSettings>): GameSettings {
     requireMorePointsToWin: input.requireMorePointsToWin !== false,
     botPunch: BOT_PUNCH_LEVELS.includes(input.botPunch ?? "med") ? (input.botPunch ?? "med") : "med",
     stillThereTimeoutSec: sanitizeStillThereTimeoutSec(input.stillThereTimeoutSec),
+    botThinkMs: sanitizeBotThinkMs(input.botThinkMs),
   };
 }
 
-/** Bouilla's 6 rounds/point values are fixed - its only configurable setting is
- *  the idle-turn timer, shared with Coinche (see lib/server/idle-timer.ts). */
+/** Bouilla's 6 rounds/point values are fixed - its only configurable settings are
+ *  the idle-turn timer and bot thinking time, both shared with Coinche. */
 function sanitizeSettings(gameType: GameType, input: Partial<GameSettings>): GameSettings {
   return gameType === "bouilla"
-    ? { stillThereTimeoutSec: sanitizeStillThereTimeoutSec(input.stillThereTimeoutSec) }
+    ? {
+        stillThereTimeoutSec: sanitizeStillThereTimeoutSec(input.stillThereTimeoutSec),
+        botThinkMs: sanitizeBotThinkMs(input.botThinkMs),
+      }
     : sanitizeCoincheSettings(input);
 }
 

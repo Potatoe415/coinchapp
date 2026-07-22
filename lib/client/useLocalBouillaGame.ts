@@ -13,17 +13,16 @@ const BOTS = [false, true, true, true];
 const BOT_NAMES = ["", "Adam", "Jane", "Lea"];
 /** Must match the CSS trick-collect animation duration. */
 const COLLECT_DELAY_MS = 1500;
-/** Simulated thinking time before each bot move: the heuristic bot has no
- *  search to overlap, so this delay alone paces the game for readability. */
-const BOT_THINKING_MS = 500;
 
 function startState(seed: number): GameState {
   return beginNextRound(createInitialState(), seededRng(seed));
 }
 
 /** Fully offline single-player Bouilla game: you are seat 0, the rest are bots.
- *  Runs the pure rules engine in the browser, no network. */
-export function useLocalBouillaGame(seed: number): { gv: GameView; actions: BouillaActions } {
+ *  Runs the pure rules engine in the browser, no network. `botThinkMs` paces
+ *  each bot move: the heuristic bot has no search to overlap, so this delay
+ *  alone drives the "reflexion" feel (see GameSettings.botThinkMs). */
+export function useLocalBouillaGame(seed: number, botThinkMs: number): { gv: GameView; actions: BouillaActions } {
   const { t } = useI18n();
   const [state, setState] = useState<GameState>(() => startState(seed));
   // Mirror of `state` for the async bot loop, kept in sync without waiting for a render.
@@ -45,13 +44,13 @@ export function useLocalBouillaGame(seed: number): { gv: GameView; actions: Boui
         isBot: (seat) => BOTS[seat],
         decide: decideBouillaAction,
         commit,
-        thinkingMs: BOT_THINKING_MS,
+        thinkingMs: botThinkMs,
         collectDelayMs: COLLECT_DELAY_MS,
       });
     } finally {
       busyRef.current = false;
     }
-  }, [commit]);
+  }, [commit, botThinkMs]);
 
   /** On mount, resume any saved in-progress match (reload/relaunch-proof
    *  offline play) before triggering bots' initial turns. */

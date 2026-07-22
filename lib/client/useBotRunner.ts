@@ -8,8 +8,10 @@ import type { GameView } from "@/lib/server/view";
 import type { BotPunch } from "@/lib/coinche";
 import type { PlayerView as CoinchePlayerView } from "@/lib/coinche";
 import type { PlayerView as BouillaPlayerView } from "@/lib/bouilla";
+import { DEFAULT_BOT_THINK_MS } from "@/lib/supabase/types";
 import { decideBouillaAction, type BouillaBotAction } from "./bouillaEngineAdapter";
 import type { BotAction } from "./bot";
+import { wait } from "./cardGameDriver";
 import { useBotWorker } from "./useBotWorker";
 
 function toMove(action: BotAction | BouillaBotAction): BotMove {
@@ -35,7 +37,8 @@ export function useBotRunner(
   notify: () => void,
 ): void {
   const busyRef = useRef(false);
-  const decideCoinche = useBotWorker(gv?.settings.botPunch as BotPunch | undefined);
+  const thinkMs = (gv?.settings.botThinkMs as number | undefined) ?? DEFAULT_BOT_THINK_MS;
+  const decideCoinche = useBotWorker(gv?.settings.botPunch as BotPunch | undefined, thinkMs);
 
   useEffect(() => {
     if (!gv || !gv.isHost || !gv.view) return;
@@ -51,9 +54,12 @@ export function useBotRunner(
       // TEMP diagnostic: pinpointing an intermittent ~5s bot delay report. Remove once resolved.
       const t0 = performance.now();
       try {
+        // Bouilla's heuristic bot is instant (no search to overlap): pace it with
+        // `thinkMs` like the local/ad-hoc driver does, so "reflexion" applies to
+        // both games (see GameSettings.botThinkMs).
         const action =
           gv.gameType === "bouilla"
-            ? await decideBouillaAction(botView as BouillaPlayerView)
+            ? (await Promise.all([decideBouillaAction(botView as BouillaPlayerView), wait(thinkMs)]))[0]
             : await decideCoinche(botView as CoinchePlayerView);
         if (cancelled) return;
         const t1 = performance.now();
@@ -80,5 +86,5 @@ export function useBotRunner(
     return () => {
       cancelled = true;
     };
-  }, [gameId, gv, refetch, decideCoinche, notify]);
+  }, [gameId, gv, refetch, decideCoinche, notify, thinkMs]);
 }

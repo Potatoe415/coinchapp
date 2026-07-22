@@ -120,7 +120,9 @@ export function GameTableScene({
 function TopOpponent({ gv, view, seat, reaction }: { gv: GameView; view: PlayerView; seat: number; reaction?: EmojiReaction }) {
   const bid = view.phase === "bidding" ? lastSeatBid(view.bids, seat) : null;
   return (
-    <div className="absolute left-1/2 top-[13%] flex -translate-x-1/2 flex-col items-center" data-id="table-top">
+    // z-30: sits above the end-of-deal overlay (z-20, DealOverlay) so this seat's
+    // emoji reaction stays visible while the score recap is shown.
+    <div className="absolute left-1/2 top-[13%] z-30 flex -translate-x-1/2 flex-col items-center" data-id="table-top">
       <CardBackFanH count={view.handCounts[seat]} />
       <div className="mt-2 flex flex-row items-center gap-1" data-id="table-top-badge-wrap">
         <PlayerBadge
@@ -161,7 +163,8 @@ function SideOpponent({
   // With flex-row (left side), the bubble added last renders rightmost (toward center).
   const tailDir = side === "left" ? "left" : "right";
   return (
-    <div className={`absolute top-[41%] flex items-center gap-0 ${sideClass}`} data-id={`table-${side}`}>
+    // z-30: see TopOpponent above - keeps this seat's emoji reaction visible over the deal overlay.
+    <div className={`absolute top-[41%] z-30 flex items-center gap-0 ${sideClass}`} data-id={`table-${side}`}>
       <div className={handShiftClass} data-id={`table-${side}-hand`}>
         <CardBackStackV count={view.handCounts[seat]} />
       </div>

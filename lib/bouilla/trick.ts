@@ -32,9 +32,9 @@ export function isLegalPlay(state: GameState, seat: Seat, card: Card): boolean {
 
 /** Apply a card play. Resolves the trick when complete and advances the turn.
  *  A round normally ends after 13 tricks (the full 52-card pack, 13 cards per
- *  seat) - except "kingSpades" and "queens", which end as soon as their outcome
- *  is already decided (see `roundDecidedEarly`), since nothing left to play can
- *  still change the score. */
+ *  seat) - except "kingSpades", "queens" and "clubs", which end as soon as
+ *  their outcome is already decided (see `roundDecidedEarly`), since nothing
+ *  left to play can still change the score. */
 export function applyPlay(state: GameState, seat: Seat, card: Card): GameState {
   if (state.phase !== "playing") throw new Error("not_playing");
   if (state.turn !== seat) throw new Error("not_your_turn");

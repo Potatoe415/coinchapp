@@ -14,7 +14,7 @@ import {
 } from "@/lib/coinche";
 import type { GameActions } from "@/components/GameTable";
 import type { GameView } from "@/lib/server/view";
-import type { GameSettings } from "@/lib/supabase/types";
+import { DEFAULT_BOT_THINK_MS, type GameSettings } from "@/lib/supabase/types";
 import { useBotWorker } from "./useBotWorker";
 import type { P2PConnection } from "./p2p/connection";
 import {
@@ -29,7 +29,6 @@ import { coincheEngine } from "./coincheEngineAdapter";
 
 /** Must match the CSS trick-collect animation duration. */
 const COLLECT_DELAY_MS = 1500;
-const BOT_THINKING_MS = 500;
 
 export interface P2PHostConfig {
   mySeat: Seat;
@@ -63,7 +62,8 @@ export function useP2PHost(config: P2PHostConfig): { gv: GameView; actions: Game
   // Seats that pressed "next deal"; the deal advances only when every human is ready.
   const [ready, setReady] = useState<Set<number>>(() => new Set());
   const readyRef = useRef(ready);
-  const decide = useBotWorker(settings.botPunch as BotPunch | undefined);
+  const botThinkMs = settings.botThinkMs ?? DEFAULT_BOT_THINK_MS;
+  const decide = useBotWorker(settings.botPunch as BotPunch | undefined, botThinkMs);
 
   const isBotSeat = useCallback((seat: number) => rosterRef.current[seat]?.isBot ?? true, []);
 
@@ -114,13 +114,13 @@ export function useP2PHost(config: P2PHostConfig): { gv: GameView; actions: Game
         isBot: isBotSeat,
         decide,
         commit,
-        thinkingMs: BOT_THINKING_MS,
+        thinkingMs: botThinkMs,
         collectDelayMs: COLLECT_DELAY_MS,
       });
     } finally {
       busyRef.current = false;
     }
-  }, [commit, decide, isBotSeat]);
+  }, [commit, decide, isBotSeat, botThinkMs]);
 
   const applyRemote = useCallback(
     async (msg: ClientMessage, seat: Seat) => {

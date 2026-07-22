@@ -154,6 +154,21 @@ describe("chooseCard", () => {
     expect(chooseCard(redact(state, 0)).suit).toBe("D");
   });
 
+  it("does not lead a bare, unbeatable card just because it carries no tracked danger of its own", () => {
+    const state = playingState({
+      turn: 0,
+      roundIndex: 5, // everything
+      hands: [[card("A", "S"), card("Q", "H")], [], [], []],
+      trick: [],
+      tricks: [],
+    });
+    // Before the fix, the Ace of Spades looked "safest" to lead (it isn't the king of
+    // spades, a queen, or a club, so it scored zero tracked danger) - but it is
+    // unbeatable and guarantees winning the trick, inviting a void opponent to safely
+    // dump something far worse (e.g. the actual king of spades) straight into it.
+    expect(chooseCard(redact(state, 0)).rank).toBe("Q");
+  });
+
   it("Capot: leads a held queen to grab it away from an opponent sweeping the queens round", () => {
     const state = playingState({
       turn: 0,

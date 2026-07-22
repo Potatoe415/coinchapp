@@ -127,7 +127,7 @@ function OnlinePageInner() {
                 locale,
                 gameType,
                 settings: isBouilla
-                  ? { stillThereTimeoutSec: setup.stillThereTimeoutSec }
+                  ? { stillThereTimeoutSec: setup.stillThereTimeoutSec, botThinkMs: setup.botThinkMs }
                   : {
                       targetPoints: setup.target,
                       countContractOnlyIfMade: setup.countContractOnlyIfMade,
@@ -139,6 +139,7 @@ function OnlinePageInner() {
                       requireMorePointsToWin: setup.requireMorePointsToWin,
                       botPunch: setup.botPunch,
                       stillThereTimeoutSec: setup.stillThereTimeoutSec,
+                      botThinkMs: setup.botThinkMs,
                     },
               }),
             )

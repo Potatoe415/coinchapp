@@ -18,7 +18,22 @@ export interface GameSettings {
    *  timer kicks in (see lib/server/idle-timer.ts). Defaults to 15 when absent.
    *  Applies to both games. */
   stillThereTimeoutSec?: number;
+  /** How long a bot "thinks" before playing, in ms (see BOT_THINK_MS_*
+   *  constants below). Coinche: the ISMCTS play search's wall-clock budget
+   *  (lib/client/bot.ts) - higher means a stronger search, not just a longer
+   *  wait. Bouilla: its heuristic bot is instant, so this is a pure pacing
+   *  delay (lib/client/cardGameDriver.ts `runBotLoop`'s `thinkingMs`). Applies
+   *  to both games, and to every mode (online/local/ad-hoc). Defaults to
+   *  `DEFAULT_BOT_THINK_MS` when absent. */
+  botThinkMs?: number;
 }
+
+/** `GameSettings.botThinkMs` bounds and default - shared by the setup slider
+ *  (`GameSettingsPanel.tsx`) and the server-side sanitizer (`lib/server/actions-lobby.ts`). */
+export const DEFAULT_BOT_THINK_MS = 800;
+export const MIN_BOT_THINK_MS = 800;
+export const MAX_BOT_THINK_MS = 4000;
+export const BOT_THINK_MS_STEP = 200;
 
 /** Default for `GameSettings.stillThereTimeoutSec` when absent (older rows, or
  *  Bouilla before this setting existed). */

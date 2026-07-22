@@ -8,12 +8,13 @@ import { BouillaTable, type BouillaGameView } from "./BouillaTable";
 
 const REACTION_TTL = 3000;
 
-export function BouillaLocalGame({ seed }: { seed: number }) {
+export function BouillaLocalGame({ seed, botThinkMs }: { seed: number; botThinkMs: number }) {
   const [gameKey, setGameKey] = useState(0);
   return (
     <BouillaLocalGameInner
       key={gameKey}
       seed={seed + gameKey * 131071}
+      botThinkMs={botThinkMs}
       onReset={() => {
         clearPersistedGame(LOCAL_BOUILLA_STORAGE_KEY);
         setGameKey((k) => k + 1);
@@ -22,8 +23,16 @@ export function BouillaLocalGame({ seed }: { seed: number }) {
   );
 }
 
-function BouillaLocalGameInner({ seed, onReset }: { seed: number; onReset: () => void }) {
-  const { gv, actions } = useLocalBouillaGame(seed);
+function BouillaLocalGameInner({
+  seed,
+  botThinkMs,
+  onReset,
+}: {
+  seed: number;
+  botThinkMs: number;
+  onReset: () => void;
+}) {
+  const { gv, actions } = useLocalBouillaGame(seed, botThinkMs);
   const [reactions, setReactions] = useState<Map<number, EmojiReaction>>(new Map());
   const timers = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map());
 
