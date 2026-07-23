@@ -69,7 +69,9 @@ export function useBotRunner(
           notify();
           await refetch();
           const t3 = performance.now();
-          console.debug(
+          // TEMP diagnostic: console.log (not .debug) so it isn't hidden by consoles
+          // that filter out "Verbose" level by default. Remove once resolved.
+          console.log(
             `[bot] seat ${turn} decide=${Math.round(t1 - t0)}ms submit=${Math.round(t2 - t1)}ms refetch=${Math.round(t3 - t2)}ms total=${Math.round(t3 - t0)}ms`,
           );
         }
