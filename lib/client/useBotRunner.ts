@@ -56,7 +56,15 @@ export function useBotRunner(
   notify: () => void,
   debug = false,
 ): BotTimingEntry[] {
-  const busyRef = useRef(false);
+  // Which turn is currently being decided/submitted, if any. Gates re-entrancy
+  // by turn number (not by `gv` object identity): every refetch - including
+  // ones the bot's own move triggers via its `game_events` echo or the safety
+  // poll - creates a brand-new `gv` reference, which would otherwise re-run
+  // this effect and (via cleanup) cancel an in-flight decide for no reason,
+  // wasting a full `thinkMs` cycle each time and compounding into multi-
+  // second stalls.
+  const activeTurnRef = useRef<number | null>(null);
+  const mountedRef = useRef(true);
   const thinkMs = (gv?.settings.botThinkMs as number | undefined) ?? DEFAULT_BOT_THINK_MS;
   const decideCoinche = useBotWorker(gv?.settings.botPunch as BotPunch | undefined, thinkMs);
   const lastFinishedAtRef = useRef<number | null>(null);
@@ -86,16 +94,25 @@ export function useBotRunner(
   );
 
   useEffect(() => {
+    mountedRef.current = true;
+    activeTurnRef.current = null;
+    return () => {
+      mountedRef.current = false;
+    };
+  }, [gameId]);
+
+  useEffect(() => {
     if (!gv || !gv.isHost || !gv.view) return;
     const view = gv.view;
     if (!isActiveTurn(gv.gameType, view.phase)) return;
     const turn = view.turn;
     const botView = gv.botViews?.[turn];
-    if (!botView || busyRef.current) return;
+    // Redundant refetch for a turn already being handled: ignore instead of
+    // restarting (see activeTurnRef comment above).
+    if (!botView || activeTurnRef.current === turn) return;
+    activeTurnRef.current = turn;
 
-    let cancelled = false;
     void (async () => {
-      busyRef.current = true;
       const t0 = performance.now();
       try {
         // Bouilla's heuristic bot is instant (no search to overlap): pace it with
@@ -105,11 +122,10 @@ export function useBotRunner(
           gv.gameType === "bouilla"
             ? (await Promise.all([decideBouillaAction(botView as BouillaPlayerView), wait(thinkMs)]))[0]
             : await decideCoinche(botView as CoinchePlayerView);
-        if (cancelled) return;
         const t1 = performance.now();
         await submitBotMove(gameId, turn as Seat, toMove(action));
         const t2 = performance.now();
-        if (!cancelled) {
+        if (mountedRef.current) {
           notify();
           await refetch();
           recordTiming(turn, t0, t1, t2, performance.now());
@@ -118,15 +134,11 @@ export function useBotRunner(
         // Host may have changed, or a version conflict means another actor
         // already advanced the state (see repo.ts updateVersioned). Refetch
         // now instead of waiting for a tick that may never come.
-        if (!cancelled) await refetch();
+        if (mountedRef.current) await refetch();
       } finally {
-        busyRef.current = false;
+        if (activeTurnRef.current === turn) activeTurnRef.current = null;
       }
     })();
-
-    return () => {
-      cancelled = true;
-    };
   }, [gameId, gv, refetch, decideCoinche, notify, thinkMs, recordTiming]);
 
   return log;
