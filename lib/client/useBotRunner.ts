@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { submitBotMove } from "@/lib/server/actions-game";
 import type { BotMove } from "@/lib/server/game-dispatch";
 import type { Seat } from "@/lib/coinche";
@@ -25,20 +25,65 @@ function isActiveTurn(gameType: GameView["gameType"], phase: string): boolean {
   return gameType === "bouilla" ? phase === "playing" : phase === "bidding" || phase === "playing";
 }
 
+/** One completed bot turn's timing breakdown, for the in-game debug overlay
+ *  (see BotDebugOverlay.tsx). Purely an in-memory diagnostic aid, never persisted. */
+export interface BotTimingEntry {
+  id: number;
+  seat: number;
+  /** Time between the previous tracked move finishing and this one's decide
+   *  starting: how long the turn took to actually hand off to this bot (render/
+   *  effect scheduling lag), or null for the first move tracked this session. */
+  handoffMs: number | null;
+  decideMs: number;
+  submitMs: number;
+  refetchMs: number;
+  totalMs: number;
+}
+
+const MAX_DEBUG_LOG = 30;
+
 /**
  * When the local client is the host, run the bot whose turn it is: decide from
  * the bot seat's redacted view and submit through the authoritative action.
  * Each move emits a realtime tick, which re-runs this effect for the next bot.
+ * When `debug` is on, also returns a rolling log of per-phase timings (used by
+ * the "Bouilla debug mode" overlay to diagnose slow-bot reports live).
  */
 export function useBotRunner(
   gameId: string,
   gv: GameView | null,
   refetch: () => Promise<void>,
   notify: () => void,
-): void {
+  debug = false,
+): BotTimingEntry[] {
   const busyRef = useRef(false);
   const thinkMs = (gv?.settings.botThinkMs as number | undefined) ?? DEFAULT_BOT_THINK_MS;
   const decideCoinche = useBotWorker(gv?.settings.botPunch as BotPunch | undefined, thinkMs);
+  const lastFinishedAtRef = useRef<number | null>(null);
+  const nextLogIdRef = useRef(0);
+  const [log, setLog] = useState<BotTimingEntry[]>([]);
+
+  const recordTiming = useCallback(
+    (seat: number, t0: number, t1: number, t2: number, t3: number) => {
+      const handoffMs = lastFinishedAtRef.current === null ? null : Math.round(t0 - lastFinishedAtRef.current);
+      lastFinishedAtRef.current = t3;
+      if (!debug) return;
+      console.log(
+        `[bot] seat ${seat} handoff=${handoffMs ?? "—"}ms decide=${Math.round(t1 - t0)}ms submit=${Math.round(t2 - t1)}ms refetch=${Math.round(t3 - t2)}ms total=${Math.round(t3 - t0)}ms`,
+      );
+      const entry: BotTimingEntry = {
+        id: nextLogIdRef.current++,
+        seat,
+        handoffMs,
+        decideMs: Math.round(t1 - t0),
+        submitMs: Math.round(t2 - t1),
+        refetchMs: Math.round(t3 - t2),
+        totalMs: Math.round(t3 - t0),
+      };
+      setLog((prev) => [...prev.slice(-(MAX_DEBUG_LOG - 1)), entry]);
+    },
+    [debug],
+  );
 
   useEffect(() => {
     if (!gv || !gv.isHost || !gv.view) return;
@@ -51,7 +96,6 @@ export function useBotRunner(
     let cancelled = false;
     void (async () => {
       busyRef.current = true;
-      // TEMP diagnostic: pinpointing an intermittent ~5s bot delay report. Remove once resolved.
       const t0 = performance.now();
       try {
         // Bouilla's heuristic bot is instant (no search to overlap): pace it with
@@ -68,12 +112,7 @@ export function useBotRunner(
         if (!cancelled) {
           notify();
           await refetch();
-          const t3 = performance.now();
-          // TEMP diagnostic: console.log (not .debug) so it isn't hidden by consoles
-          // that filter out "Verbose" level by default. Remove once resolved.
-          console.log(
-            `[bot] seat ${turn} decide=${Math.round(t1 - t0)}ms submit=${Math.round(t2 - t1)}ms refetch=${Math.round(t3 - t2)}ms total=${Math.round(t3 - t0)}ms`,
-          );
+          recordTiming(turn, t0, t1, t2, performance.now());
         }
       } catch {
         // Host may have changed, or a version conflict means another actor
@@ -88,5 +127,7 @@ export function useBotRunner(
     return () => {
       cancelled = true;
     };
-  }, [gameId, gv, refetch, decideCoinche, notify, thinkMs]);
+  }, [gameId, gv, refetch, decideCoinche, notify, thinkMs, recordTiming]);
+
+  return log;
 }

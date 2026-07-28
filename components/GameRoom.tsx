@@ -9,6 +9,7 @@ import { useStillThereTimer } from "@/lib/client/useStillThereTimer";
 import { ensureAnonAuth } from "@/lib/client/auth";
 import { becomeHost, nextDeal, placeBid, playCard } from "@/lib/server/actions-game";
 import { joinBotSeat } from "@/lib/server/actions-lobby";
+import { BotDebugOverlay } from "./BotDebugOverlay";
 import { BotSeatPicker } from "./BotSeatPicker";
 import type { Card } from "@/lib/coinche";
 import type { Card as BouillaCard } from "@/lib/bouilla";
@@ -28,7 +29,8 @@ type Channel = ReturnType<ReturnType<typeof createClient>["channel"]>;
 export function GameRoom({ gameId }: { gameId: string }) {
   const { t, locale } = useI18n();
   const { view, loading, error, refetch, notify, forceResync } = useGameView(gameId);
-  useBotRunner(gameId, view, refetch, notify);
+  const [debugMode, setDebugMode] = useState(false);
+  const botDebugLog = useBotRunner(gameId, view, refetch, notify, debugMode);
   const stillThere = useStillThereTimer(view, refetch);
 
   const [reactions, setReactions] = useState<Map<number, EmojiReaction>>(new Map());
@@ -146,7 +148,7 @@ export function GameRoom({ gameId }: { gameId: string }) {
   }
 
   if (view.status === "lobby") {
-    return <Lobby gv={view} onChange={refetch} />;
+    return <Lobby gv={view} onChange={refetch} debugMode={debugMode} onDebugModeChange={setDebugMode} />;
   }
 
   if (view.mySeat === null || !view.view) {
@@ -175,6 +177,7 @@ export function GameRoom({ gameId }: { gameId: string }) {
   return (
     <>
       {stillThere.show && <StillThereModal secondsLeft={stillThere.secondsLeft} />}
+      {view.gameType === "bouilla" && debugMode && <BotDebugOverlay log={botDebugLog} />}
       {view.gameType === "bouilla" ? (
         <BouillaTable gv={view as BouillaGameView} actions={bouillaActions} reactions={reactions} />
       ) : (

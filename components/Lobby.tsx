@@ -15,7 +15,15 @@ function swapPlayers(players: LobbyPlayer[], from: number, to: number): LobbyPla
   });
 }
 
-export function Lobby({ gv, onChange }: { gv: GameView; onChange: () => Promise<void> }) {
+interface LobbyProps {
+  gv: GameView;
+  onChange: () => Promise<void>;
+  /** Bouilla-only: shows the debug-mode checkbox (see BotDebugOverlay.tsx). */
+  debugMode: boolean;
+  onDebugModeChange: (enabled: boolean) => void;
+}
+
+export function Lobby({ gv, onChange, debugMode, onDebugModeChange }: LobbyProps) {
   const { locale, t } = useI18n();
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
@@ -193,6 +201,20 @@ export function Lobby({ gv, onChange }: { gv: GameView; onChange: () => Promise<
             />
             {t("randomizeSeats")}
           </label>
+          {gv.gameType === "bouilla" && (
+            <label
+              data-id="lobby-debug-mode"
+              className="flex cursor-pointer items-center gap-2 self-start text-sm text-[var(--foreground)]/70"
+            >
+              <input
+                type="checkbox"
+                checked={debugMode}
+                onChange={(e) => onDebugModeChange(e.target.checked)}
+                className="h-4 w-4 accent-[var(--accent-cyan)]"
+              />
+              {t("debugModeLabel")}
+            </label>
+          )}
           <button
             data-id="lobby-start-button"
             disabled={busy || !full}
