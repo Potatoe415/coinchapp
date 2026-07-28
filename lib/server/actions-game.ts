@@ -98,6 +98,15 @@ export async function submitBotMove(gameId: string, seat: Seat, move: BotMove): 
   await commit(loaded, next);
 }
 
+/** Same as `submitBotMove`, but also reports how long the Vercel function
+ *  itself took to run (excluding network transit) - used only by the Bouilla
+ *  debug overlay to tell a slow server from a slow network. */
+export async function submitBotMoveTimed(gameId: string, seat: Seat, move: BotMove): Promise<number> {
+  const t0 = Date.now();
+  await submitBotMove(gameId, seat, move);
+  return Date.now() - t0;
+}
+
 /** Take over running the bots. The caller must be a seated human. */
 export async function becomeHost(gameId: string): Promise<void> {
   const uid = await getUserId();
@@ -154,4 +163,12 @@ export async function getView(gameId: string): Promise<GameView> {
   await advanceIdleTurns(loaded);
   await advanceStaleTurns(loaded);
   return buildView(loaded, uid);
+}
+
+/** Same as `getView`, but also reports how long the Vercel function itself
+ *  took to run (excluding network transit) - see `submitBotMoveTimed`. */
+export async function getViewTimed(gameId: string): Promise<{ view: GameView; serverMs: number }> {
+  const t0 = Date.now();
+  const view = await getView(gameId);
+  return { view, serverMs: Date.now() - t0 };
 }

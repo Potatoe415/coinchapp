@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { submitBotMove } from "@/lib/server/actions-game";
+import { getViewTimed, submitBotMove, submitBotMoveTimed } from "@/lib/server/actions-game";
 import type { BotMove } from "@/lib/server/game-dispatch";
 import type { Seat } from "@/lib/coinche";
 import type { GameView } from "@/lib/server/view";
@@ -36,7 +36,12 @@ export interface BotTimingEntry {
   handoffMs: number | null;
   decideMs: number;
   submitMs: number;
+  /** Vercel function's own reported execution time for the submit call, or
+   *  null when `debug` wasn't on for that move (no timed variant used). */
+  submitServerMs: number | null;
   refetchMs: number;
+  /** Same as `submitServerMs`, for the post-move refetch. */
+  refetchServerMs: number | null;
   totalMs: number;
 }
 
@@ -72,12 +77,22 @@ export function useBotRunner(
   const [log, setLog] = useState<BotTimingEntry[]>([]);
 
   const recordTiming = useCallback(
-    (seat: number, t0: number, t1: number, t2: number, t3: number) => {
+    (
+      seat: number,
+      t0: number,
+      t1: number,
+      t2: number,
+      t3: number,
+      submitServerMs: number | null,
+      refetchServerMs: number | null,
+    ) => {
       const handoffMs = lastFinishedAtRef.current === null ? null : Math.round(t0 - lastFinishedAtRef.current);
       lastFinishedAtRef.current = t3;
       if (!debug) return;
       console.log(
-        `[bot] seat ${seat} handoff=${handoffMs ?? "—"}ms decide=${Math.round(t1 - t0)}ms submit=${Math.round(t2 - t1)}ms refetch=${Math.round(t3 - t2)}ms total=${Math.round(t3 - t0)}ms`,
+        `[bot] seat ${seat} handoff=${handoffMs ?? "—"}ms decide=${Math.round(t1 - t0)}ms ` +
+          `submit=${Math.round(t2 - t1)}ms (server=${submitServerMs ?? "—"}ms) ` +
+          `refetch=${Math.round(t3 - t2)}ms (server=${refetchServerMs ?? "—"}ms) total=${Math.round(t3 - t0)}ms`,
       );
       const entry: BotTimingEntry = {
         id: nextLogIdRef.current++,
@@ -85,7 +100,9 @@ export function useBotRunner(
         handoffMs,
         decideMs: Math.round(t1 - t0),
         submitMs: Math.round(t2 - t1),
+        submitServerMs,
         refetchMs: Math.round(t3 - t2),
+        refetchServerMs,
         totalMs: Math.round(t3 - t0),
       };
       setLog((prev) => [...prev.slice(-(MAX_DEBUG_LOG - 1)), entry]);
@@ -123,12 +140,20 @@ export function useBotRunner(
             ? (await Promise.all([decideBouillaAction(botView as BouillaPlayerView), wait(thinkMs)]))[0]
             : await decideCoinche(botView as CoinchePlayerView);
         const t1 = performance.now();
-        await submitBotMove(gameId, turn as Seat, toMove(action));
+        const move = toMove(action);
+        let submitServerMs: number | null = null;
+        if (debug) {
+          submitServerMs = await submitBotMoveTimed(gameId, turn as Seat, move);
+        } else {
+          await submitBotMove(gameId, turn as Seat, move);
+        }
         const t2 = performance.now();
         if (mountedRef.current) {
           notify();
-          await refetch();
-          recordTiming(turn, t0, t1, t2, performance.now());
+          // Run in parallel so the debug-only extra read never adds its own
+          // latency to the real refetch that drives the next turn.
+          const [, timed] = await Promise.all([refetch(), debug ? getViewTimed(gameId) : Promise.resolve(null)]);
+          recordTiming(turn, t0, t1, t2, performance.now(), submitServerMs, timed?.serverMs ?? null);
         }
       } catch {
         // Host may have changed, or a version conflict means another actor
@@ -139,7 +164,7 @@ export function useBotRunner(
         if (activeTurnRef.current === turn) activeTurnRef.current = null;
       }
     })();
-  }, [gameId, gv, refetch, decideCoinche, notify, thinkMs, recordTiming]);
+  }, [gameId, gv, refetch, decideCoinche, notify, thinkMs, recordTiming, debug]);
 
   return log;
 }

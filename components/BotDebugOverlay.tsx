@@ -11,12 +11,40 @@ function cell(ms: number | null): string {
   return ms === null ? "—" : `${ms}ms`;
 }
 
-function PhaseCell({ ms, label }: { ms: number | null; label: string }) {
+function PhaseCell({
+  ms,
+  serverMs,
+  serverLabel,
+  label,
+}: {
+  ms: number | null;
+  serverMs?: number | null;
+  serverLabel?: string;
+  label: string;
+}) {
   return (
     <td className={`px-1.5 text-right ${ms !== null && ms > SLOW_MS ? "text-[var(--accent-red)]" : ""}`} title={label}>
-      {cell(ms)}
+      <div>{cell(ms)}</div>
+      {serverMs != null && <div className="text-[9px] font-normal text-white/40">{serverMs}{serverLabel}</div>}
     </td>
   );
+}
+
+/** CSV download of the full rolling log, for sharing/analysing outside the app. */
+function exportLog(log: BotTimingEntry[]) {
+  const header = "id,seat,handoffMs,decideMs,submitMs,submitServerMs,refetchMs,refetchServerMs,totalMs";
+  const rows = log.map((e) =>
+    [e.id, e.seat, e.handoffMs, e.decideMs, e.submitMs, e.submitServerMs, e.refetchMs, e.refetchServerMs, e.totalMs]
+      .map((v) => v ?? "")
+      .join(","),
+  );
+  const blob = new Blob([[header, ...rows].join("\n")], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `bot-debug-${new Date().toISOString().replace(/[:.]/g, "-")}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
 }
 
 /**
@@ -44,7 +72,17 @@ export function BotDebugOverlay({ log }: { log: BotTimingEntry[] }) {
           data-id="bot-debug-panel"
           className="fixed right-3 top-12 z-50 max-h-[70vh] w-[min(94vw,400px)] overflow-y-auto rounded-xl bg-black/75 p-3 text-[11px] font-mono text-white shadow-2xl ring-1 ring-white/20 backdrop-blur"
         >
-          <p className="mb-2 text-xs font-bold uppercase tracking-wide text-white/70">{t("botDebugTitle")}</p>
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <p className="text-xs font-bold uppercase tracking-wide text-white/70">{t("botDebugTitle")}</p>
+            <button
+              data-id="bot-debug-export"
+              onClick={() => exportLog(log)}
+              disabled={log.length === 0}
+              className="shrink-0 rounded bg-white/10 px-2 py-1 text-[10px] font-bold text-white/80 disabled:opacity-30"
+            >
+              {t("botDebugExport")}
+            </button>
+          </div>
           {log.length === 0 ? (
             <p className="text-white/50">{t("botDebugEmpty")}</p>
           ) : (
@@ -65,8 +103,18 @@ export function BotDebugOverlay({ log }: { log: BotTimingEntry[] }) {
                     <td>{entry.seat}</td>
                     <PhaseCell ms={entry.handoffMs} label={t("botDebugHandoff")} />
                     <PhaseCell ms={entry.decideMs} label={t("botDebugDecide")} />
-                    <PhaseCell ms={entry.submitMs} label={t("botDebugSubmit")} />
-                    <PhaseCell ms={entry.refetchMs} label={t("botDebugRefetch")} />
+                    <PhaseCell
+                      ms={entry.submitMs}
+                      serverMs={entry.submitServerMs}
+                      serverLabel={t("botDebugServerSuffix")}
+                      label={t("botDebugSubmit")}
+                    />
+                    <PhaseCell
+                      ms={entry.refetchMs}
+                      serverMs={entry.refetchServerMs}
+                      serverLabel={t("botDebugServerSuffix")}
+                      label={t("botDebugRefetch")}
+                    />
                     <td className="px-1.5 text-right font-bold">{cell(entry.totalMs)}</td>
                   </tr>
                 ))}
