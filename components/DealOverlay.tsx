@@ -9,10 +9,14 @@ import { formatContract } from "./labels";
 
 export function DealOverlay({
   view,
+  visible,
   onNextDeal,
   nextDealGate,
 }: {
   view: PlayerView;
+  /** Delayed past the trick-collect animation - see `useDelayedVisible` (computed by the caller,
+   *  which also needs it to know when to move opponents' badges out of the overlay's way). */
+  visible: boolean;
   onNextDeal: () => Promise<void> | void;
   nextDealGate?: NextDealGate;
 }) {
@@ -20,19 +24,6 @@ export function DealOverlay({
   const [busy, setBusy] = useState(false);
   const result = view.lastDeal;
   const finished = view.phase === "finished";
-  const shouldShow = !!result || finished;
-
-  const [visible, setVisible] = useState(false);
-  const [prevShouldShow, setPrevShouldShow] = useState(shouldShow);
-  if (shouldShow !== prevShouldShow) {
-    setPrevShouldShow(shouldShow);
-    if (!shouldShow) setVisible(false);
-  }
-  useEffect(() => {
-    if (!shouldShow) return;
-    const timer = window.setTimeout(() => setVisible(true), 2000);
-    return () => window.clearTimeout(timer);
-  }, [shouldShow]);
 
   if (!visible) return null;
 

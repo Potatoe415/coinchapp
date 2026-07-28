@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useState } from "react";
+import { useDelayedVisible } from "@/lib/client/useDelayedVisible";
 import { CAPOT_VALUE, GENERALE_VALUE, type Bid, type Card, type PlayerView } from "@/lib/coinche";
 import type { GameView, NextDealGate } from "@/lib/server/view";
 import { DealOverlay } from "./DealOverlay";
@@ -97,32 +98,71 @@ export function GameTableScene({
   onNextDeal: () => Promise<void> | void;
   nextDealGate?: NextDealGate;
 }) {
+  const dealOverlayVisible = useDelayedVisible(!!view.lastDeal || view.phase === "finished", 2000);
   return (
     <section className="relative z-10 h-[720px] w-full shrink-0" data-id="table-scene">
       <div
         className="absolute inset-x-[11%] bottom-[19%] top-[29%] rounded-[3rem] bg-[rgba(255,250,242,0.08)] shadow-[inset_0_0_55px_rgba(22,200,240,0.22)] ring-[10px] ring-[rgba(242,196,79,0.18)]"
         data-id="central-felt"
       />
-      <TopOpponent gv={gv} view={view} seat={seats.top} reaction={reactions?.get(seats.top)} />
-      <SideOpponent gv={gv} view={view} seat={seats.left} side="left" reaction={reactions?.get(seats.left)} />
-      <SideOpponent gv={gv} view={view} seat={seats.right} side="right" reaction={reactions?.get(seats.right)} />
+      {/* Hidden once the deal overlay is up: their usual spots sit under its centered score
+          card, so their name+reaction badges move to `OpponentReactionsBar` below instead. */}
+      {!dealOverlayVisible && (
+        <>
+          <TopOpponent gv={gv} view={view} seat={seats.top} reaction={reactions?.get(seats.top)} />
+          <SideOpponent gv={gv} view={view} seat={seats.left} side="left" reaction={reactions?.get(seats.left)} />
+          <SideOpponent gv={gv} view={view} seat={seats.right} side="right" reaction={reactions?.get(seats.right)} />
+        </>
+      )}
       <PlayedCardStage seats={seats} trickBySeat={trickBySeat} />
       {lastTrickBySeat && lastTrickKey && (
         <CompletedTrickHold key={lastTrickKey} seats={seats} trickBySeat={lastTrickBySeat} winner={lastTrickWinner} />
       )}
       <BeloteFlash announced={view.beloteAnnounced} />
       <BimFlash bimTrickKey={bimTrickKey} />
-      <DealOverlay view={view} onNextDeal={onNextDeal} nextDealGate={nextDealGate} />
+      {dealOverlayVisible && <OpponentReactionsBar gv={gv} seats={seats} reactions={reactions} />}
+      <DealOverlay view={view} visible={dealOverlayVisible} onNextDeal={onNextDeal} nextDealGate={nextDealGate} />
     </section>
+  );
+}
+
+/** Opponents' name + live emoji reaction, relocated to a bottom row while the deal overlay's
+ *  score card covers their usual top/side spots - keeps them visible without overlapping it. */
+function OpponentReactionsBar({
+  gv,
+  seats,
+  reactions,
+}: {
+  gv: GameView;
+  seats: TableSeats;
+  reactions?: Map<number, EmojiReaction>;
+}) {
+  const opponentSeats = [seats.top, seats.left, seats.right];
+  return (
+    <div className="absolute inset-x-4 bottom-3 z-30 flex items-end justify-center gap-6 pr-14" data-id="round-end-reactions-bar">
+      {opponentSeats.map((seat) => {
+        const reaction = reactions?.get(seat);
+        return (
+          <div key={seat} className="flex flex-col items-center gap-1" data-id={`round-end-reaction-${seat}`}>
+            {reaction && (
+              <span className="emoji-react text-5xl leading-none" data-id="player-emoji-reaction">
+                {reaction.emoji}
+              </span>
+            )}
+            <span className="max-w-[5rem] truncate text-xs font-bold text-[var(--card-face)]">
+              {playerName(gv, seat)}
+            </span>
+          </div>
+        );
+      })}
+    </div>
   );
 }
 
 function TopOpponent({ gv, view, seat, reaction }: { gv: GameView; view: PlayerView; seat: number; reaction?: EmojiReaction }) {
   const bid = view.phase === "bidding" ? lastSeatBid(view.bids, seat) : null;
   return (
-    // z-30: sits above the end-of-deal overlay (z-20, DealOverlay) so this seat's
-    // emoji reaction stays visible while the score recap is shown.
-    <div className="absolute left-1/2 top-[13%] z-30 flex -translate-x-1/2 flex-col items-center" data-id="table-top">
+    <div className="absolute left-1/2 top-[13%] flex -translate-x-1/2 flex-col items-center" data-id="table-top">
       <CardBackFanH count={view.handCounts[seat]} />
       <div className="mt-2 flex flex-row items-center gap-1" data-id="table-top-badge-wrap">
         <PlayerBadge
@@ -163,8 +203,7 @@ function SideOpponent({
   // With flex-row (left side), the bubble added last renders rightmost (toward center).
   const tailDir = side === "left" ? "left" : "right";
   return (
-    // z-30: see TopOpponent above - keeps this seat's emoji reaction visible over the deal overlay.
-    <div className={`absolute top-[41%] z-30 flex items-center gap-0 ${sideClass}`} data-id={`table-${side}`}>
+    <div className={`absolute top-[41%] flex items-center gap-0 ${sideClass}`} data-id={`table-${side}`}>
       <div className={handShiftClass} data-id={`table-${side}-hand`}>
         <CardBackStackV count={view.handCounts[seat]} />
       </div>

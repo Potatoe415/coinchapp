@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { cardStrength, type Card, type PlayerView } from "@/lib/bouilla";
+import { useDelayedVisible } from "@/lib/client/useDelayedVisible";
 import { useI18n } from "@/lib/client/i18n";
 import { useOptimisticPlay } from "@/lib/client/useOptimisticPlay";
 import type { GameView } from "@/lib/server/view";
@@ -91,6 +92,7 @@ export function BouillaTable({
     ? view.lastTrick.cards.map((p) => `${p.seat}:${cardKey(p.card)}`).join("|")
     : null;
   const lastTrickWinner = view.lastTrick?.winner ?? null;
+  const roundOverlayVisible = useDelayedVisible(!!view.lastRoundResult || view.phase === "finished", 2000);
 
   return (
     <main
@@ -116,14 +118,21 @@ export function BouillaTable({
           className="absolute inset-x-[11%] bottom-[19%] top-[29%] rounded-[3rem] bg-[rgba(255,250,242,0.08)] shadow-[inset_0_0_55px_rgba(22,200,240,0.22)] ring-[10px] ring-[rgba(242,196,79,0.18)]"
           data-id="bouilla-central-felt"
         />
-        <OpponentTop gv={gv} view={view} seat={seats.top} reaction={reactions?.get(seats.top)} />
-        <OpponentSide gv={gv} view={view} seat={seats.left} side="left" reaction={reactions?.get(seats.left)} />
-        <OpponentSide gv={gv} view={view} seat={seats.right} side="right" reaction={reactions?.get(seats.right)} />
+        {/* Hidden once the round overlay is up: their usual spots sit under its centered score
+            table, so their name+reaction badges move to `OpponentReactionsBar` below instead. */}
+        {!roundOverlayVisible && (
+          <>
+            <OpponentTop gv={gv} view={view} seat={seats.top} reaction={reactions?.get(seats.top)} />
+            <OpponentSide gv={gv} view={view} seat={seats.left} side="left" reaction={reactions?.get(seats.left)} />
+            <OpponentSide gv={gv} view={view} seat={seats.right} side="right" reaction={reactions?.get(seats.right)} />
+          </>
+        )}
         <PlayedCardStage seats={seats} trickBySeat={trickBySeat} />
         {lastTrickBySeat && lastTrickKey && (
           <CompletedTrickHold key={lastTrickKey} seats={seats} trickBySeat={lastTrickBySeat} winner={lastTrickWinner} />
         )}
-        <BouillaRoundOverlay gv={gv} view={view} onNextRound={actions.onNextRound} nextRoundGate={gv.nextDealGate} />
+        {roundOverlayVisible && <OpponentReactionsBar gv={gv} seats={seats} reactions={reactions} />}
+        <BouillaRoundOverlay gv={gv} view={view} visible={roundOverlayVisible} onNextRound={actions.onNextRound} nextRoundGate={gv.nextDealGate} />
         {emojiOn && actions.onSendEmoji && <EmojiButton myReaction={reactions?.get(mySeat)} onSelect={actions.onSendEmoji} />}
         {/* Hidden once scoring/finished: "kingSpades" can end a round with cards still
             in hand (see lib/bouilla/trick.ts), which would otherwise show through the
@@ -314,12 +323,8 @@ function OpponentTop({
 }) {
   const { locale } = useI18n();
   return (
-    // z-30: sits above the round overlay (z-20, BouillaRoundOverlay) so this seat's
-    // emoji reaction stays visible while the round's score recap is shown.
-    <div className="absolute left-1/2 top-[13%] z-30 flex -translate-x-1/2 flex-col items-center" data-id="bouilla-table-top">
-      {/* Hidden once scoring/finished: an early round end ("kingSpades"/"queens"/"clubs")
-          can leave cards in hand, which would otherwise show through the round overlay above. */}
-      <CardBackFanH count={view.phase === "playing" ? view.handCounts[seat] : 0} maxCount={MAX_HAND_COUNT} />
+    <div className="absolute left-1/2 top-[13%] flex -translate-x-1/2 flex-col items-center" data-id="bouilla-table-top">
+      <CardBackFanH count={view.handCounts[seat]} maxCount={MAX_HAND_COUNT} />
       <div className="mt-2" data-id="bouilla-table-top-badge">
         <PlayerBadge
           name={playerName(gv, seat, locale)}
@@ -355,11 +360,9 @@ function OpponentSide({
   const badgeNudgeClass = side === "left" ? "-ml-[50px]" : "-mr-[50px]";
   const badgeRotateClass = side === "right" ? "rotate-180" : "";
   return (
-    // z-30: see OpponentTop above - keeps this seat's emoji reaction visible over the round overlay.
-    <div className={`absolute top-[41%] z-30 flex items-center gap-0 ${sideClass}`} data-id={`bouilla-table-${side}`}>
-      {/* Hidden once scoring/finished: see OpponentTop's matching comment. */}
+    <div className={`absolute top-[41%] flex items-center gap-0 ${sideClass}`} data-id={`bouilla-table-${side}`}>
       <div className={handShiftClass}>
-        <CardBackStackV count={view.phase === "playing" ? view.handCounts[seat] : 0} maxCount={MAX_HAND_COUNT} />
+        <CardBackStackV count={view.handCounts[seat]} maxCount={MAX_HAND_COUNT} />
       </div>
       <div className={`${badgeNudgeClass} ${badgeRotateClass}`}>
         <PlayerBadge
@@ -374,6 +377,40 @@ function OpponentSide({
           dataId={`bouilla-player-seat-${seat}`}
         />
       </div>
+    </div>
+  );
+}
+
+/** Opponents' name + live emoji reaction, relocated to a bottom row while the round overlay's
+ *  score table covers their usual top/side spots - keeps them visible without overlapping it. */
+function OpponentReactionsBar({
+  gv,
+  seats,
+  reactions,
+}: {
+  gv: BouillaGameView;
+  seats: TableSeats;
+  reactions?: Map<number, EmojiReaction>;
+}) {
+  const { locale } = useI18n();
+  const opponentSeats = [seats.top, seats.left, seats.right];
+  return (
+    <div className="absolute inset-x-4 bottom-3 z-30 flex items-end justify-center gap-6 pr-14" data-id="round-end-reactions-bar">
+      {opponentSeats.map((seat) => {
+        const reaction = reactions?.get(seat);
+        return (
+          <div key={seat} className="flex flex-col items-center gap-1" data-id={`round-end-reaction-${seat}`}>
+            {reaction && (
+              <span className="emoji-react text-5xl leading-none" data-id="player-emoji-reaction">
+                {reaction.emoji}
+              </span>
+            )}
+            <span className="max-w-[5rem] truncate text-xs font-bold text-[var(--card-face)]">
+              {playerName(gv, seat, locale)}
+            </span>
+          </div>
+        );
+      })}
     </div>
   );
 }

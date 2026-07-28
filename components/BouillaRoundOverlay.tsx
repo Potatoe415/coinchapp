@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import type { PlayerView } from "@/lib/bouilla";
 import { formatText, useI18n } from "@/lib/client/i18n";
 import type { GameView, NextDealGate } from "@/lib/server/view";
@@ -12,11 +12,15 @@ import { playerName } from "./gameTableHelpers";
 export function BouillaRoundOverlay({
   gv,
   view,
+  visible,
   onNextRound,
   nextRoundGate,
 }: {
   gv: GameView;
   view: PlayerView;
+  /** Delayed past the trick-collect animation - see `useDelayedVisible` (computed by the caller,
+   *  which also needs it to know when to move opponents' badges out of the overlay's way). */
+  visible: boolean;
   onNextRound: () => Promise<void> | void;
   nextRoundGate?: NextDealGate;
 }) {
@@ -24,21 +28,6 @@ export function BouillaRoundOverlay({
   const [busy, setBusy] = useState(false);
   const result = view.lastRoundResult;
   const finished = view.phase === "finished";
-  const shouldShow = !!result || finished;
-
-  const [visible, setVisible] = useState(false);
-  const [prevShouldShow, setPrevShouldShow] = useState(shouldShow);
-  if (shouldShow !== prevShouldShow) {
-    setPrevShouldShow(shouldShow);
-    if (!shouldShow) setVisible(false);
-  }
-  useEffect(() => {
-    if (!shouldShow) return;
-    // Longer than the trick-collect animation (1500ms, see TrickStage.tsx) so the
-    // last trick's cards finish flying off before the score overlay covers them.
-    const timer = window.setTimeout(() => setVisible(true), 2000);
-    return () => window.clearTimeout(timer);
-  }, [shouldShow]);
 
   if (!visible) return null;
 
