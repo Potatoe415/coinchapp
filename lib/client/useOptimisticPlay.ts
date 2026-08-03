@@ -171,6 +171,10 @@ export function useOptimisticPlay<TCard>(
   // Drop a pre-selection that is no longer legal now that it is our turn.
   if (myTurnToPlay && preSelectedId !== null && !legalSet.has(preSelectedId)) setPreSelectedId(null);
   if (pendingPlayed && isPendingConfirmed(view, pendingPlayed, cardId)) setPendingPlayed(null);
+  // A new deal/round always passes through a non-"playing" phase (bidding, scoring, ...)
+  // before play resumes: drop any leftover pre-selection from the previous one so it can't
+  // get auto-played on the very first trick (e.g. matching a card dealt again by coincidence).
+  if (view.phase !== "playing" && preSelectedId !== null) setPreSelectedId(null);
 
   const trickCards = mergeTrickCards(view, pendingPlayed, cardId);
   useAutoPlayLastCard(view, myTurnToPlay, busy, handCount, options?.autoPlayLastCardDelayMs ?? 700, stablePlay);
