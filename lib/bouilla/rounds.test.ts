@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { roundDecidedEarly, sweepAliveFor, sweepWinner, trickMattersForSweep, trickPenalty } from "./rounds";
+import {
+  roundDecidedEarly,
+  sweepAliveFor,
+  sweepProgress,
+  sweepWinner,
+  trickMattersForSweep,
+  trickPenalty,
+} from "./rounds";
 import { card } from "./test-utils";
 import type { PlayedCard, Rank, Seat, Trick } from "./types";
 
@@ -174,6 +181,24 @@ describe("sweepAliveFor", () => {
     const heartsOnly = allTricksWonBy(0, 3); // allTricksWonBy deals only hearts, see helper above
     expect(sweepAliveFor(0, "clubs", heartsOnly)).toBe(false);
     expect(sweepAliveFor(0, "queens", heartsOnly)).toBe(false);
+  });
+});
+
+describe("sweepProgress", () => {
+  it("tricks/everything: the share of the round's tricks already played", () => {
+    expect(sweepProgress("tricks", allTricksWonBy(0, 1))).toBeCloseTo(1 / 13);
+    expect(sweepProgress("everything", allTricksWonBy(0, 13))).toBe(1);
+  });
+
+  it("clubs/queens: the share of the counted cards already fallen, whoever took them", () => {
+    const twoQueens = [trickOf([card("Q", "H"), card("Q", "D"), card("3", "C"), card("4", "S")], 2)];
+    expect(sweepProgress("queens", twoQueens)).toBe(0.5);
+    expect(sweepProgress("clubs", twoQueens)).toBeCloseTo(1 / 13);
+  });
+
+  it("kingSpades/lastTrick: always 0 (no sweep to make progress on)", () => {
+    expect(sweepProgress("kingSpades", allTricksWonBy(0, 5))).toBe(0);
+    expect(sweepProgress("lastTrick", allTricksWonBy(0, 5))).toBe(0);
   });
 });
 

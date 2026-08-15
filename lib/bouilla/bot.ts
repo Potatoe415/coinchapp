@@ -1,7 +1,14 @@
 import { buildDeck, cardId, cardStrength, isClub, isKingOfSpades, isQueen } from "./cards";
 import { submitPlay } from "./engine";
 import { redact, type PlayerView } from "./redact";
-import { CLUBS_PER_DECK, QUEENS_PER_DECK, TRICKS_PER_ROUND, sweepAliveFor, trickMattersForSweep } from "./rounds";
+import {
+  CLUBS_PER_DECK,
+  QUEENS_PER_DECK,
+  TRICKS_PER_ROUND,
+  sweepAliveFor,
+  sweepProgress,
+  trickMattersForSweep,
+} from "./rounds";
 import type { Card, GameState, PlayedCard, Round, Seat, Suit, Trick } from "./types";
 
 const SEATS: Seat[] = [0, 1, 2, 3];
@@ -65,8 +72,24 @@ function byLeastDanger(round: Round, publicCards: Card[]): (a: Card, b: Card) =>
   return (a, b) => cardDanger(a, round, publicCards) - cardDanger(b, round, publicCards) || cardStrength(a) - cardStrength(b);
 }
 
-function byMostDanger(round: Round, publicCards: Card[]): (a: Card, b: Card) => number {
-  return (a, b) => cardDanger(b, round, publicCards) - cardDanger(a, round, publicCards) || cardStrength(b) - cardStrength(a);
+/** Cards of `suit` left in this hand. Callers pass their legal set, which is the
+ *  whole hand exactly when this matters (leading, or discarding while void); when
+ *  it isn't (following suit), every candidate shares the led suit, so the count is
+ *  identical for all of them and any tie-break on it is a no-op. */
+function suitLength(hand: Card[], suit: Suit): number {
+  return hand.filter((c) => c.suit === suit).length;
+}
+
+/** Shedding order: most dangerous first, then a control card (Q/K/A, the cards that
+ *  would force us to win a trick later), then the card from the shortest suit - that
+ *  suit runs dry ("coupe sèche"), so the next time someone leads it we can drop
+ *  whatever we are still stuck with instead of having to win the trick with it. */
+function byMostDanger(round: Round, publicCards: Card[], hand: Card[]): (a: Card, b: Card) => number {
+  return (a, b) =>
+    cardDanger(b, round, publicCards) - cardDanger(a, round, publicCards) ||
+    Number(isControlCard(b)) - Number(isControlCard(a)) ||
+    suitLength(hand, a.suit) - suitLength(hand, b.suit) ||
+    cardStrength(b) - cardStrength(a);
 }
 
 /** Deck cards neither in `myHand` nor already played (`publicCards`): every card
@@ -105,11 +128,25 @@ function inferVoids(tricks: Trick[]): Record<Seat, Set<Suit>> {
   return voids;
 }
 
+/** Suit length standing for "leading this card would not usefully shorten anything",
+ *  above any real suit length so it always sorts last in the void-building tie-break. */
+const NEVER_SHORTEN = TRICKS_PER_ROUND + 1;
+
+/** How short a suit has to get before leading it stops being about building a void:
+ *  a control card (Q/K/A) is likely to win the trick we lead it into, which is the
+ *  opposite of what we want, so it never counts as a way to run a suit dry. */
+function voidingLength(hand: Card[], card: Card): number {
+  return isControlCard(card) ? NEVER_SHORTEN : suitLength(hand, card.suit);
+}
+
 /** Leading a trick when not pushing for a sweep: play the safest card (lowest
- *  danger, then most opponents void in its suit, then lowest rank). Preferring a
- *  suit more opponents are void in invites them to dump their own dangerous cards
- *  freely into this trick - safe to bait since we just picked our least dangerous
- *  card, so we're unlikely to be the one who ends up winning it. */
+ *  danger, then from our own shortest suit, then most opponents void in its suit,
+ *  then lowest rank). Leading our shortest suit runs it dry ("coupe sèche"), which
+ *  is what lets us discard the king of spades, a queen or a stuck ace on someone
+ *  else's lead later on instead of being forced to win a trick holding it.
+ *  Preferring a suit more opponents are void in invites them to dump their own
+ *  dangerous cards freely into this trick - safe to bait since we just picked our
+ *  least dangerous card, so we're unlikely to be the one who ends up winning it. */
 function chooseLead(
   legal: Card[],
   round: Round,
@@ -128,6 +165,8 @@ function chooseLead(
   return [...legal].sort((a, b) => {
     const dangerDiff = leadDanger(a) - leadDanger(b);
     if (dangerDiff !== 0) return dangerDiff;
+    const shortnessDiff = voidingLength(legal, a) - voidingLength(legal, b);
+    if (shortnessDiff !== 0) return shortnessDiff;
     const voidDiff = voidCount(b.suit) - voidCount(a.suit);
     if (voidDiff !== 0) return voidDiff;
     return cardStrength(a) - cardStrength(b);
@@ -144,13 +183,13 @@ function chooseFollow(legal: Card[], trick: PlayedCard[], round: Round, publicCa
 
   if (!followingSuit) {
     // Void in the led suit: this discard can never win the trick (no trump here).
-    return [...legal].sort(byMostDanger(round, publicCards))[0];
+    return [...legal].sort(byMostDanger(round, publicCards, legal))[0];
   }
 
   const bestSoFar = Math.max(...trick.filter((p) => p.card.suit === led).map((p) => cardStrength(p.card)));
   const guaranteedLosers = legal.filter((c) => cardStrength(c) < bestSoFar);
   if (guaranteedLosers.length > 0) {
-    return [...guaranteedLosers].sort(byMostDanger(round, publicCards))[0];
+    return [...guaranteedLosers].sort(byMostDanger(round, publicCards, legal))[0];
   }
   return [...legal].sort(byLeastDanger(round, publicCards))[0];
 }
@@ -183,6 +222,13 @@ function chooseFollowToWin(legal: Card[], trick: PlayedCard[], round: Round, pub
   return chooseFollow(legal, trick, round, publicCards);
 }
 
+/** How much of a round's sweep must already be secured before a bot treats it as
+ *  real and starts playing to win tricks (its own "Capot" to finish, or an
+ *  opponent's to break). One trick won proves nothing: without this threshold the
+ *  winner of trick 1 chased a Capot and the other three all raced to break it, so
+ *  every seat threw its aces into trick 2 of every "tricks"/"everything" round. */
+const SWEEP_CHASE_PROGRESS = 0.5;
+
 /** Heuristic bot: no search, just "avoid winning the dangerous trick" rules of
  *  thumb - except when pushing for (or breaking) a "Capot" sweep, where winning
  *  the trick is the whole point (see `sweepAliveFor`/`trickMattersForSweep`). */
@@ -195,8 +241,10 @@ export function chooseCard(view: PlayerView): Card {
   const trick = currentTrick.cards;
   const publicCards = [...tricks.flatMap((t) => t.cards), ...trick].map((p) => p.card);
 
-  const mySweepAlive = sweepAliveFor(mySeat, round, tricks);
-  const opponentSweeping = !mySweepAlive && SEATS.some((s) => s !== mySeat && sweepAliveFor(s, round, tricks));
+  const sweepCredible = sweepProgress(round, tricks) >= SWEEP_CHASE_PROGRESS;
+  const mySweepAlive = sweepCredible && sweepAliveFor(mySeat, round, tricks);
+  const opponentSweeping =
+    sweepCredible && !mySweepAlive && SEATS.some((s) => s !== mySeat && sweepAliveFor(s, round, tricks));
   // For "tricks"/"everything" every trick counts, so an opponent's streak needs
   // breaking whether we're leading or following it. For "clubs"/"queens", an empty
   // `trick` can't tell yet whether this trick will matter - `chooseLead` handles

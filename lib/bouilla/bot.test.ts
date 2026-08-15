@@ -11,6 +11,13 @@ function completedTrick(cards: ReturnType<typeof card>[], winner: Seat): Trick {
   return { leader: 0, cards: cards.map((c, seat) => ({ seat: seat as Seat, card: c })), winner };
 }
 
+/** `count` filler tricks all won by the same seat: an in-progress sweep of that many tricks. */
+function allTricksWonBy(winner: Seat, count: number): Trick[] {
+  return Array.from({ length: count }, () =>
+    completedTrick([card("2", "S"), card("3", "S"), card("4", "S"), card("6", "S")], winner),
+  );
+}
+
 describe("chooseCard", () => {
   it("sheds the dangerous card when it is guaranteed to lose anyway", () => {
     const state = playingState({
@@ -88,14 +95,14 @@ describe("chooseCard", () => {
     expect(chooseCard(redact(state, 0)).suit).toBe("D");
   });
 
-  it("Capot: keeps trying to win instead of ducking once its own sweep is still alive", () => {
+  it("Capot: keeps trying to win instead of ducking once its own sweep is well under way", () => {
     const state = playingState({
       turn: 0,
       roundIndex: 0, // tricks
       hands: [[card("2", "H"), card("K", "H")], [], [], []],
       trick: [{ seat: 3, card: card("5", "H") }],
-      // Seat 0 (me) has won every trick so far - ducking now would throw away the Capot.
-      tricks: [completedTrick([card("2", "S"), card("3", "S"), card("4", "S"), card("6", "S")], 0)],
+      // Seat 0 (me) has won all 7 tricks so far - ducking now would throw away the Capot.
+      tricks: allTricksWonBy(0, 7),
     });
     expect(chooseCard(redact(state, 0)).rank).toBe("K"); // wins cheaply instead of the safe 2H duck.
   });
@@ -106,10 +113,74 @@ describe("chooseCard", () => {
       roundIndex: 0, // tricks
       hands: [[card("2", "H"), card("K", "H")], [], [], []],
       trick: [{ seat: 3, card: card("5", "H") }],
-      // Seat 3 has won every trick so far: let it through here and the Capot is theirs.
-      tricks: [completedTrick([card("2", "S"), card("3", "S"), card("4", "S"), card("6", "S")], 3)],
+      // Seat 3 has won all 7 tricks so far: let it through here and the Capot is theirs.
+      tricks: allTricksWonBy(3, 7),
     });
     expect(chooseCard(redact(state, 0)).rank).toBe("K");
+  });
+
+  it("does not chase a Capot on the strength of a single trick: it ducks with the low card", () => {
+    const state = playingState({
+      turn: 0,
+      roundIndex: 0, // tricks
+      hands: [[card("3", "H"), card("A", "H")], [], [], []],
+      trick: [{ seat: 3, card: card("5", "H") }],
+      // Exactly one seat wins trick 1 of every round, so its sweep is trivially "alive":
+      // that alone used to send every seat (the winner chasing the Capot, the other three
+      // racing to break it) straight into trick 2 with its aces.
+      tricks: allTricksWonBy(0, 1),
+    });
+    expect(chooseCard(redact(state, 0)).rank).toBe("3");
+  });
+
+  it("leads its shortest suit to run it dry, instead of its globally lowest card", () => {
+    const state = playingState({
+      turn: 0,
+      roundIndex: 0, // tricks: no card carries danger, so the lead is decided on shape alone
+      hands: [[card("2", "H"), card("3", "H"), card("4", "H"), card("9", "D")], [], [], []],
+      trick: [],
+      tricks: [],
+    });
+    // Going void in diamonds is worth more than saving 7 ranks: once a diamond is led
+    // again, whatever dangerous card is left in hand can be discarded for free.
+    expect(chooseCard(redact(state, 0)).suit).toBe("D");
+  });
+
+  it("does not lead a control card just because it is alone in its suit", () => {
+    const state = playingState({
+      turn: 0,
+      roundIndex: 0, // tricks
+      hands: [[card("K", "D"), card("2", "H"), card("3", "H"), card("4", "H")], [], [], []],
+      trick: [],
+      tricks: [],
+    });
+    // The bare King would void diamonds, but it is likely to win the trick it is led
+    // into - the exact outcome the void is meant to avoid.
+    expect(chooseCard(redact(state, 0)).rank).toBe("2");
+  });
+
+  it("discards from its shortest suit to go void when nothing dangerous is stuck in hand", () => {
+    const state = playingState({
+      turn: 0,
+      roundIndex: 0, // tricks
+      hands: [[card("2", "S"), card("5", "H"), card("6", "H"), card("7", "H")], [], [], []],
+      trick: [{ seat: 3, card: card("9", "D") }], // void in diamonds: free discard
+      tricks: [],
+    });
+    expect(chooseCard(redact(state, 0)).suit).toBe("S");
+  });
+
+  it("sheds a stuck control card ahead of running a suit dry", () => {
+    const state = playingState({
+      turn: 0,
+      roundIndex: 0, // tricks
+      hands: [[card("2", "S"), card("A", "H"), card("5", "H"), card("6", "H")], [], [], []],
+      trick: [{ seat: 3, card: card("9", "D") }],
+      tricks: [],
+    });
+    // A free discard is the one safe way to get rid of an ace that would otherwise
+    // force us to win a trick; the void can still be built on a later discard.
+    expect(chooseCard(redact(state, 0)).rank).toBe("A");
   });
 
   it("does not switch to try-to-win mode on the very first trick of a round, before any evidence of a Capot exists", () => {
@@ -174,8 +245,8 @@ describe("chooseCard", () => {
       turn: 0,
       roundIndex: 2, // queens
       hands: [[card("2", "D"), card("Q", "D")], [], [], []],
-      // Seat 3 has collected the only queen seen so far - still on track to sweep.
-      tricks: [completedTrick([card("Q", "H"), card("3", "S"), card("4", "S"), card("6", "S")], 3)],
+      // Seat 3 has collected half the queens already, and every one seen so far.
+      tricks: [completedTrick([card("Q", "H"), card("Q", "S"), card("4", "S"), card("6", "S")], 3)],
     });
     // Leading the safe 2D would let seat 3 keep coasting toward the sweep; grab the
     // contested queen instead, even though it would normally be the card to hide.

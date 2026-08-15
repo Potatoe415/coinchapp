@@ -143,6 +143,25 @@ export function sweepAliveFor(seat: Seat, round: Round, tricks: Trick[]): boolea
   }
 }
 
+/** How far along `round`'s sweep already is, from 0 to 1: the share of the tricks
+ *  (or of the clubs/queens) that decide it which have already been played. Says
+ *  nothing about *who* collected them - pair it with `sweepAliveFor` for that. A
+ *  bot can use it to tell a one-trick coincidence apart from a sweep that is
+ *  actually worth chasing or breaking. Always 0 for the rounds with no sweep. */
+export function sweepProgress(round: Round, tricks: Trick[]): number {
+  switch (round) {
+    case "tricks":
+    case "everything":
+      return tricks.length / TRICKS_PER_ROUND;
+    case "clubs":
+      return tricks.reduce((sum, t) => sum + clubCount(t), 0) / CLUBS_PER_DECK;
+    case "queens":
+      return tricks.reduce((sum, t) => sum + queenCount(t), 0) / QUEENS_PER_DECK;
+    default:
+      return 0;
+  }
+}
+
 /** True if winning the trick currently in progress (`cardsSoFar`, the cards already
  *  played to it) could still change who sweeps `round`: for "tricks"/"everything"
  *  every trick counts; for "clubs"/"queens" only a trick that already holds one of
