@@ -309,9 +309,18 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   const [locale, setLocale] = useState<Locale>("fr");
 
   useEffect(() => {
-    const stored = window.localStorage.getItem(STORAGE_KEY);
+    // A hub tile's ?lang= always wins over what this app remembers on its own,
+    // so relaunching from the game launcher picks up its currently selected language.
+    const fromHub = new URLSearchParams(window.location.search).get("lang");
+    if (fromHub === "fr" || fromHub === "en") {
+      // Post-hydration browser read: deferred to after mount to avoid an SSR/client mismatch.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setLocale(fromHub);
+      return;
+    }
+
     // Post-hydration browser read: deferred to after mount to avoid an SSR/client mismatch.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
+    const stored = window.localStorage.getItem(STORAGE_KEY);
     if (stored === "fr" || stored === "en") setLocale(stored);
   }, []);
 
