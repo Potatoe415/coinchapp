@@ -26,10 +26,6 @@ export default function BouillaPage() {
       <HomeTopBar />
 
       <div className="relative z-10 flex w-full flex-col items-center gap-3 px-6 pt-[25vh]" data-id="bouilla-splash-actions">
-        <h1 className="mb-2 text-center text-2xl font-black text-white drop-shadow" data-id="bouilla-home-title">
-          la Bouilla
-        </h1>
-
         <button
           data-id="bouilla-play-local-button"
           onClick={() => router.push("/local?game=bouilla")}

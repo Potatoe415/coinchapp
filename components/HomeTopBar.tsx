@@ -18,7 +18,7 @@ export function HomeTopBar() {
     <>
       <a
         href={BERGAMOTS_HUB_URL}
-        className="absolute left-4 top-4 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white/70"
+        className="absolute left-4 top-4 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-black/45 text-white shadow-md backdrop-blur-sm"
         data-id="home-back"
         aria-label={t("backToHub")}
       >
@@ -28,7 +28,7 @@ export function HomeTopBar() {
       <button
         type="button"
         onClick={() => setSettingsOpen((open) => !open)}
-        className="absolute right-4 top-4 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white/70"
+        className="absolute right-4 top-4 z-20 flex h-9 w-9 items-center justify-center rounded-full bg-black/45 text-white shadow-md backdrop-blur-sm"
         data-id="home-settings-button"
         aria-label={t("settings")}
         aria-expanded={settingsOpen}
