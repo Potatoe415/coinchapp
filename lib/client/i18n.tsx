@@ -15,6 +15,7 @@ const STORAGE_KEY = "coinchapp-locale";
 const TRANSLATIONS = {
   fr: {
     backToDashboard: "Retour au dashboard",
+    backToHub: "Retour au hub des jeux",
     backHome: "Retour à l'accueil",
     back: "Retour",
     loading: "Chargement…",
@@ -158,6 +159,7 @@ const TRANSLATIONS = {
   },
   en: {
     backToDashboard: "Back to dashboard",
+    backToHub: "Back to games hub",
     backHome: "Back to home",
     back: "Back",
     loading: "Loading…",
