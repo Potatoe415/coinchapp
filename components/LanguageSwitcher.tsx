@@ -7,8 +7,12 @@ export function LanguageSwitcher() {
   const pathname = usePathname();
   const { locale, setLocale } = useI18n();
   const isInStartedGame = pathname === "/local/play" || pathname.startsWith("/game/");
+  // The home splash screens (`/`, `/bouilla`) have their own settings panel
+  // (`HomeTopBar`) with an equivalent language switch, so this global one
+  // would be a duplicate control there.
+  const hasOwnLanguageSwitch = pathname === "/" || pathname === "/bouilla";
 
-  if (isInStartedGame) return null;
+  if (isInStartedGame || hasOwnLanguageSwitch) return null;
 
   return (
     <label

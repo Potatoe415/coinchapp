@@ -4,10 +4,9 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/lib/client/i18n";
 import { useInstallPrompt } from "@/lib/client/useInstallPrompt";
+import { HomeTopBar } from "@/components/HomeTopBar";
 import { RulesModal } from "@/components/RulesModal";
 import type { GameType } from "@/lib/supabase/types";
-
-const BERGAMOTS_HUB_URL = "https://bergamots.vercel.app/";
 
 async function resetBrowserData() {
   localStorage.clear();
@@ -68,7 +67,7 @@ export default function Home() {
       className="relative mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-between overflow-hidden"
       data-id="home-screen"
       style={{
-        backgroundImage: "url('/splashscreen.jpg')",
+        backgroundImage: isBouilla ? "url('/bouilla-full.jpg')" : "url('/splashscreen.jpg')",
         backgroundSize: "cover",
         backgroundPosition: "center top",
         transition: "--accent-yellow 0.3s, --accent-cyan 0.3s",
@@ -79,14 +78,7 @@ export default function Home() {
       }}
     >
 
-      <a
-        href={BERGAMOTS_HUB_URL}
-        className="absolute left-4 top-4 z-10 flex h-9 w-9 items-center justify-center rounded-full bg-white/10 text-white/70"
-        data-id="home-back"
-        aria-label={t("backToHub")}
-      >
-        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round"><path d="M19 12H5M12 5l-7 7 7 7"/></svg>
-      </a>
+      <HomeTopBar />
 
       <div className="relative z-10 flex w-full flex-col items-center gap-3 px-6 pt-[25vh]" data-id="splash-actions">
         <div className="flex w-full rounded-2xl bg-black/25 p-1" data-id="game-tabs">
