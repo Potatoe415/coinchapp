@@ -12,6 +12,7 @@ export function DealOverlay({
   visible,
   onNextDeal,
   nextDealGate,
+  onRematch,
 }: {
   view: PlayerView;
   /** Delayed past the trick-collect animation - see `useDelayedVisible` (computed by the caller,
@@ -19,9 +20,12 @@ export function DealOverlay({
   visible: boolean;
   onNextDeal: () => Promise<void> | void;
   nextDealGate?: NextDealGate;
+  /** Online only: from the finished screen, start a fresh match in the same room. */
+  onRematch?: () => Promise<void> | void;
 }) {
   const { locale, t } = useI18n();
   const [busy, setBusy] = useState(false);
+  const [rematchBusy, setRematchBusy] = useState(false);
   const result = view.lastDeal;
   const finished = view.phase === "finished";
 
@@ -45,12 +49,29 @@ export function DealOverlay({
             <p className="mt-2 text-[var(--card-face)]/80">
               {formatText(t("finalScore"), { a: view.scores.A, b: view.scores.B })}
             </p>
+            {onRematch && (
+              <button
+                data-id="finished-rematch-button"
+                disabled={rematchBusy}
+                onClick={async () => {
+                  setRematchBusy(true);
+                  try {
+                    await onRematch();
+                  } finally {
+                    setRematchBusy(false);
+                  }
+                }}
+                className="mt-5 w-full rounded-lg bg-[var(--accent-cyan)] px-5 py-2.5 font-bold text-[var(--surface)] disabled:opacity-50"
+              >
+                {t("newGame")}
+              </button>
+            )}
             <Link
               href="/"
               data-id="finished-home-button"
-              className="mt-5 inline-block rounded-lg bg-[var(--accent-yellow)] px-5 py-2.5 font-bold text-[var(--surface)]"
+              className="mt-3 inline-block rounded-lg bg-[var(--accent-yellow)] px-5 py-2.5 font-bold text-[var(--surface)]"
             >
-              {t("newGame")}
+              {t("backHome")}
             </Link>
           </>
         ) : (

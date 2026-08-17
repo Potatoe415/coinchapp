@@ -85,6 +85,7 @@ export function GameTableScene({
   reactions,
   onNextDeal,
   nextDealGate,
+  onRematch,
 }: {
   gv: GameView;
   view: PlayerView;
@@ -97,6 +98,7 @@ export function GameTableScene({
   reactions?: Map<number, EmojiReaction>;
   onNextDeal: () => Promise<void> | void;
   nextDealGate?: NextDealGate;
+  onRematch?: () => Promise<void> | void;
 }) {
   const dealOverlayVisible = useDelayedVisible(!!view.lastDeal || view.phase === "finished", 2000);
   return (
@@ -121,7 +123,7 @@ export function GameTableScene({
       <BeloteFlash announced={view.beloteAnnounced} />
       <BimFlash bimTrickKey={bimTrickKey} />
       {dealOverlayVisible && <OpponentReactionsBar gv={gv} seats={seats} reactions={reactions} />}
-      <DealOverlay view={view} visible={dealOverlayVisible} onNextDeal={onNextDeal} nextDealGate={nextDealGate} />
+      <DealOverlay view={view} visible={dealOverlayVisible} onNextDeal={onNextDeal} nextDealGate={nextDealGate} onRematch={onRematch} />
     </section>
   );
 }

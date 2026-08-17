@@ -381,3 +381,22 @@ export async function startGame(gameId: string, randomize = false): Promise<void
   const state = startInitialState(loaded.game.game_type, loaded.game.settings);
   await persistGame(loaded.game as GameRow, state, state.phase === "finished" ? "finished" : "playing");
 }
+
+/** Online only: "Nouvelle partie" from the finished screen. Restarts a fresh
+ *  match in the same room (same `room_code`, same seats/settings), skipping
+ *  the lobby entirely - unlike `startGame`, which only ever runs once, from
+ *  a lobby that has never played. Any seat still occupied by a human keeps
+ *  its idle-turn clock wiped, so a slow last few seconds of the previous
+ *  match can't carry over into an immediate bot takeover in the new one. */
+export async function rematchGame(gameId: string): Promise<void> {
+  const uid = await requireUser();
+  const loaded = await loadGame(gameId);
+  if (seatOf(uid, loaded.players) === null) throw new Error("not_a_member");
+  if (loaded.game.status !== "finished") throw new Error("game_not_finished");
+
+  const state = startInitialState(loaded.game.game_type, loaded.game.settings);
+  await persistGame(loaded.game as GameRow, state, state.phase === "finished" ? "finished" : "playing");
+
+  const supabase = getServiceClient();
+  await supabase.from("game_players").update({ missed_turns_in_row: 0 }).eq("game_id", gameId);
+}

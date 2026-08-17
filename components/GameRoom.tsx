@@ -8,7 +8,7 @@ import { useGameView } from "@/lib/client/useGameView";
 import { useStillThereTimer } from "@/lib/client/useStillThereTimer";
 import { ensureAnonAuth } from "@/lib/client/auth";
 import { becomeHost, nextDeal, placeBid, playCard } from "@/lib/server/actions-game";
-import { joinBotSeat } from "@/lib/server/actions-lobby";
+import { joinBotSeat, rematchGame } from "@/lib/server/actions-lobby";
 import { BotDebugOverlay } from "./BotDebugOverlay";
 import { BotSeatPicker } from "./BotSeatPicker";
 import type { Card } from "@/lib/coinche";
@@ -93,6 +93,11 @@ export function GameRoom({ gameId }: { gameId: string }) {
       setJoiningBotSeat(false);
     }
   };
+  const onRematch = async () => {
+    await rematchGame(gameId);
+    notify();
+    await refetch();
+  };
 
   const coincheActions: GameActions = {
     onBid: async (payload: BidPayload) => {
@@ -113,6 +118,7 @@ export function GameRoom({ gameId }: { gameId: string }) {
     onBecomeHost,
     onForceSync,
     onSendEmoji,
+    onRematch,
   };
 
   const bouillaActions: BouillaActions = {
@@ -129,6 +135,7 @@ export function GameRoom({ gameId }: { gameId: string }) {
     onBecomeHost,
     onForceSync,
     onSendEmoji,
+    onRematch,
   };
 
   if (loading) {

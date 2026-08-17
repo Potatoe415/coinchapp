@@ -34,6 +34,8 @@ export interface GameActions {
   onReshuffle?: () => void;
   /** Send an emoji reaction visible to all players. */
   onSendEmoji?: (emoji: string) => void;
+  /** Online only: from the finished screen, start a fresh match in the same room. */
+  onRematch?: () => Promise<void> | void;
 }
 
 const SUIT_ORDER: Record<string, number> = { S: 0, H: 1, C: 2, D: 3 };
@@ -180,6 +182,7 @@ export function GameTable({ gv, actions, reactions }: { gv: CoincheGameView; act
           reactions={reactions}
           onNextDeal={actions.onNextDeal}
           nextDealGate={gv.nextDealGate}
+          onRematch={actions.onRematch}
         />
         {emojiOn && actions.onSendEmoji && (
           <EmojiButton

@@ -34,6 +34,8 @@ export interface BouillaActions {
   onReset?: () => void;
   /** Send an emoji reaction visible to all players. */
   onSendEmoji?: (emoji: string) => void;
+  /** Online only: from the finished screen, start a fresh match in the same room. */
+  onRematch?: () => Promise<void> | void;
 }
 
 /** Bouilla hands start at 13 cards - almost double Coinche's 8 - so opponent
@@ -132,7 +134,14 @@ export function BouillaTable({
           <CompletedTrickHold key={lastTrickKey} seats={seats} trickBySeat={lastTrickBySeat} winner={lastTrickWinner} />
         )}
         {roundOverlayVisible && <OpponentReactionsBar gv={gv} seats={seats} reactions={reactions} />}
-        <BouillaRoundOverlay gv={gv} view={view} visible={roundOverlayVisible} onNextRound={actions.onNextRound} nextRoundGate={gv.nextDealGate} />
+        <BouillaRoundOverlay
+          gv={gv}
+          view={view}
+          visible={roundOverlayVisible}
+          onNextRound={actions.onNextRound}
+          nextRoundGate={gv.nextDealGate}
+          onRematch={actions.onRematch}
+        />
         {emojiOn && actions.onSendEmoji && <EmojiButton myReaction={reactions?.get(mySeat)} onSelect={actions.onSendEmoji} />}
         {/* Hidden once scoring/finished: "kingSpades" can end a round with cards still
             in hand (see lib/bouilla/trick.ts), which would otherwise show through the
