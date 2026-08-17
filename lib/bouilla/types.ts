@@ -56,4 +56,12 @@ export interface GameState {
   lastRoundResult?: RoundResult;
   /** Set once round 6 ("everything") is scored: the seat(s) with the lowest total. */
   winners?: Seat[];
+  /** Online/ad-hoc only: seats that have pressed "Partie suivante" while
+   *  `phase` is "scoring". Cleared once the next round starts. */
+  readySeats?: Seat[];
 }
+
+/** Online/ad-hoc only: max time the end-of-round score table can hold before
+ *  the next round starts automatically, even if not every real player has
+ *  pressed "Partie suivante" yet. */
+export const ROUND_AUTO_ADVANCE_MS = 6000;

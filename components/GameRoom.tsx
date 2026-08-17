@@ -7,7 +7,7 @@ import { useBotRunner } from "@/lib/client/useBotRunner";
 import { useGameView } from "@/lib/client/useGameView";
 import { useStillThereTimer } from "@/lib/client/useStillThereTimer";
 import { ensureAnonAuth } from "@/lib/client/auth";
-import { becomeHost, nextDeal, placeBid, playCard } from "@/lib/server/actions-game";
+import { becomeHost, nextDeal, placeBid, playCard, readyForNextRound } from "@/lib/server/actions-game";
 import { joinBotSeat, rematchGame } from "@/lib/server/actions-lobby";
 import { BotDebugOverlay } from "./BotDebugOverlay";
 import { BotSeatPicker } from "./BotSeatPicker";
@@ -81,7 +81,6 @@ export function GameRoom({ gameId }: { gameId: string }) {
     await becomeHost(gameId);
     await refetch();
   };
-  const onForceSync = () => forceResync();
   const onJoinBotSeat = async (seat: number, displayName: string) => {
     if (!view) return;
     setJoiningBotSeat(true);
@@ -116,7 +115,7 @@ export function GameRoom({ gameId }: { gameId: string }) {
       await refetch();
     },
     onBecomeHost,
-    onForceSync,
+    onForceSync: forceResync,
     onSendEmoji,
     onRematch,
   };
@@ -128,12 +127,12 @@ export function GameRoom({ gameId }: { gameId: string }) {
       await refetch();
     },
     onNextRound: async () => {
-      await nextDeal(gameId);
+      await readyForNextRound(gameId);
       notify();
       await refetch();
     },
     onBecomeHost,
-    onForceSync,
+    onForceSync: forceResync,
     onSendEmoji,
     onRematch,
   };

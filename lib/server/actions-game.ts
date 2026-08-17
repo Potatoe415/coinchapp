@@ -1,8 +1,10 @@
 "use server";
 
 import type { BidType, Seat, TrumpMode } from "@/lib/coinche";
+import type { GameState as BouillaGameState } from "@/lib/bouilla";
 import { getServiceClient, getUserId } from "@/lib/supabase/server";
 import type { AnyGameState, GameRow, GameType } from "@/lib/supabase/types";
+import { advanceScoringTimeout, applyReadyForNextRound } from "./bouilla-round-gate";
 import {
   applyCardPlay,
   applyMove,
@@ -78,6 +80,17 @@ export async function markStillHere(gameId: string): Promise<void> {
 export async function nextDeal(gameId: string): Promise<void> {
   const { loaded, state, gameType } = await loadForAction(gameId);
   await commit(loaded, applyStartNext(gameType, state));
+}
+
+/** Bouilla only: press "Partie suivante". Unlike `nextDeal` (Coinche, and
+ *  Bouilla's own finished-screen rematch), this does not advance immediately -
+ *  it waits until every human seat has pressed it, or `ROUND_AUTO_ADVANCE_MS`
+ *  has elapsed (see `advanceScoringTimeout`, run from `getView`). */
+export async function readyForNextRound(gameId: string): Promise<void> {
+  const { loaded, seat, state, gameType } = await loadForAction(gameId);
+  if (gameType !== "bouilla") throw new Error("not_bouilla");
+  const next = applyReadyForNextRound(loaded, state as BouillaGameState, seat);
+  await commit(loaded, next);
 }
 
 /** Host-only: submit the move for the bot seat whose turn it currently is. */
@@ -162,6 +175,7 @@ export async function getView(gameId: string): Promise<GameView> {
   // safety net below); see lib/server/idle-timer.ts.
   await advanceIdleTurns(loaded);
   await advanceStaleTurns(loaded);
+  await advanceScoringTimeout(loaded);
   return buildView(loaded, uid);
 }
 

@@ -38,7 +38,7 @@ Fields:
 | game_type | text | Yes | `"coinche" \| "bouilla"` (default `'coinche'`); lets one project host several games, and picks which rules engine (`lib/coinche` or `lib/bouilla`) `actions-lobby.ts`/`actions-game.ts`/`view.ts` dispatch to. Indexed. |
 | status | text | Yes | lobby / playing / finished |
 | settings | jsonb | Yes | `GameSettings`, all fields optional so one shape fits both games. Coinche: targetPoints, countContractOnlyIfMade, failedContractDefensePoints, zeroPointsForNonContractingTeamWhenContractMade, capotMadePoints, capotFailedDefensePoints, allowToutAtoutSansAtout, requireMorePointsToWin, botPunch ("low"\|"med"\|"high", default "med"; bot bidding aggressiveness, not part of GameState). Both games: stillThereTimeoutSec (default 15; see idle-turn timer below), botThinkMs (800-4000ms, default 800; how long a bot "thinks" - the Coinche ISMCTS search's wall-clock budget, or a pure pacing delay for Bouilla's instant heuristic bot; read by whichever client runs the bots, same as botPunch) — Bouilla's 6 rounds/point values are otherwise fixed, so these two are its only per-game settings. |
-| state | jsonb | No | Full `GameState` for the row's `game_type` (`AnyGameState` = Coinche `GameState` \| Bouilla `GameState`, hidden hands). Server-only. |
+| state | jsonb | No | Full `GameState` for the row's `game_type` (`AnyGameState` = Coinche `GameState` \| Bouilla `GameState`, hidden hands). Server-only. Bouilla's state additionally carries an optional `readySeats: Seat[]`, present only during the "scoring" phase - see the end-of-round readiness gate below. |
 | version | integer | Yes | Incremented on each change (realtime tick) |
 | host_user_id | uuid | No | User id of the client that runs the bots. Set to creator on create; reassigned by `becomeHost`. |
 | turn_started_at | timestamptz | Yes | When `state.turn` last changed; stamped by `persistGame` (`lib/server/repo.ts`) whenever the new state's turn differs from the previous one. Anchors the idle-turn timer below. |
@@ -100,6 +100,16 @@ Online-only (not ad-hoc/local): each human turn is measured against `games.turn_
 - A tap anywhere on screen while the banner is showing also counts as presence: `markStillHere` resets `missed_turns_in_row` to 0 and restarts `turn_started_at`, dismissing the banner without requiring an actual play.
 
 Implemented in `lib/server/idle-timer.ts` (`decideIdleAction` is pure/unit-tested; `advanceIdleTurns` does the DB side effects; `markSeatPresent` backs the tap-to-dismiss action), called from `getView` right before the coarser 45s `advanceStaleTurns` safety net. Client side: `lib/client/useStillThereTimer.ts` shows a non-blocking countdown banner, proactively refetches at the deadline, and attaches a one-shot `pointerdown` listener on `document` while the banner shows to call `markStillHere`; the `useGameView` 15s poll still enforces it even if that tab is fully closed.
+
+---
+
+## Bouilla end-of-round readiness gate ("Partie suivante")
+
+Online + ad-hoc only (not local solo): the end-of-round score table only disappears once every real (non-bot) player has pressed "Partie suivante", or `ROUND_AUTO_ADVANCE_MS` (6s, `lib/bouilla/types.ts`) has elapsed since the round ended - whichever comes first. Never applies to the finished-match screen ("Nouvelle partie" rematch), which stays unforced.
+
+- Online: `games.state.readySeats` (Bouilla only) accumulates seats via `markReadyForNextRound`; the `readyForNextRound` Server Action (`lib/server/actions-game.ts`) advances the round immediately once every human seat is in it. `advanceScoringTimeout` (`lib/server/bouilla-round-gate.ts`) force-advances past `games.turn_started_at + ROUND_AUTO_ADVANCE_MS` regardless, run opportunistically from `getView` like the idle-turn timer above. `GameView.nextDealGate` (computed in `lib/server/view.ts`) exposes `{ readyCount, humanCount, iAmReady }` to the client, same shape the ad-hoc host already used.
+- Ad-hoc: `useP2PBouillaHost.ts`'s own in-memory `ready: Set<number>` (unrelated to the `readySeats` jsonb field, which that mode never touches) plus a `setTimeout(forceAdvance, ROUND_AUTO_ADVANCE_MS)` effect keyed on `state.phase === "scoring"`.
+- Local solo: unchanged/untimed - the sole real player advances whenever they choose.
 
 ---
 

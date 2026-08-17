@@ -1,7 +1,16 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { beginNextRound, createInitialState, startNextRound, submitPlay, type Card, type GameState, type Seat } from "@/lib/bouilla";
+import {
+  beginNextRound,
+  createInitialState,
+  ROUND_AUTO_ADVANCE_MS,
+  startNextRound,
+  submitPlay,
+  type Card,
+  type GameState,
+  type Seat,
+} from "@/lib/bouilla";
 import type { BouillaActions } from "@/components/BouillaTable";
 import type { GameView } from "@/lib/server/view";
 import { attachGate, seededRng, wait } from "./p2p/hostEngine";
@@ -117,18 +126,33 @@ export function useP2PBouillaHost(config: P2PBouillaHostConfig): { gv: GameView;
     [commit, runBots],
   );
 
+  // Actually start the next round, whether every human agreed or the 6s cap below fired.
+  const forceAdvance = useCallback(() => {
+    if (stateRef.current.phase !== "scoring") return;
+    commitReady(new Set());
+    commit(startNextRound(stateRef.current));
+    void runBots();
+  }, [commit, commitReady, runBots]);
+
   // Start the next round only when every human seat has signaled it is ready.
   const tryAdvance = useCallback(
     (readySet: Set<number>): boolean => {
       const humans = rosterRef.current.filter((e) => !e.isBot).map((e) => e.seat);
       if (humans.length === 0 || !humans.every((s) => readySet.has(s))) return false;
-      commitReady(new Set());
-      commit(startNextRound(stateRef.current));
-      void runBots();
+      forceAdvance();
       return true;
     },
-    [commit, commitReady, runBots],
+    [forceAdvance],
   );
+
+  // Score table cap: even if some human never presses "Partie suivante", the round
+  // starts anyway after ROUND_AUTO_ADVANCE_MS (mirrors the online gate, see
+  // `lib/server/bouilla-round-gate.ts`).
+  useEffect(() => {
+    if (state.phase !== "scoring") return;
+    const timer = setTimeout(forceAdvance, ROUND_AUTO_ADVANCE_MS);
+    return () => clearTimeout(timer);
+  }, [state.phase, forceAdvance]);
 
   const markReady = useCallback(
     (seat: Seat) => {

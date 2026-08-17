@@ -1,5 +1,5 @@
 import { redact as redactCoinche, type PlayerView as CoinchePlayerView } from "@/lib/coinche";
-import { redact as redactBouilla, type PlayerView as BouillaPlayerView } from "@/lib/bouilla";
+import { redact as redactBouilla, type GameState as BouillaGameState, type PlayerView as BouillaPlayerView } from "@/lib/bouilla";
 import type { GameRow, GameSettings, GameStatus, GameType } from "@/lib/supabase/types";
 import { isSeatLive, PRESENCE_STALE_MS, seatOf, type LoadedGame } from "./repo";
 
@@ -13,7 +13,9 @@ export interface LobbyPlayer {
   connected: boolean;
 }
 
-/** Ad-hoc only: end-of-deal readiness gate (next deal waits for all humans). */
+/** Ad-hoc + online Bouilla: end-of-deal readiness gate (next deal/round waits
+ *  for all humans, capped at `ROUND_AUTO_ADVANCE_MS` for online - see
+ *  `lib/server/bouilla-round-gate.ts`). */
 export interface NextDealGate {
   readyCount: number;
   humanCount: number;
@@ -45,7 +47,9 @@ export interface GameView {
   isHost: boolean;
   /** Redacted per-seat views for every bot seat. Present only for the host. */
   botViews?: Record<number, AnyPlayerView>;
-  /** Ad-hoc only: present during the scoring phase to gate the next deal. */
+  /** Ad-hoc/online Bouilla only: present during the scoring phase to gate the
+   *  next round (see `NextDealGate`). Coinche and Bouilla's finished screen
+   *  never set this. */
   nextDealGate?: NextDealGate;
 }
 
@@ -64,6 +68,22 @@ function buildBotViews(loaded: LoadedGame): Record<number, AnyPlayerView> {
     if (player.is_bot) botViews[player.seat] = redactForSeat(game, player.seat as 0 | 1 | 2 | 3);
   }
   return botViews;
+}
+
+/** Online-only equivalent of the ad-hoc host's `attachGate` (`lib/client/p2p/hostEngine.ts`):
+ *  Bouilla's own finished screen (rematch) is never gated, only its scoring phase. */
+function bouillaNextDealGate(loaded: LoadedGame, mySeat: number | null): NextDealGate | undefined {
+  const { game, players } = loaded;
+  if (game.game_type !== "bouilla" || !game.state) return undefined;
+  const state = game.state as BouillaGameState;
+  if (state.phase !== "scoring") return undefined;
+  const humans = players.filter((p) => !p.is_bot).map((p) => p.seat);
+  const readySeats = new Set<number>(state.readySeats ?? []);
+  return {
+    readyCount: humans.filter((s) => readySeats.has(s)).length,
+    humanCount: humans.length,
+    iAmReady: mySeat !== null && readySeats.has(mySeat),
+  };
 }
 
 function buildLobbyPlayers(loaded: LoadedGame): LobbyPlayer[] {
@@ -101,5 +121,6 @@ export function buildView(loaded: LoadedGame, uid: string | null): GameView {
     hostSeat,
     isHost,
     botViews: isHost ? buildBotViews(loaded) : undefined,
+    nextDealGate: bouillaNextDealGate(loaded, mySeat),
   };
 }

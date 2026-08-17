@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { cardStrength, type Card, type PlayerView } from "@/lib/bouilla";
+import { cardStrength, ROUND_AUTO_ADVANCE_MS, type Card, type PlayerView } from "@/lib/bouilla";
 import { useDelayedVisible } from "@/lib/client/useDelayedVisible";
 import { useI18n } from "@/lib/client/i18n";
 import { useOptimisticPlay } from "@/lib/client/useOptimisticPlay";
@@ -95,6 +95,19 @@ export function BouillaTable({
     : null;
   const lastTrickWinner = view.lastTrick?.winner ?? null;
   const roundOverlayVisible = useDelayedVisible(!!view.lastRoundResult || view.phase === "finished", 2000);
+
+  // Online only (`gv.turnStartedAt` is null in local/ad-hoc): the server force-advances
+  // the round after `ROUND_AUTO_ADVANCE_MS` regardless of who pressed "Partie suivante"
+  // (see `advanceScoringTimeout`), but only actually runs that check inside `getView` -
+  // schedule one proactive re-sync right at the deadline so it isn't stuck waiting on the
+  // slower 15s safety-net poll.
+  const onForceSync = actions.onForceSync;
+  useEffect(() => {
+    if (view.phase !== "scoring" || gv.turnStartedAt === null || !onForceSync) return;
+    const delay = Math.max(0, gv.turnStartedAt + ROUND_AUTO_ADVANCE_MS - Date.now());
+    const timer = window.setTimeout(onForceSync, delay + 200);
+    return () => window.clearTimeout(timer);
+  }, [view.phase, gv.turnStartedAt, onForceSync]);
 
   return (
     <main

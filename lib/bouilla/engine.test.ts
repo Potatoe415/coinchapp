@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { createInitialState, beginNextRound } from "./deal";
-import { submitPlay, startNextRound } from "./engine";
+import { markReadyForNextRound, submitPlay, startNextRound } from "./engine";
 import { seededRng } from "./test-utils";
 import { legalCards } from "./trick";
 import type { GameState, Seat } from "./types";
@@ -45,5 +45,23 @@ describe("engine", () => {
     }
     expect(state.roundIndex).toBe(5);
     expect(state.lastRoundResult?.round).toBe("everything");
+  });
+
+  describe("markReadyForNextRound", () => {
+    it("records a ready seat only during scoring, without duplicates", () => {
+      const scored = playOutRound(beginNextRound(createInitialState(), seededRng(1)));
+      let next = markReadyForNextRound(scored, 0);
+      next = markReadyForNextRound(next, 0);
+      expect(next.readySeats).toEqual([0]);
+      const untouched = markReadyForNextRound({ ...scored, phase: "playing" }, 1);
+      expect(untouched.readySeats).toBeUndefined();
+    });
+
+    it("clears readySeats once the next round starts", () => {
+      const scored = playOutRound(beginNextRound(createInitialState(), seededRng(1)));
+      const ready = markReadyForNextRound(scored, 0);
+      const next = startNextRound(ready, seededRng(2));
+      expect(next.readySeats).toBeUndefined();
+    });
   });
 });
