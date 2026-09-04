@@ -2,7 +2,8 @@
 
 import { useI18n } from "@/lib/client/i18n";
 import type { Team } from "@/lib/coinche";
-import type { EmojiReaction } from "./EmojiButton";
+import type { TableReaction } from "@/lib/client/reactions";
+import { ReactionBubble } from "./ReactionBubble";
 
 export interface PlayerBadgeProps {
   name: string;
@@ -12,7 +13,7 @@ export interface PlayerBadgeProps {
   isThinking?: boolean;
   /** Shows a dimmed dot when false (seat's responsible party gone quiet). */
   connected?: boolean;
-  reaction?: EmojiReaction;
+  reaction?: TableReaction;
   dataId?: string;
   orientation?: "horizontal" | "vertical";
 }
@@ -46,9 +47,11 @@ export function PlayerBadge({
         </div>
         {!connected && <DisconnectedDot label={t("disconnected")} />}
         {reaction && (
-          <span key={reaction.id} className="emoji-react text-6xl leading-none" data-id="player-emoji-reaction">
-            {reaction.emoji}
-          </span>
+          <ReactionBubble
+            reaction={reaction}
+            size="md"
+            dataId={reaction.kind === "gif" ? "player-gif-reaction" : "player-emoji-reaction"}
+          />
         )}
       </div>
     );
@@ -63,9 +66,11 @@ export function PlayerBadge({
       </div>
       {!connected && <DisconnectedDot label={t("disconnected")} />}
       {reaction && (
-        <span key={reaction.id} className="emoji-react text-7xl leading-none" data-id="player-emoji-reaction">
-          {reaction.emoji}
-        </span>
+        <ReactionBubble
+          reaction={reaction}
+          size="lg"
+          dataId={reaction.kind === "gif" ? "player-gif-reaction" : "player-emoji-reaction"}
+        />
       )}
     </div>
   );

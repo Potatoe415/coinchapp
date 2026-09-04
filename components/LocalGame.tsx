@@ -1,13 +1,12 @@
 "use client";
 
-import { useCallback, useRef, useState } from "react";
+import { useState } from "react";
 import { useLocalGame } from "@/lib/client/useLocalGame";
 import { LOCAL_COINCHE_STORAGE_KEY, clearPersistedGame } from "@/lib/client/localGamePersistence";
+import type { ReactionPick } from "@/lib/client/reactions";
+import { useReactions } from "@/lib/client/useReactions";
 import type { BotPunch, ScoringRules } from "@/lib/coinche";
-import type { EmojiReaction } from "./EmojiButton";
 import { GameTable, type CoincheGameView } from "./GameTable";
-
-const REACTION_TTL = 3000;
 
 export function LocalGame({
   targetPoints,
@@ -55,27 +54,17 @@ function LocalGameInner({
   onReset: () => void;
 }) {
   const { gv, actions } = useLocalGame(targetPoints, seed, scoringRules, botPunch, botThinkMs);
-  const [reactions, setReactions] = useState<Map<number, EmojiReaction>>(new Map());
-  const timers = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map());
+  const { reactions, addReaction } = useReactions();
 
-  const sendReaction = useCallback((seat: number, emoji: string) => {
-    const prev = timers.current.get(seat);
-    if (prev) clearTimeout(prev);
-    setReactions((m) => new Map(m).set(seat, { emoji, id: Date.now() }));
-    timers.current.set(
-      seat,
-      setTimeout(() => {
-        setReactions((m) => { const n = new Map(m); n.delete(seat); return n; });
-        timers.current.delete(seat);
-      }, REACTION_TTL),
-    );
-  }, []);
+  function onSendReaction(pick: ReactionPick) {
+    addReaction(gv.mySeat ?? 0, pick);
+  }
 
   return (
     <GameTable
       gv={gv as CoincheGameView}
       reactions={reactions}
-      actions={{ ...actions, onReset, onSendEmoji: (emoji) => sendReaction(gv.mySeat ?? 0, emoji) }}
+      actions={{ ...actions, onReset, onSendReaction }}
     />
   );
 }

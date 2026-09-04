@@ -20,6 +20,7 @@ Prerequisites: Node 20+ and npm. A Supabase project. A Vercel account (for deplo
    - `NEXT_PUBLIC_SUPABASE_URL`
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
    - `SUPABASE_SERVICE_ROLE_KEY` (server-only authority key)
+   - `GIPHY_API_KEY` (server-only; GIF search in the reaction picker)
 
 ## Development
 
@@ -51,6 +52,7 @@ npm start         # serve the production build locally
    - `NEXT_PUBLIC_SUPABASE_URL`
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
    - `SUPABASE_SERVICE_ROLE_KEY`
+   - `GIPHY_API_KEY`
 4. Deploy. Vercel auto-builds on every push to the main branch.
 
 ## Troubleshooting
@@ -59,3 +61,4 @@ npm start         # serve the production build locally
 - Realtime not updating: ensure `game_events` is in the `supabase_realtime`
   publication (the migration adds it) and the anon session is established.
 - "persist_failed": check `SUPABASE_SERVICE_ROLE_KEY` is set on the server.
+- GIF picker empty/error: check `GIPHY_API_KEY` is set on the server (`.env.local` locally, Vercel env in prod).

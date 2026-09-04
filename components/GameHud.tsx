@@ -165,7 +165,7 @@ function GameInfoPanel({
 
         {emojiControls && (
           <div className="mb-3 flex items-center justify-between" data-id="emoji-toggle-row">
-            <span className="text-sm text-[var(--card-face)]/80">Réactions emoji</span>
+            <span className="text-sm text-[var(--card-face)]/80">{t("emojiReactions")}</span>
             <button
               data-id="emoji-toggle-button"
               onClick={emojiControls.onToggle}

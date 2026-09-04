@@ -6,7 +6,8 @@ import { useOptimisticPlay } from "@/lib/client/useOptimisticPlay";
 import { CAPOT_VALUE, cardId, GENERALE_VALUE, isTrump, RANKS, teamOf, trumpStrength, type Bid, type Card, type PlayerView, type TrumpMode } from "@/lib/coinche";
 import type { GameView } from "@/lib/server/view";
 import { BiddingPanel, type BidPayload, type CurrentLiveBid } from "./BiddingPanel";
-import { EmojiButton, type EmojiReaction } from "./EmojiButton";
+import type { ReactionPick, TableReaction } from "@/lib/client/reactions";
+import { EmojiButton } from "./EmojiButton";
 import { GameHud } from "./GameHud";
 import { GameTableScene } from "./GameTableScene";
 import { playerName, relativeSeat } from "./gameTableHelpers";
@@ -32,8 +33,8 @@ export interface GameActions {
   onReset?: () => void;
   /** Local only: re-deal the current hand (no card played yet). */
   onReshuffle?: () => void;
-  /** Send an emoji reaction visible to all players. */
-  onSendEmoji?: (emoji: string) => void;
+  /** Send an emoji or GIF reaction visible to all players. */
+  onSendReaction?: (pick: ReactionPick) => void;
   /** Online only: from the finished screen, start a fresh match in the same room. */
   onRematch?: () => Promise<void> | void;
 }
@@ -105,7 +106,7 @@ function sortHand(hand: Card[], trump: TrumpMode | null): Card[] {
   });
 }
 
-export function GameTable({ gv, actions, reactions }: { gv: CoincheGameView; actions: GameActions; reactions?: Map<number, EmojiReaction> }) {
+export function GameTable({ gv, actions, reactions }: { gv: CoincheGameView; actions: GameActions; reactions?: Map<number, TableReaction> }) {
   const view = gv.view!;
   const mySeat = gv.mySeat!;
   const [emojiOn, setEmojiOn] = useState(true);
@@ -156,7 +157,7 @@ export function GameTable({ gv, actions, reactions }: { gv: CoincheGameView; act
         infoCode={gv.roomCode}
         onReset={actions.onReset}
         onReshuffle={actions.onReshuffle}
-        emojiControls={actions.onSendEmoji ? { enabled: emojiOn, onToggle: toggleEmoji } : undefined}
+        emojiControls={actions.onSendReaction ? { enabled: emojiOn, onToggle: toggleEmoji } : undefined}
         host={
           actions.onBecomeHost && actions.onForceSync
             ? {
@@ -184,10 +185,10 @@ export function GameTable({ gv, actions, reactions }: { gv: CoincheGameView; act
           nextDealGate={gv.nextDealGate}
           onRematch={actions.onRematch}
         />
-        {emojiOn && actions.onSendEmoji && (
+        {emojiOn && actions.onSendReaction && (
           <EmojiButton
             myReaction={reactions?.get(mySeat)}
-            onSelect={actions.onSendEmoji}
+            onSelect={actions.onSendReaction}
           />
         )}
         <ActionDock

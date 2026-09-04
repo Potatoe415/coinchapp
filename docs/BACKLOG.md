@@ -6,12 +6,12 @@ Status: Living document. Always reflects current state.
 
 ## Now
 - [ ] Provision Supabase project, run `supabase/migrations/0001_init.sql`, enable anonymous sign-ins.
-- [ ] Push to GitHub and deploy on Vercel with the 3 env vars; verify a full game in prod.
+- [ ] Push to GitHub and deploy on Vercel with the 4 env vars; verify a full game in prod.
 
 ## Next
 - [ ] Manual Belote/Rebelote announcement during play (currently auto-detected).
 - [ ] Smarter bot bidding/play (currently a greedy heuristic).
-- [ ] Ad-hoc P2P: real-device pairing test (Chrome mDNS `.local` risk), client reconnection, emoji over the data channel.
+- [ ] Ad-hoc P2P: real-device pairing test (Chrome mDNS `.local` risk), client reconnection, emoji/GIF over the data channel.
 
 ## Later
 - [ ] Optional accounts + stats/leaderboard.
@@ -33,3 +33,4 @@ Status: Living document. Always reflects current state.
 - [x] Offline ad-hoc mode: WebRTC P2P host/client over local network with QR-code signaling (additive, online/local modes untouched).
 - [x] Optimistic concurrency / version conflict handling on Server Actions (`updateVersioned` in `repo.ts`).
 - [x] Reconnection/disconnect handling and "connected" status in the table UI (presence heartbeat + stale-turn auto-play fallback).
+- [x] Giphy GIF reactions next to the emoji picker (online + local; search via server-only `GIPHY_API_KEY`).

@@ -4,11 +4,12 @@ import React, { useEffect, useRef, useState } from "react";
 import { useDelayedVisible } from "@/lib/client/useDelayedVisible";
 import { CAPOT_VALUE, GENERALE_VALUE, type Bid, type Card, type PlayerView } from "@/lib/coinche";
 import type { GameView, NextDealGate } from "@/lib/server/view";
+import type { TableReaction } from "@/lib/client/reactions";
 import { DealOverlay } from "./DealOverlay";
-import type { EmojiReaction } from "./EmojiButton";
 import { isConnected, playerName, seatTeam } from "./gameTableHelpers";
 import { trumpModeLabel } from "./labels";
 import { PlayerBadge } from "./PlayerBadge";
+import { ReactionBubble } from "./ReactionBubble";
 import { CardBackFanH, CardBackStackV, CompletedTrickHold, PlayedCardStage, type TableSeats } from "./TrickStage";
 
 function isSeatThinking(view: PlayerView, seat: number): boolean {
@@ -95,7 +96,7 @@ export function GameTableScene({
   lastTrickKey: string | null;
   lastTrickWinner: number | null;
   bimTrickKey: string | null;
-  reactions?: Map<number, EmojiReaction>;
+  reactions?: Map<number, TableReaction>;
   onNextDeal: () => Promise<void> | void;
   nextDealGate?: NextDealGate;
   onRematch?: () => Promise<void> | void;
@@ -137,7 +138,7 @@ function OpponentReactionsBar({
 }: {
   gv: GameView;
   seats: TableSeats;
-  reactions?: Map<number, EmojiReaction>;
+  reactions?: Map<number, TableReaction>;
 }) {
   const opponentSeats = [seats.top, seats.left, seats.right];
   return (
@@ -147,9 +148,11 @@ function OpponentReactionsBar({
         return (
           <div key={seat} className="flex flex-col items-center gap-1" data-id={`round-end-reaction-${seat}`}>
             {reaction && (
-              <span className="emoji-react text-5xl leading-none" data-id="player-emoji-reaction">
-                {reaction.emoji}
-              </span>
+              <ReactionBubble
+                reaction={reaction}
+                size="sm"
+                dataId={reaction.kind === "gif" ? "player-gif-reaction" : "player-emoji-reaction"}
+              />
             )}
             <span className="max-w-[5rem] truncate text-xs font-bold text-[var(--card-face)]">
               {playerName(gv, seat)}
@@ -161,7 +164,7 @@ function OpponentReactionsBar({
   );
 }
 
-function TopOpponent({ gv, view, seat, reaction }: { gv: GameView; view: PlayerView; seat: number; reaction?: EmojiReaction }) {
+function TopOpponent({ gv, view, seat, reaction }: { gv: GameView; view: PlayerView; seat: number; reaction?: TableReaction }) {
   const bid = view.phase === "bidding" ? lastSeatBid(view.bids, seat) : null;
   return (
     <div className="absolute left-1/2 top-[13%] flex -translate-x-1/2 flex-col items-center" data-id="table-top">
@@ -194,7 +197,7 @@ function SideOpponent({
   view: PlayerView;
   seat: number;
   side: "left" | "right";
-  reaction?: EmojiReaction;
+  reaction?: TableReaction;
 }) {
   const sideClass = side === "left" ? "left-0 flex-row" : "right-0 flex-row-reverse";
   const handShiftClass = side === "left" ? "-translate-x-3/4" : "translate-x-3/4";

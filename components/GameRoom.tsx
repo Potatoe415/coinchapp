@@ -3,8 +3,10 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useI18n } from "@/lib/client/i18n";
+import { parseReactionPayload, type ReactionPick } from "@/lib/client/reactions";
 import { useBotRunner } from "@/lib/client/useBotRunner";
 import { useGameView } from "@/lib/client/useGameView";
+import { useReactions } from "@/lib/client/useReactions";
 import { useStillThereTimer } from "@/lib/client/useStillThereTimer";
 import { ensureAnonAuth } from "@/lib/client/auth";
 import { becomeHost, nextDeal, placeBid, playCard, readyForNextRound } from "@/lib/server/actions-game";
@@ -14,16 +16,12 @@ import { BotSeatPicker } from "./BotSeatPicker";
 import type { Card } from "@/lib/coinche";
 import type { Card as BouillaCard } from "@/lib/bouilla";
 import { createClient } from "@/lib/supabase/client";
-import type { EmojiReaction } from "./EmojiButton";
 import { Lobby } from "./Lobby";
 import { GameTable, type GameActions, type CoincheGameView } from "./GameTable";
 import { BouillaTable, type BouillaActions, type BouillaGameView } from "./BouillaTable";
 import type { BidPayload } from "./BiddingPanel";
 import { StillThereModal } from "./StillThereModal";
 
-const REACTION_TTL = 3000;
-
-type EmojiPayload = { seat: number; emoji: string };
 type Channel = ReturnType<ReturnType<typeof createClient>["channel"]>;
 
 export function GameRoom({ gameId }: { gameId: string }) {
@@ -32,31 +30,18 @@ export function GameRoom({ gameId }: { gameId: string }) {
   const [debugMode, setDebugMode] = useState(false);
   const botDebugLog = useBotRunner(gameId, view, refetch, notify, debugMode);
   const stillThere = useStillThereTimer(view, refetch);
+  const { reactions, addReaction } = useReactions();
 
-  const [reactions, setReactions] = useState<Map<number, EmojiReaction>>(new Map());
   const [joiningBotSeat, setJoiningBotSeat] = useState(false);
-  const timers = useRef<Map<number, ReturnType<typeof setTimeout>>>(new Map());
   const channelRef = useRef<Channel | null>(null);
-
-  const addReaction = useCallback((seat: number, emoji: string) => {
-    const prev = timers.current.get(seat);
-    if (prev) clearTimeout(prev);
-    setReactions((m) => new Map(m).set(seat, { emoji, id: Date.now() }));
-    timers.current.set(
-      seat,
-      setTimeout(() => {
-        setReactions((m) => { const n = new Map(m); n.delete(seat); return n; });
-        timers.current.delete(seat);
-      }, REACTION_TTL),
-    );
-  }, []);
 
   useEffect(() => {
     const supabase = createClient();
     const ch = supabase
       .channel(`emoji-${gameId}`)
-      .on("broadcast", { event: "emoji" }, ({ payload }: { payload: EmojiPayload }) => {
-        addReaction(payload.seat, payload.emoji);
+      .on("broadcast", { event: "emoji" }, ({ payload }: { payload: unknown }) => {
+        const parsed = parseReactionPayload(payload);
+        if (parsed) addReaction(parsed.seat, parsed.pick);
       })
       .subscribe();
     channelRef.current = ch;
@@ -67,16 +52,19 @@ export function GameRoom({ gameId }: { gameId: string }) {
     };
   }, [gameId, addReaction]);
 
-  const onSendEmoji = (emoji: string) => {
-    const mySeat = view?.mySeat;
-    if (mySeat === null || mySeat === undefined) return;
-    void channelRef.current?.send({
-      type: "broadcast",
-      event: "emoji",
-      payload: { seat: mySeat, emoji } satisfies EmojiPayload,
-    });
-    addReaction(mySeat, emoji);
-  };
+  const onSendReaction = useCallback(
+    (pick: ReactionPick) => {
+      const mySeat = view?.mySeat;
+      if (mySeat === null || mySeat === undefined) return;
+      void channelRef.current?.send({
+        type: "broadcast",
+        event: "emoji",
+        payload: { seat: mySeat, ...pick },
+      });
+      addReaction(mySeat, pick);
+    },
+    [view?.mySeat, addReaction],
+  );
   const onBecomeHost = async () => {
     await becomeHost(gameId);
     await refetch();
@@ -116,7 +104,7 @@ export function GameRoom({ gameId }: { gameId: string }) {
     },
     onBecomeHost,
     onForceSync: forceResync,
-    onSendEmoji,
+    onSendReaction,
     onRematch,
   };
 
@@ -133,7 +121,7 @@ export function GameRoom({ gameId }: { gameId: string }) {
     },
     onBecomeHost,
     onForceSync: forceResync,
-    onSendEmoji,
+    onSendReaction,
     onRematch,
   };
 

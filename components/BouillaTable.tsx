@@ -9,7 +9,9 @@ import type { GameView } from "@/lib/server/view";
 import { BouillaRoundOverlay } from "./BouillaRoundOverlay";
 import { BouillaScoreboard } from "./BouillaScoreboard";
 import { ROUND_LABEL, ROUND_PENALTY_LABEL } from "./bouillaLabels";
-import { EmojiButton, type EmojiReaction } from "./EmojiButton";
+import type { ReactionPick, TableReaction } from "@/lib/client/reactions";
+import { EmojiButton } from "./EmojiButton";
+import { ReactionBubble } from "./ReactionBubble";
 import { isConnected, playerName, relativeSeat } from "./gameTableHelpers";
 import { GameInfoButton, HostRow, type EmojiControls, type HostControls } from "./GameHud";
 import { HandCardSlot } from "./HandCardSlot";
@@ -32,8 +34,8 @@ export interface BouillaActions {
   onForceSync?: () => void;
   /** Local only: restart the game from scratch. */
   onReset?: () => void;
-  /** Send an emoji reaction visible to all players. */
-  onSendEmoji?: (emoji: string) => void;
+  /** Send an emoji or GIF reaction visible to all players. */
+  onSendReaction?: (pick: ReactionPick) => void;
   /** Online only: from the finished screen, start a fresh match in the same room. */
   onRematch?: () => Promise<void> | void;
 }
@@ -53,7 +55,7 @@ export function BouillaTable({
 }: {
   gv: BouillaGameView;
   actions: BouillaActions;
-  reactions?: Map<number, EmojiReaction>;
+  reactions?: Map<number, TableReaction>;
 }) {
   const { locale } = useI18n();
   const view = gv.view!;
@@ -125,7 +127,7 @@ export function BouillaTable({
             ? { isHost: gv.isHost, hostName: gv.hostSeat !== null ? playerName(gv, gv.hostSeat, locale) : null, onBecomeHost: actions.onBecomeHost, onForceSync: actions.onForceSync }
             : undefined
         }
-        emojiControls={actions.onSendEmoji ? { enabled: emojiOn, onToggle: toggleEmoji } : undefined}
+        emojiControls={actions.onSendReaction ? { enabled: emojiOn, onToggle: toggleEmoji } : undefined}
       />
       <div className="flex-1" aria-hidden="true" />
       <div className="relative h-[720px] w-full shrink-0" data-id="bouilla-table-scene">
@@ -155,7 +157,7 @@ export function BouillaTable({
           nextRoundGate={gv.nextDealGate}
           onRematch={actions.onRematch}
         />
-        {emojiOn && actions.onSendEmoji && <EmojiButton myReaction={reactions?.get(mySeat)} onSelect={actions.onSendEmoji} />}
+        {emojiOn && actions.onSendReaction && <EmojiButton myReaction={reactions?.get(mySeat)} onSelect={actions.onSendReaction} />}
         {/* Hidden once scoring/finished: "kingSpades" can end a round with cards still
             in hand (see lib/bouilla/trick.ts), which would otherwise show through the
             round overlay above. */}
@@ -341,7 +343,7 @@ function OpponentTop({
   gv: BouillaGameView;
   view: PlayerView;
   seat: number;
-  reaction?: EmojiReaction;
+  reaction?: TableReaction;
 }) {
   const { locale } = useI18n();
   return (
@@ -374,7 +376,7 @@ function OpponentSide({
   view: PlayerView;
   seat: number;
   side: "left" | "right";
-  reaction?: EmojiReaction;
+  reaction?: TableReaction;
 }) {
   const { locale } = useI18n();
   const sideClass = side === "left" ? "left-0 flex-row" : "right-0 flex-row-reverse";
@@ -412,7 +414,7 @@ function OpponentReactionsBar({
 }: {
   gv: BouillaGameView;
   seats: TableSeats;
-  reactions?: Map<number, EmojiReaction>;
+  reactions?: Map<number, TableReaction>;
 }) {
   const { locale } = useI18n();
   const opponentSeats = [seats.top, seats.left, seats.right];
@@ -423,9 +425,11 @@ function OpponentReactionsBar({
         return (
           <div key={seat} className="flex flex-col items-center gap-1" data-id={`round-end-reaction-${seat}`}>
             {reaction && (
-              <span className="emoji-react text-5xl leading-none" data-id="player-emoji-reaction">
-                {reaction.emoji}
-              </span>
+              <ReactionBubble
+                reaction={reaction}
+                size="sm"
+                dataId={reaction.kind === "gif" ? "player-gif-reaction" : "player-emoji-reaction"}
+              />
             )}
             <span className="max-w-[5rem] truncate text-xs font-bold text-[var(--card-face)]">
               {playerName(gv, seat, locale)}

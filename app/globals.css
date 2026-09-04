@@ -157,6 +157,13 @@ select option {
   display: inline-block;
 }
 
+.gif-react {
+  animation: emoji-react 5s cubic-bezier(0.22, 1, 0.36, 1) both;
+  will-change: opacity, transform;
+  pointer-events: none;
+  display: inline-block;
+}
+
 @keyframes emoji-react {
   0% {
     opacity: 0;
