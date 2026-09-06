@@ -55,9 +55,13 @@ function buildRoster(hostName: string, humanCount: number, youName: string, play
 
 export function AdHocLobby() {
   const { t } = useI18n();
-  const isBouilla = useSearchParams().get("game") === "bouilla";
+  const searchParams = useSearchParams();
+  const isBouilla = searchParams.get("game") === "bouilla";
   const [phase, setPhase] = useState<Phase>("choose");
-  const [name, setName] = useState("");
+  // Pre-filled from the Bergamots hub's profile name (?name=), forwarded on
+  // launch exactly like ?lang= — see bergamots/docs/TECH.md "Player identity
+  // contract". Never required, never overwritten once the player edits it.
+  const [name, setName] = useState(() => searchParams.get("name") ?? "");
   const [humanCount, setHumanCount] = useState(1);
   const [setup, setSetup] = useState<GameSetupValues>(DEFAULT_GAME_SETUP);
   const [seed] = useState(() => (Math.random() * 0x100000000) >>> 0);

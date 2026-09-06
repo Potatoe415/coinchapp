@@ -448,3 +448,13 @@ Consequences: New env var `GIPHY_API_KEY` (`.env.local` + Vercel). Picker UI in 
 Alternatives_Rejected: Client-side Giphy SDK with a public key (would leak the key and add a dependency); persisting GIFs in `games.state` (unnecessary for a 5s overlay); Tenor/other providers (user asked for Giphy).
 
 ---
+
+## 2026-09-06 - Pre-fill the pseudo field from the Bergamots hub's profile name
+
+Decision: `Lobby.tsx` (online) and `AdHocLobby.tsx` (ad-hoc P2P) now initialize their existing pseudo `useState` from the `?name=` URL query param instead of always starting empty (`useState(() => searchParams.get("name") ?? "")`). The field itself is unchanged otherwise: still a plain text input, still fully editable, still not persisted anywhere in this app.
+Context: Bergamots (the hub this app is launched from, `bergamots.vercel.app` / `muchogames.win`) added a player profile with a "Nom" field and wants that name to travel into every game it links to, including this one, without ever requiring an account here. Since this app runs on a different origin (`coinchapp.vercel.app`), Bergamots cannot read this app's storage or vice versa — the only channel is the launch URL, which Bergamots already uses for `?lang=`. See `bergamots/docs/TECH.md` "Player identity contract" and `bergamots/docs/DECISIONS.md` 2026-09-06.
+Rationale: A URL query param read once into `useState`'s lazy initializer is the smallest possible change — no new dependency, no new component, and it reuses the exact pattern already in this file for `?game=bouilla` (`isBouilla`). Pre-filling rather than forcing the value keeps every existing behavior intact for a direct visit with no `?name=` (empty field, exactly as before) and for anyone who wants to type a different name for this particular game.
+Consequences: No new state, no new persistence, no schema/API change. A player arriving from the Bergamots hub with a profile name no longer has to retype it here; a player who opens this app directly (bookmarked, no hub) sees the exact same empty field as before.
+Alternatives_Rejected: Persisting the received name into this app's own storage for future visits — rejected, out of scope of what was asked (a pre-fill), and would introduce a second, potentially stale, source of truth for the name alongside Bergamots' own profile.
+
+---
