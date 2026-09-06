@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { captureHubName } from "@/lib/client/hubName";
 
 export type Locale = "fr" | "en";
 
@@ -319,6 +320,7 @@ export function I18nProvider({ children }: { children: ReactNode }) {
   const [locale, setLocale] = useState<Locale>("fr");
 
   useEffect(() => {
+    captureHubName();
     // A hub tile's ?lang= always wins over what this app remembers on its own,
     // so relaunching from the game launcher picks up its currently selected language.
     const fromHub = new URLSearchParams(window.location.search).get("lang");

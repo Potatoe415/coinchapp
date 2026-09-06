@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { formatText, useI18n } from "@/lib/client/i18n";
+import { useHubPrefillName } from "@/lib/client/hubName";
 import type { Seat } from "@/lib/coinche";
 import type { GameSettings } from "@/lib/supabase/types";
 import type { P2PConnection } from "@/lib/client/p2p/connection";
@@ -58,10 +59,7 @@ export function AdHocLobby() {
   const searchParams = useSearchParams();
   const isBouilla = searchParams.get("game") === "bouilla";
   const [phase, setPhase] = useState<Phase>("choose");
-  // Pre-filled from the Bergamots hub's profile name (?name=), forwarded on
-  // launch exactly like ?lang= — see bergamots/docs/TECH.md "Player identity
-  // contract". Never required, never overwritten once the player edits it.
-  const [name, setName] = useState(() => searchParams.get("name") ?? "");
+  const [name, setName] = useHubPrefillName();
   const [humanCount, setHumanCount] = useState(1);
   const [setup, setSetup] = useState<GameSetupValues>(DEFAULT_GAME_SETUP);
   const [seed] = useState(() => (Math.random() * 0x100000000) >>> 0);

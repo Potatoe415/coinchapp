@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { HomeTopBar } from "@/components/HomeTopBar";
 import { RulesModal } from "@/components/RulesModal";
 import { useI18n } from "@/lib/client/i18n";
+import { withHubName } from "@/lib/client/hubName";
 
 /** Same layout/mode picker as the home screen, but every button reuses the existing
  *  /local, /online, /adhoc routes with `?game=bouilla` instead of a duplicated tree. */
@@ -37,7 +38,7 @@ export default function BouillaPage() {
 
         <button
           data-id="bouilla-play-online-button"
-          onClick={() => router.push("/online?game=bouilla")}
+          onClick={() => router.push(withHubName("/online?game=bouilla"))}
           className="w-full rounded-2xl bg-[var(--accent-cyan)] px-4 py-5 text-lg font-black text-[var(--surface)] shadow-lg"
         >
           {t("playOnline")}
@@ -45,7 +46,7 @@ export default function BouillaPage() {
 
         <button
           data-id="bouilla-play-adhoc-button"
-          onClick={() => router.push("/adhoc?game=bouilla")}
+          onClick={() => router.push(withHubName("/adhoc?game=bouilla"))}
           className="w-full rounded-2xl bg-[var(--accent-green)] px-4 py-5 text-lg font-black text-[var(--surface)] shadow-lg"
         >
           {t("playAdhoc")}

@@ -2,8 +2,8 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { useSearchParams } from "next/navigation";
 import { useI18n } from "@/lib/client/i18n";
+import { useHubPrefillName } from "@/lib/client/hubName";
 import { fillWithBots, joinGame, startGame, swapSeats } from "@/lib/server/actions-lobby";
 import type { GameView, LobbyPlayer } from "@/lib/server/view";
 
@@ -26,11 +26,7 @@ interface LobbyProps {
 
 export function Lobby({ gv, onChange, debugMode, onDebugModeChange }: LobbyProps) {
   const { locale, t } = useI18n();
-  const searchParams = useSearchParams();
-  // Pre-filled from the Bergamots hub's profile name (?name=), forwarded on
-  // launch exactly like ?lang= — see bergamots/docs/TECH.md "Player identity
-  // contract". Never required, never overwritten once the player edits it.
-  const [name, setName] = useState(() => searchParams.get("name") ?? "");
+  const [name, setName] = useHubPrefillName();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [randomizeSeats, setRandomizeSeats] = useState(true);

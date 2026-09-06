@@ -2,6 +2,7 @@
 
 import { useCallback, useRef, useState } from "react";
 import { useI18n } from "@/lib/client/i18n";
+import { useHubPrefillName } from "@/lib/client/hubName";
 import { createP2PConnection, type P2PConnection } from "@/lib/client/p2p/connection";
 import { decodeSignal, encodeSignal } from "@/lib/client/p2p/signaling";
 import { QrCode, QrPaste, QrScanner } from "./QrExchange";
@@ -12,7 +13,7 @@ type Step = "name" | "scan" | "answer";
 export function JoinFlow({ onConnected }: { onConnected: (conn: P2PConnection, name: string) => void }) {
   const { t } = useI18n();
   const [step, setStep] = useState<Step>("name");
-  const [name, setName] = useState("");
+  const [name, setName] = useHubPrefillName();
   const [answer, setAnswer] = useState("");
   const connRef = useRef<P2PConnection | null>(null);
   const doneRef = useRef(false);

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState } from "react";
 import { useI18n } from "@/lib/client/i18n";
+import { useHubPrefillName } from "@/lib/client/hubName";
 
 export interface BotSeatPickerPlayer {
   seat: number;
@@ -26,7 +26,7 @@ export function BotSeatPicker({
   onJoinSeat: (seat: number, displayName: string) => void;
 }) {
   const { t } = useI18n();
-  const [name, setName] = useState("");
+  const [name, setName] = useHubPrefillName();
   const bySeat = new Map(players.map((p) => [p.seat, p]));
   const hasBotSeat = players.some((p) => p.isBot);
 

@@ -6,6 +6,7 @@ import { Suspense, useEffect, useState } from "react";
 import { createGame, joinGame, joinBotSeat, previewRoomByCode, type RoomPreview } from "@/lib/server/actions-lobby";
 import { ensureAnonAuth } from "@/lib/client/auth";
 import { useI18n } from "@/lib/client/i18n";
+import { useHubPrefillName } from "@/lib/client/hubName";
 import { GameSettingsPanel, DEFAULT_GAME_SETUP } from "@/components/GameSettingsPanel";
 import type { GameSetupValues } from "@/components/GameSettingsPanel";
 import { BotSeatPicker } from "@/components/BotSeatPicker";
@@ -26,7 +27,7 @@ function OnlinePageInner() {
   const { locale, t } = useI18n();
   const isBouilla = useSearchParams().get("game") === "bouilla";
   const gameType: GameType = isBouilla ? "bouilla" : "coinche";
-  const [name, setName] = useState("");
+  const [name, setName] = useHubPrefillName();
   const [setup, setSetup] = useState<GameSetupValues>(DEFAULT_GAME_SETUP);
   const [code, setCode] = useState("");
   const [busy, setBusy] = useState(false);

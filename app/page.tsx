@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useI18n } from "@/lib/client/i18n";
+import { withHubName } from "@/lib/client/hubName";
 import { useInstallPrompt } from "@/lib/client/useInstallPrompt";
 import { HomeTopBar } from "@/components/HomeTopBar";
 import { RulesModal } from "@/components/RulesModal";
@@ -117,7 +118,11 @@ export default function Home() {
 
         <button
           data-id="play-online-button"
-          onClick={() => router.push(game === "bouilla" ? "/online?game=bouilla" : "/online?target=1000")}
+          onClick={() =>
+            router.push(
+              withHubName(game === "bouilla" ? "/online?game=bouilla" : "/online?target=1000"),
+            )
+          }
           className="w-full rounded-2xl bg-[var(--accent-cyan)] px-4 py-5 text-lg font-black text-[var(--surface)] shadow-lg"
         >
           {t("playOnline")}
@@ -125,7 +130,7 @@ export default function Home() {
 
         <button
           data-id="play-adhoc-button"
-          onClick={() => router.push(`/adhoc${gameSuffix}`)}
+          onClick={() => router.push(withHubName(`/adhoc${gameSuffix}`))}
           className="w-full rounded-2xl bg-[var(--accent-green)] px-4 py-5 text-lg font-black text-[var(--surface)] shadow-lg"
         >
           {t("playAdhoc")}
