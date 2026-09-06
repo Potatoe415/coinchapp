@@ -8,6 +8,7 @@ import { useBotRunner } from "@/lib/client/useBotRunner";
 import { useGameView } from "@/lib/client/useGameView";
 import { useReactions } from "@/lib/client/useReactions";
 import { useStillThereTimer } from "@/lib/client/useStillThereTimer";
+import { useHubPrefillAvatar } from "@/lib/client/hubName";
 import { ensureAnonAuth } from "@/lib/client/auth";
 import { becomeHost, nextDeal, placeBid, playCard, readyForNextRound } from "@/lib/server/actions-game";
 import { joinBotSeat, rematchGame } from "@/lib/server/actions-lobby";
@@ -31,6 +32,7 @@ export function GameRoom({ gameId }: { gameId: string }) {
   const botDebugLog = useBotRunner(gameId, view, refetch, notify, debugMode);
   const stillThere = useStillThereTimer(view, refetch);
   const { reactions, addReaction } = useReactions();
+  const selfAvatar = useHubPrefillAvatar();
 
   const [joiningBotSeat, setJoiningBotSeat] = useState(false);
   const channelRef = useRef<Channel | null>(null);
@@ -173,9 +175,9 @@ export function GameRoom({ gameId }: { gameId: string }) {
       {stillThere.show && <StillThereModal secondsLeft={stillThere.secondsLeft} />}
       {view.gameType === "bouilla" && debugMode && <BotDebugOverlay log={botDebugLog} />}
       {view.gameType === "bouilla" ? (
-        <BouillaTable gv={view as BouillaGameView} actions={bouillaActions} reactions={reactions} />
+        <BouillaTable gv={view as BouillaGameView} actions={bouillaActions} reactions={reactions} selfAvatar={selfAvatar} />
       ) : (
-        <GameTable gv={view as CoincheGameView} actions={coincheActions} reactions={reactions} />
+        <GameTable gv={view as CoincheGameView} actions={coincheActions} reactions={reactions} selfAvatar={selfAvatar} />
       )}
     </>
   );

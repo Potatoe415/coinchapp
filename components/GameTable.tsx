@@ -13,6 +13,7 @@ import { GameTableScene } from "./GameTableScene";
 import { playerName, relativeSeat } from "./gameTableHelpers";
 import { HandCardSlot } from "./HandCardSlot";
 import { isRedSuit, trumpModeLabel } from "./labels";
+import { SelfNameChip } from "./SelfNameChip";
 
 /** This table only ever renders a Coinche game: narrow the shared, multi-game
  *  `GameView` down to its Coinche-specific view/botViews shape. */
@@ -106,7 +107,18 @@ function sortHand(hand: Card[], trump: TrumpMode | null): Card[] {
   });
 }
 
-export function GameTable({ gv, actions, reactions }: { gv: CoincheGameView; actions: GameActions; reactions?: Map<number, TableReaction> }) {
+export function GameTable({
+  gv,
+  actions,
+  reactions,
+  selfAvatar,
+}: {
+  gv: CoincheGameView;
+  actions: GameActions;
+  reactions?: Map<number, TableReaction>;
+  /** Set only from online GameRoom. Undefined hides the local-player chip. */
+  selfAvatar?: string;
+}) {
   const view = gv.view!;
   const mySeat = gv.mySeat!;
   const [emojiOn, setEmojiOn] = useState(true);
@@ -201,6 +213,8 @@ export function GameTable({ gv, actions, reactions }: { gv: CoincheGameView; act
           preSelectedId={preSelectedId}
           onBid={actions.onBid}
           onCardTap={tapCard}
+          selfName={selfAvatar !== undefined ? playerName(gv, mySeat) : undefined}
+          selfAvatar={selfAvatar}
         />
       </div>
       <div className="flex-1" aria-hidden="true" />
@@ -267,6 +281,8 @@ function ActionDock({
   preSelectedId,
   onBid,
   onCardTap,
+  selfName,
+  selfAvatar,
 }: {
   view: PlayerView;
   hand: Card[];
@@ -277,10 +293,15 @@ function ActionDock({
   preSelectedId: string | null;
   onBid: (payload: BidPayload) => Promise<void> | void;
   onCardTap: (card: Card) => void;
+  selfName?: string;
+  selfAvatar?: string;
 }) {
   const [previewTrump, setPreviewTrump] = useState<TrumpMode | null>(null);
   return (
     <section className="absolute inset-x-0 bottom-0 z-20 px-0 pb-1" data-id="action-area">
+      {selfName !== undefined && (
+        <SelfNameChip name={selfName} avatarSrc={selfAvatar} />
+      )}
       <BiddingStatus view={view} players={players} mySeat={mySeat} onBid={onBid} onSuitChange={setPreviewTrump} />
       <HandFan
         hand={hand}

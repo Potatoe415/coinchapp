@@ -16,6 +16,7 @@ import { isConnected, playerName, relativeSeat } from "./gameTableHelpers";
 import { GameInfoButton, HostRow, type EmojiControls, type HostControls } from "./GameHud";
 import { HandCardSlot } from "./HandCardSlot";
 import { PlayerBadge } from "./PlayerBadge";
+import { SelfNameChip } from "./SelfNameChip";
 import { CardBackFanH, CardBackStackV, CompletedTrickHold, PlayedCardStage, type TableSeats } from "./TrickStage";
 
 /** This table only ever renders a Bouilla game: narrow the shared, multi-game
@@ -52,10 +53,13 @@ export function BouillaTable({
   gv,
   actions,
   reactions,
+  selfAvatar,
 }: {
   gv: BouillaGameView;
   actions: BouillaActions;
   reactions?: Map<number, TableReaction>;
+  /** Set only from online GameRoom. Undefined hides the local-player chip. */
+  selfAvatar?: string;
 }) {
   const { locale } = useI18n();
   const view = gv.view!;
@@ -157,6 +161,11 @@ export function BouillaTable({
           nextRoundGate={gv.nextDealGate}
           onRematch={actions.onRematch}
         />
+        {selfAvatar !== undefined && !roundOverlayVisible && (
+          <div className="absolute inset-x-0 bottom-[9.4rem] z-20" data-id="bouilla-self-name-wrap">
+            <SelfNameChip name={playerName(gv, mySeat, locale)} avatarSrc={selfAvatar} />
+          </div>
+        )}
         {emojiOn && actions.onSendReaction && <EmojiButton myReaction={reactions?.get(mySeat)} onSelect={actions.onSendReaction} />}
         {/* Hidden once scoring/finished: "kingSpades" can end a round with cards still
             in hand (see lib/bouilla/trick.ts), which would otherwise show through the
