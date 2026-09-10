@@ -91,6 +91,7 @@ export function PresidentTable({
   const selectedRank = selected[0]?.rank;
   const comboLegal =
     selected.length > 0 && view.legalCombos.some((c) => c.rank === selectedRank && c.cards.length === selected.length);
+  const legalRanks = new Set(view.legalCombos.map((c) => c.rank));
   const roundOverlayVisible = useDelayedVisible(!!view.lastRoundResult || view.phase === "finished", 1200);
 
   function tapCard(card: Card) {
@@ -179,6 +180,7 @@ export function PresidentTable({
             hand={view.myHand}
             selected={selected}
             myTurnToPlay={myTurnToPlay}
+            legalRanks={legalRanks}
             canPlay={comboLegal}
             canPass={view.canPass}
             busy={busy}
@@ -371,18 +373,61 @@ function OpponentBadge({
   );
 }
 
+function comboKey(combo: Combo | null): string {
+  return combo ? combo.cards.map(cardKey).join(",") : "";
+}
+
+/** Keeps the last 2 combos this pile cycle so `PileArea` can show them fading
+ *  behind the current one - purely a display trail, cleared once the pile
+ *  itself clears (a new leader starts a fresh cycle). Adjusts state during
+ *  render (React's documented "reset state on prop change" pattern, tracking
+ *  the previous combo in state rather than a ref) instead of an effect, since
+ *  there is nothing external to synchronize with here. */
+function usePileHistory(combo: Combo | null): Combo[] {
+  const [history, setHistory] = useState<Combo[]>([]);
+  const [prev, setPrev] = useState<{ combo: Combo | null; key: string }>({ combo: null, key: "" });
+
+  const key = comboKey(combo);
+  if (key !== prev.key) {
+    setPrev({ combo, key });
+    if (combo === null) {
+      setHistory([]);
+    } else if (prev.combo) {
+      const previous = prev.combo;
+      setHistory((h) => [...h, previous].slice(-2));
+    }
+  }
+
+  return history;
+}
+
 function PileArea({ view }: { view: PlayerView }) {
   const { t } = useI18n();
   const combo = view.pile.combo;
+  const history = usePileHistory(combo);
+  const stack = combo ? [...history, combo] : [];
   return (
     <div className="absolute left-1/2 top-[41%] -translate-x-1/2 -translate-y-1/2" data-id="president-pile">
-      {combo ? (
-        <div className="flex" data-id="president-pile-cards">
-          {combo.cards.map((card, i) => (
-            <div key={cardKey(card)} className={i > 0 ? "-ml-6" : ""} style={{ zIndex: i }}>
-              <PlayingCard card={card} size="lg" dataId={`president-pile-card-${i}`} />
-            </div>
-          ))}
+      {stack.length > 0 ? (
+        <div className="relative" data-id="president-pile-cards">
+          {stack.map((layer, si) => {
+            const isTop = si === stack.length - 1;
+            const depth = stack.length - 1 - si;
+            return (
+              <div
+                key={`${comboKey(layer)}-${si}`}
+                className="absolute flex"
+                style={{ top: -depth * 10, left: -depth * 10, zIndex: si }}
+                data-id={isTop ? "president-pile-current" : `president-pile-history-${depth}`}
+              >
+                {layer.cards.map((card, i) => (
+                  <div key={cardKey(card)} className={i > 0 ? "-ml-6" : ""} style={{ zIndex: i }}>
+                    <PlayingCard card={card} size="lg" dimmed={!isTop} dataId={`president-pile-card-${si}-${i}`} />
+                  </div>
+                ))}
+              </div>
+            );
+          })}
         </div>
       ) : (
         <p className="rounded-full bg-black/20 px-4 py-2 text-xs font-bold text-[var(--card-face)]/80" data-id="president-pile-empty">
@@ -398,16 +443,23 @@ const CARD_W_LG = 64;
 const HAND_EDGE_MARGIN = 12;
 const DEFAULT_MAX_FAN_WIDTH = 340;
 
-function sortHand(hand: Card[], revolution: boolean): Card[] {
-  const RANK_ORDER = ["3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A", "2"];
-  const value = (rank: string) => (revolution ? RANK_ORDER.length - 1 - RANK_ORDER.indexOf(rank) : RANK_ORDER.indexOf(rank));
-  return [...hand].sort((a, b) => value(a.rank) - value(b.rank));
+/** Same suit order as Coinche/Bouilla's hand (`GameTable.tsx`/`BouillaTable.tsx`'s
+ *  `SUIT_ORDER`), kept in sync for a consistent hand layout across all games. */
+const SUIT_ORDER: Record<string, number> = { S: 0, H: 1, C: 2, D: 3 };
+const RANK_ORDER = ["3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A", "2"];
+
+function sortHand(hand: Card[]): Card[] {
+  return [...hand].sort((a, b) => {
+    if (a.suit !== b.suit) return SUIT_ORDER[a.suit] - SUIT_ORDER[b.suit];
+    return RANK_ORDER.indexOf(a.rank) - RANK_ORDER.indexOf(b.rank);
+  });
 }
 
 function HandArea({
   hand,
   selected,
   myTurnToPlay,
+  legalRanks,
   canPlay,
   canPass,
   busy,
@@ -418,6 +470,7 @@ function HandArea({
   hand: Card[];
   selected: Card[];
   myTurnToPlay: boolean;
+  legalRanks: Set<Card["rank"]>;
   canPlay: boolean;
   canPass: boolean;
   busy: boolean;
@@ -426,7 +479,7 @@ function HandArea({
   onPass: () => void;
 }) {
   const { t } = useI18n();
-  const sorted = sortHand(hand, false);
+  const sorted = sortHand(hand);
   const n = sorted.length;
   const step = n > 1 ? Math.min(HAND_STEP, Math.max(0, DEFAULT_MAX_FAN_WIDTH - HAND_EDGE_MARGIN * 2 - CARD_W_LG) / (n - 1)) : HAND_STEP;
   const fanW = n > 1 ? CARD_W_LG + (n - 1) * step : CARD_W_LG;
@@ -439,6 +492,7 @@ function HandArea({
           {sorted.map((card, i) => {
             const key = cardKey(card);
             const isSelected = selectedKeys.has(key);
+            const isPlayable = myTurnToPlay && legalRanks.has(card.rank);
             return (
               <div
                 key={key}
@@ -446,7 +500,7 @@ function HandArea({
                 style={{ left: i * step, zIndex: isSelected ? 60 + i : i, transform: isSelected ? "translateY(-28px)" : "none" }}
               >
                 <div className={isSelected ? "rounded-lg ring-2 ring-[var(--accent-yellow)]" : undefined}>
-                  <PlayingCard card={card} size="lg" dataId={`president-hand-card-${key}`} playable={myTurnToPlay} onClick={myTurnToPlay ? () => onTap(card) : undefined} />
+                  <PlayingCard card={card} size="lg" dataId={`president-hand-card-${key}`} playable={isPlayable} onClick={isPlayable ? () => onTap(card) : undefined} />
                 </div>
               </div>
             );
