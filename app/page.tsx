@@ -53,15 +53,17 @@ async function resetBrowserData() {
 interface GameTile {
   game: GameType;
   href: string;
+  /** Same art as that game's own splash screen (`app/<game>/page.tsx`), so the
+   *  tile previews what's behind it. */
+  image: string;
   titleKey: "gameTabCoinche" | "gameTabBouilla" | "gameTabPresident";
-  descKey: "coincheTileDesc" | "bouillaTileDesc" | "presidentTileDesc";
   accent: string;
 }
 
 const TILES: GameTile[] = [
-  { game: "coinche", href: "/coinche", titleKey: "gameTabCoinche", descKey: "coincheTileDesc", accent: "var(--accent-yellow)" },
-  { game: "bouilla", href: "/bouilla", titleKey: "gameTabBouilla", descKey: "bouillaTileDesc", accent: "var(--accent-cyan)" },
-  { game: "president", href: "/president", titleKey: "gameTabPresident", descKey: "presidentTileDesc", accent: "var(--accent-green)" },
+  { game: "coinche", href: "/coinche", image: "/splashscreen.jpg", titleKey: "gameTabCoinche", accent: "var(--accent-yellow)" },
+  { game: "bouilla", href: "/bouilla", image: "/bouilla-full.jpg", titleKey: "gameTabBouilla", accent: "var(--accent-cyan)" },
+  { game: "president", href: "/president", image: "/president-full.jpg", titleKey: "gameTabPresident", accent: "var(--accent-green)" },
 ];
 
 /** App landing screen: a list of game tiles. Tapping one navigates to that
@@ -86,22 +88,25 @@ export default function Home() {
           <p className="text-sm text-white/70">{t("chooseGameSubtitle")}</p>
         </header>
 
-        {TILES.map((tile) => (
-          <Link
-            key={tile.game}
-            href={tile.href}
-            data-id={`game-tile-${tile.game}`}
-            className="w-full rounded-2xl bg-black/25 px-5 py-4 text-left shadow-lg ring-1 ring-white/10 transition active:scale-[0.98]"
-          >
-            <span
-              className="mb-1 block text-lg font-black"
-              style={{ color: tile.accent }}
+        <div className="grid w-full grid-cols-3 gap-3" data-id="game-tiles-grid">
+          {TILES.map((tile) => (
+            <Link
+              key={tile.game}
+              href={tile.href}
+              data-id={`game-tile-${tile.game}`}
+              className="relative aspect-square overflow-hidden rounded-2xl shadow-lg ring-1 ring-white/15 transition active:scale-95"
+              style={{ backgroundImage: `url('${tile.image}')`, backgroundSize: "cover", backgroundPosition: "center top" }}
             >
-              {t(tile.titleKey)}
-            </span>
-            <span className="block text-sm text-white/70">{t(tile.descKey)}</span>
-          </Link>
-        ))}
+              <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/10 to-transparent" />
+              <span
+                className="absolute inset-x-0 bottom-0 px-1.5 pb-2 text-center text-[13px] font-black leading-tight"
+                style={{ color: tile.accent }}
+              >
+                {t(tile.titleKey)}
+              </span>
+            </Link>
+          ))}
+        </div>
 
         {installable && (
           <button
