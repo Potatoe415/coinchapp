@@ -5,6 +5,7 @@ import { useP2PClient } from "@/lib/client/useP2PClient";
 import type { P2PConnection } from "@/lib/client/p2p/connection";
 import { GameTable, type CoincheGameView } from "@/components/GameTable";
 import { BouillaTable, type BouillaGameView } from "@/components/BouillaTable";
+import { PresidentTable, type PresidentGameView } from "@/components/PresidentTable";
 
 /** Renders the table for a joining client once the host streams its first view. */
 export function P2PClientGame({ conn, name }: { conn: P2PConnection; name: string }) {
@@ -23,6 +24,19 @@ export function P2PClientGame({ conn, name }: { conn: P2PConnection; name: strin
   }
   if (gv.gameType === "bouilla") {
     return <BouillaTable gv={gv as BouillaGameView} actions={{ onPlay: actions.onPlay, onNextRound: actions.onNextDeal }} />;
+  }
+  if (gv.gameType === "president") {
+    return (
+      <PresidentTable
+        gv={gv as PresidentGameView}
+        actions={{
+          onPlay: actions.onCombo,
+          onPass: actions.onPass,
+          onExchangeReturn: actions.onExchangeReturn,
+          onNextRound: actions.onNextDeal,
+        }}
+      />
+    );
   }
   return <GameTable gv={gv as CoincheGameView} actions={actions} />;
 }

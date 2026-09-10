@@ -1,9 +1,10 @@
 import { redact as redactCoinche, type PlayerView as CoinchePlayerView } from "@/lib/coinche";
-import { redact as redactBouilla, type GameState as BouillaGameState, type PlayerView as BouillaPlayerView } from "@/lib/bouilla";
+import { redact as redactBouilla, type PlayerView as BouillaPlayerView } from "@/lib/bouilla";
+import { redact as redactPresident, type PlayerView as PresidentPlayerView } from "@/lib/president";
 import type { GameRow, GameSettings, GameStatus, GameType } from "@/lib/supabase/types";
 import { isSeatLive, PRESENCE_STALE_MS, seatOf, type LoadedGame } from "./repo";
 
-export type AnyPlayerView = CoinchePlayerView | BouillaPlayerView;
+export type AnyPlayerView = CoinchePlayerView | BouillaPlayerView | PresidentPlayerView;
 
 export interface LobbyPlayer {
   seat: number;
@@ -13,9 +14,9 @@ export interface LobbyPlayer {
   connected: boolean;
 }
 
-/** Ad-hoc + online Bouilla: end-of-deal readiness gate (next deal/round waits
- *  for all humans, capped at `ROUND_AUTO_ADVANCE_MS` for online - see
- *  `lib/server/bouilla-round-gate.ts`). */
+/** Ad-hoc + online Bouilla/Président: end-of-round readiness gate (next round
+ *  waits for all humans, capped at `ROUND_AUTO_ADVANCE_MS` for online - see
+ *  `lib/server/round-gate.ts`). */
 export interface NextDealGate {
   readyCount: number;
   humanCount: number;
@@ -47,9 +48,9 @@ export interface GameView {
   isHost: boolean;
   /** Redacted per-seat views for every bot seat. Present only for the host. */
   botViews?: Record<number, AnyPlayerView>;
-  /** Ad-hoc/online Bouilla only: present during the scoring phase to gate the
-   *  next round (see `NextDealGate`). Coinche and Bouilla's finished screen
-   *  never set this. */
+  /** Ad-hoc/online Bouilla/Président only: present during the scoring phase to
+   *  gate the next round (see `NextDealGate`). Coinche and every game's own
+   *  finished screen never set this. */
   nextDealGate?: NextDealGate;
 }
 
@@ -57,6 +58,7 @@ export interface GameView {
  *  hidden-information rules differ). */
 function redactForSeat(game: GameRow, seat: 0 | 1 | 2 | 3): AnyPlayerView {
   if (game.game_type === "bouilla") return redactBouilla(game.state as Parameters<typeof redactBouilla>[0], seat);
+  if (game.game_type === "president") return redactPresident(game.state as Parameters<typeof redactPresident>[0], seat);
   return redactCoinche(game.state as Parameters<typeof redactCoinche>[0], seat);
 }
 
@@ -70,12 +72,15 @@ function buildBotViews(loaded: LoadedGame): Record<number, AnyPlayerView> {
   return botViews;
 }
 
+const ROUND_GATE_GAME_TYPES: GameType[] = ["bouilla", "president"];
+
 /** Online-only equivalent of the ad-hoc host's `attachGate` (`lib/client/p2p/hostEngine.ts`):
- *  Bouilla's own finished screen (rematch) is never gated, only its scoring phase. */
-function bouillaNextDealGate(loaded: LoadedGame, mySeat: number | null): NextDealGate | undefined {
+ *  Bouilla/Président's own finished screen (rematch) is never gated, only their
+ *  scoring phase. Coinche has no such gate (see `lib/server/round-gate.ts`). */
+function buildNextDealGate(loaded: LoadedGame, mySeat: number | null): NextDealGate | undefined {
   const { game, players } = loaded;
-  if (game.game_type !== "bouilla" || !game.state) return undefined;
-  const state = game.state as BouillaGameState;
+  if (!ROUND_GATE_GAME_TYPES.includes(game.game_type) || !game.state) return undefined;
+  const state = game.state as { phase: string; readySeats?: number[] };
   if (state.phase !== "scoring") return undefined;
   const humans = players.filter((p) => !p.is_bot).map((p) => p.seat);
   const readySeats = new Set<number>(state.readySeats ?? []);
@@ -121,6 +126,6 @@ export function buildView(loaded: LoadedGame, uid: string | null): GameView {
     hostSeat,
     isHost,
     botViews: isHost ? buildBotViews(loaded) : undefined,
-    nextDealGate: bouillaNextDealGate(loaded, mySeat),
+    nextDealGate: buildNextDealGate(loaded, mySeat),
   };
 }

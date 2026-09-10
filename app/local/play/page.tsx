@@ -1,7 +1,14 @@
 import { LocalGame } from "@/components/LocalGame";
 import { BouillaLocalGame } from "@/components/BouillaLocalGame";
+import { PresidentLocalGame } from "@/components/PresidentLocalGame";
 import { BOT_PUNCH_LEVELS, type BotPunch, type ScoringRules } from "@/lib/coinche";
-import { DEFAULT_BOT_THINK_MS, MAX_BOT_THINK_MS, MIN_BOT_THINK_MS } from "@/lib/supabase/types";
+import {
+  DEFAULT_BOT_THINK_MS,
+  DEFAULT_PRESIDENT_ROUNDS_TO_PLAY,
+  MAX_BOT_THINK_MS,
+  MIN_BOT_THINK_MS,
+  PRESIDENT_ROUNDS_OPTIONS,
+} from "@/lib/supabase/types";
 
 const TARGETS = [500, 1000, 1500, 2000];
 
@@ -26,6 +33,11 @@ function parsePoints(raw: string | undefined, fallback: number): number {
   return Number.isFinite(n) && n >= 0 ? Math.floor(n) : fallback;
 }
 
+function parseRoundsToPlay(raw: string | undefined): number {
+  const n = Number(raw);
+  return (PRESIDENT_ROUNDS_OPTIONS as readonly number[]).includes(n) ? n : DEFAULT_PRESIDENT_ROUNDS_TO_PLAY;
+}
+
 export default async function LocalPlayPage({
   searchParams,
 }: {
@@ -42,6 +54,7 @@ export default async function LocalPlayPage({
     requireMorePointsToWin?: string;
     botPunch?: string;
     botThinkMs?: string;
+    roundsToPlay?: string;
   }>;
 }) {
   const sp = await searchParams;
@@ -49,6 +62,9 @@ export default async function LocalPlayPage({
   const botThinkMs = parseBotThinkMs(sp.botThinkMs);
   if (sp.game === "bouilla") {
     return <BouillaLocalGame seed={seed} botThinkMs={botThinkMs} />;
+  }
+  if (sp.game === "president") {
+    return <PresidentLocalGame seed={seed} botThinkMs={botThinkMs} roundsToPlay={parseRoundsToPlay(sp.roundsToPlay)} />;
   }
   const target = Number(sp.target);
   const targetPoints = TARGETS.includes(target) ? target : 1000;

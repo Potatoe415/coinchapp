@@ -25,8 +25,10 @@ export default function OnlinePage() {
 function OnlinePageInner() {
   const router = useRouter();
   const { locale, t } = useI18n();
-  const isBouilla = useSearchParams().get("game") === "bouilla";
-  const gameType: GameType = isBouilla ? "bouilla" : "coinche";
+  const game = useSearchParams().get("game");
+  const isBouilla = game === "bouilla";
+  const isPresident = game === "president";
+  const gameType: GameType = isBouilla ? "bouilla" : isPresident ? "president" : "coinche";
   const [name, setName] = useHubPrefillName();
   const [setup, setSetup] = useState<GameSetupValues>(DEFAULT_GAME_SETUP);
   const [code, setCode] = useState("");
@@ -88,10 +90,10 @@ function OnlinePageInner() {
 
       <header className="text-center">
         <h1 className="text-3xl font-black tracking-tight text-[var(--surface)]" data-id="online-title">
-          {isBouilla ? t("bouillaOnlineTitle") : t("playOnline")}
+          {isBouilla ? t("bouillaOnlineTitle") : isPresident ? t("presidentOnlineTitle") : t("playOnline")}
         </h1>
         <p className="text-sm text-[var(--foreground)]/75">
-          {isBouilla ? t("bouillaOnlineSubtitle") : t("onlineSubtitle")}
+          {isBouilla ? t("bouillaOnlineSubtitle") : isPresident ? t("presidentOnlineSubtitle") : t("onlineSubtitle")}
         </p>
       </header>
 
@@ -129,6 +131,12 @@ function OnlinePageInner() {
                 gameType,
                 settings: isBouilla
                   ? { stillThereTimeoutSec: setup.stillThereTimeoutSec, botThinkMs: setup.botThinkMs }
+                  : isPresident
+                  ? {
+                      presidentRoundsToPlay: setup.roundsToPlay,
+                      stillThereTimeoutSec: setup.stillThereTimeoutSec,
+                      botThinkMs: setup.botThinkMs,
+                    }
                   : {
                       targetPoints: setup.target,
                       countContractOnlyIfMade: setup.countContractOnlyIfMade,
@@ -198,7 +206,8 @@ function OnlinePageInner() {
         onChange={setSetup}
         idPrefix="online"
         title={t("gameSettings")}
-        coincheFields={!isBouilla}
+        coincheFields={!isBouilla && !isPresident}
+        presidentFields={isPresident}
         showStillThereTimeout
       />
     </main>

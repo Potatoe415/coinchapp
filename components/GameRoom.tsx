@@ -10,16 +10,18 @@ import { useReactions } from "@/lib/client/useReactions";
 import { useStillThereTimer } from "@/lib/client/useStillThereTimer";
 import { useHubPrefillAvatar } from "@/lib/client/hubName";
 import { ensureAnonAuth } from "@/lib/client/auth";
-import { becomeHost, nextDeal, placeBid, playCard, readyForNextRound } from "@/lib/server/actions-game";
+import { becomeHost, nextDeal, pass, placeBid, playCard, playCombo, readyForNextRound, submitExchangeReturn } from "@/lib/server/actions-game";
 import { joinBotSeat, rematchGame } from "@/lib/server/actions-lobby";
 import { BotDebugOverlay } from "./BotDebugOverlay";
 import { BotSeatPicker } from "./BotSeatPicker";
 import type { Card } from "@/lib/coinche";
 import type { Card as BouillaCard } from "@/lib/bouilla";
+import type { Card as PresidentCard, Combo } from "@/lib/president";
 import { createClient } from "@/lib/supabase/client";
 import { Lobby } from "./Lobby";
 import { GameTable, type GameActions, type CoincheGameView } from "./GameTable";
 import { BouillaTable, type BouillaActions, type BouillaGameView } from "./BouillaTable";
+import { PresidentTable, type PresidentActions, type PresidentGameView } from "./PresidentTable";
 import type { BidPayload } from "./BiddingPanel";
 import { StillThereModal } from "./StillThereModal";
 
@@ -127,6 +129,33 @@ export function GameRoom({ gameId }: { gameId: string }) {
     onRematch,
   };
 
+  const presidentActions: PresidentActions = {
+    onPlay: async (combo: Combo) => {
+      await playCombo(gameId, combo);
+      notify();
+      await refetch();
+    },
+    onPass: async () => {
+      await pass(gameId);
+      notify();
+      await refetch();
+    },
+    onExchangeReturn: async (cards: PresidentCard[]) => {
+      await submitExchangeReturn(gameId, cards);
+      notify();
+      await refetch();
+    },
+    onNextRound: async () => {
+      await readyForNextRound(gameId);
+      notify();
+      await refetch();
+    },
+    onBecomeHost,
+    onForceSync: forceResync,
+    onSendReaction,
+    onRematch,
+  };
+
   if (loading) {
     return <Centered>{t("loading")}</Centered>;
   }
@@ -173,9 +202,11 @@ export function GameRoom({ gameId }: { gameId: string }) {
   return (
     <>
       {stillThere.show && <StillThereModal secondsLeft={stillThere.secondsLeft} />}
-      {view.gameType === "bouilla" && debugMode && <BotDebugOverlay log={botDebugLog} />}
+      {view.gameType !== "coinche" && debugMode && <BotDebugOverlay log={botDebugLog} />}
       {view.gameType === "bouilla" ? (
         <BouillaTable gv={view as BouillaGameView} actions={bouillaActions} reactions={reactions} selfAvatar={selfAvatar} />
+      ) : view.gameType === "president" ? (
+        <PresidentTable gv={view as PresidentGameView} actions={presidentActions} reactions={reactions} selfAvatar={selfAvatar} />
       ) : (
         <GameTable gv={view as CoincheGameView} actions={coincheActions} reactions={reactions} selfAvatar={selfAvatar} />
       )}

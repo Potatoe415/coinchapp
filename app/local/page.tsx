@@ -9,6 +9,7 @@ import type { GameSetupValues } from "@/components/GameSettingsPanel";
 import {
   LOCAL_BOUILLA_STORAGE_KEY,
   LOCAL_COINCHE_STORAGE_KEY,
+  LOCAL_PRESIDENT_STORAGE_KEY,
   clearPersistedGame,
 } from "@/lib/client/localGamePersistence";
 
@@ -23,7 +24,9 @@ export default function LocalSetupPage() {
 function LocalSetupPageInner() {
   const router = useRouter();
   const { t } = useI18n();
-  const isBouilla = useSearchParams().get("game") === "bouilla";
+  const game = useSearchParams().get("game");
+  const isBouilla = game === "bouilla";
+  const isPresident = game === "president";
   const [setup, setSetup] = useState<GameSetupValues>(DEFAULT_GAME_SETUP);
 
   function startLocalGame() {
@@ -31,8 +34,13 @@ function LocalSetupPageInner() {
     // abandoned in-progress save so it can't get resumed by mistake.
     clearPersistedGame(LOCAL_COINCHE_STORAGE_KEY);
     clearPersistedGame(LOCAL_BOUILLA_STORAGE_KEY);
+    clearPersistedGame(LOCAL_PRESIDENT_STORAGE_KEY);
     if (isBouilla) {
       router.push(`/local/play?game=bouilla&botThinkMs=${setup.botThinkMs}`);
+      return;
+    }
+    if (isPresident) {
+      router.push(`/local/play?game=president&botThinkMs=${setup.botThinkMs}&roundsToPlay=${setup.roundsToPlay}`);
       return;
     }
     const params = new URLSearchParams({
@@ -63,10 +71,10 @@ function LocalSetupPageInner() {
 
       <header className="text-center">
         <h1 className="text-3xl font-black tracking-tight text-[var(--surface)]" data-id="local-title">
-          {isBouilla ? t("bouillaLocalTitle") : t("playLocal")}
+          {isBouilla ? t("bouillaLocalTitle") : isPresident ? t("presidentLocalTitle") : t("playLocal")}
         </h1>
         <p className="text-sm text-[var(--foreground)]/75">
-          {isBouilla ? t("bouillaLocalSubtitle") : t("localSubtitle")}
+          {isBouilla ? t("bouillaLocalSubtitle") : isPresident ? t("presidentLocalSubtitle") : t("localSubtitle")}
         </p>
       </header>
 
@@ -85,7 +93,8 @@ function LocalSetupPageInner() {
         onChange={setSetup}
         idPrefix="local"
         title={t("settings")}
-        coincheFields={!isBouilla}
+        coincheFields={!isBouilla && !isPresident}
+        presidentFields={isPresident}
       />
     </main>
   );

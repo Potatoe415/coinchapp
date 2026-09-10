@@ -1,19 +1,22 @@
 "use server";
 
 import type { BidType, Seat, TrumpMode } from "@/lib/coinche";
-import type { GameState as BouillaGameState } from "@/lib/bouilla";
 import { getServiceClient, getUserId } from "@/lib/supabase/server";
 import type { AnyGameState, GameRow, GameType } from "@/lib/supabase/types";
-import { advanceScoringTimeout, applyReadyForNextRound } from "./bouilla-round-gate";
+import { advanceScoringTimeout, applyReadyForNextRound } from "./round-gate";
 import {
   applyCardPlay,
+  applyComboPlay,
+  applyExchangeReturn,
   applyMove,
+  applyPass,
   applyStartNext,
   chooseHeuristicMove,
   isActivePhase,
   statusFor,
   type BotMove,
   type WireCard,
+  type WireCombo,
 } from "./game-dispatch";
 import { advanceIdleTurns, markSeatPresent, resetMissedTurns } from "./idle-timer";
 import { botSeats, isSeatLive, loadGame, persistGame, seatOf, touchGame, touchPresence, type LoadedGame } from "./repo";
@@ -54,7 +57,7 @@ export async function placeBid(
 ): Promise<void> {
   const { loaded, seat, state, gameType } = await loadForAction(gameId);
   if (gameType === "bouilla") throw new Error("bidding_not_supported");
-  const next = applyMove(gameType, state, seat, { bid: { seat, type: bid.type, value: bid.value, suit: bid.suit } });
+  const next = applyMove(gameType, state, seat, { kind: "bid", bid: { seat, type: bid.type, value: bid.value, suit: bid.suit } });
   await commit(loaded, next);
   resetMissedTurns(loaded, seat);
 }
@@ -62,6 +65,33 @@ export async function placeBid(
 export async function playCard(gameId: string, card: WireCard): Promise<void> {
   const { loaded, seat, state, gameType } = await loadForAction(gameId);
   const next = applyCardPlay(gameType, state, seat, card);
+  await commit(loaded, next);
+  resetMissedTurns(loaded, seat);
+}
+
+/** Président only: play a combo (single/pair/triple/quad). */
+export async function playCombo(gameId: string, combo: WireCombo): Promise<void> {
+  const { loaded, seat, state, gameType } = await loadForAction(gameId);
+  if (gameType !== "president") throw new Error("combo_not_supported");
+  const next = applyComboPlay(state, seat, combo);
+  await commit(loaded, next);
+  resetMissedTurns(loaded, seat);
+}
+
+/** Président only: pass instead of playing onto the pile. */
+export async function pass(gameId: string): Promise<void> {
+  const { loaded, seat, state, gameType } = await loadForAction(gameId);
+  if (gameType !== "president") throw new Error("pass_not_supported");
+  const next = applyPass(state, seat);
+  await commit(loaded, next);
+  resetMissedTurns(loaded, seat);
+}
+
+/** Président only: return the required number of cards during the "exchange" phase. */
+export async function submitExchangeReturn(gameId: string, cards: WireCard[]): Promise<void> {
+  const { loaded, seat, state, gameType } = await loadForAction(gameId);
+  if (gameType !== "president") throw new Error("exchange_not_supported");
+  const next = applyExchangeReturn(state, seat, cards);
   await commit(loaded, next);
   resetMissedTurns(loaded, seat);
 }
@@ -82,14 +112,15 @@ export async function nextDeal(gameId: string): Promise<void> {
   await commit(loaded, applyStartNext(gameType, state));
 }
 
-/** Bouilla only: press "Partie suivante". Unlike `nextDeal` (Coinche, and
- *  Bouilla's own finished-screen rematch), this does not advance immediately -
- *  it waits until every human seat has pressed it, or `ROUND_AUTO_ADVANCE_MS`
- *  has elapsed (see `advanceScoringTimeout`, run from `getView`). */
+/** Bouilla/Président only: press "Manche suivante"/"Partie suivante". Unlike
+ *  `nextDeal` (Coinche, and both games' own finished-screen rematch), this
+ *  does not advance immediately - it waits until every human seat has
+ *  pressed it, or `ROUND_AUTO_ADVANCE_MS` has elapsed (see
+ *  `advanceScoringTimeout`, run from `getView`). */
 export async function readyForNextRound(gameId: string): Promise<void> {
   const { loaded, seat, state, gameType } = await loadForAction(gameId);
-  if (gameType !== "bouilla") throw new Error("not_bouilla");
-  const next = applyReadyForNextRound(loaded, state as BouillaGameState, seat);
+  if (gameType !== "bouilla" && gameType !== "president") throw new Error("round_gate_not_supported");
+  const next = applyReadyForNextRound(loaded, gameType, state, seat);
   await commit(loaded, next);
 }
 
@@ -104,11 +135,23 @@ export async function submitBotMove(gameId: string, seat: Seat, move: BotMove): 
   if (!botSeats(loaded.players)[seat]) throw new Error("seat_not_bot");
 
   const gameType = loaded.game.game_type;
-  const next =
-    move.kind === "play"
-      ? applyCardPlay(gameType, state, seat, move.card)
-      : applyMove(gameType, state, seat, { bid: { seat, type: move.type, value: move.value, suit: move.suit } });
+  const next = applyBotMove(gameType, state, seat, move);
   await commit(loaded, next);
+}
+
+function applyBotMove(gameType: GameType, state: AnyGameState, seat: Seat, move: BotMove): AnyGameState {
+  switch (move.kind) {
+    case "play":
+      return applyCardPlay(gameType, state, seat, move.card);
+    case "combo":
+      return applyComboPlay(state, seat, move.combo);
+    case "pass":
+      return applyPass(state, seat);
+    case "exchangeReturn":
+      return applyExchangeReturn(state, seat, move.cards);
+    case "bid":
+      return applyMove(gameType, state, seat, { kind: "bid", bid: { seat, type: move.type, value: move.value, suit: move.suit } });
+  }
 }
 
 /** Same as `submitBotMove`, but also reports how long the Vercel function

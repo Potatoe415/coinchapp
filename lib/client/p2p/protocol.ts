@@ -2,6 +2,7 @@
 
 import { redact as redactCoinche, type BidType, type GameState as CoincheGameState, type Seat, type TrumpMode } from "@/lib/coinche";
 import { redact as redactBouilla, type GameState as BouillaGameState } from "@/lib/bouilla";
+import { redact as redactPresident, type GameState as PresidentGameState } from "@/lib/president";
 import type { GameSettings, GameType } from "@/lib/supabase/types";
 import type { GameView } from "@/lib/server/view";
 
@@ -16,12 +17,20 @@ export interface RosterEntry {
  *  engine (`applyPlay`/`isLegalPlay`) is what actually validates rank/suit/legality. */
 export type WireCard = { suit: string; rank: string };
 
+/** A played combo, loosely typed at the transport boundary: the President engine's
+ *  own `isLegalCombo`/`applyPlay` is what actually validates it. */
+export type WireCombo = { rank: string; cards: WireCard[] };
+
 /** Messages a client sends to the host (its own seat's moves). Bidding never applies
- *  to Bouilla (no auction); the host simply never expects a "bid" message for it. */
+ *  to Bouilla/Président (no auction); the host simply never expects a "bid" message
+ *  for them. Combo/pass/exchangeReturn only apply to Président. */
 export type ClientMessage =
   | { t: "hello"; name: string }
   | { t: "bid"; payload: { type: BidType; value?: number; suit?: TrumpMode } }
   | { t: "play"; card: WireCard }
+  | { t: "combo"; combo: WireCombo }
+  | { t: "pass" }
+  | { t: "exchangeReturn"; cards: WireCard[] }
   | { t: "nextDeal" };
 
 /** Messages the host sends to a client (that seat's redacted view). */
@@ -99,6 +108,32 @@ export function buildBouillaSeatView(
     players: lobbyPlayers(roster),
     mySeat: seat,
     view: redactBouilla(state, seat),
+    hostUserId: null,
+    hostSeat,
+    isHost: seat === hostSeat,
+    turnStartedAt: null,
+    myMissedTurnsInRow: 0,
+  };
+}
+
+/** Same as `buildSeatView`, for a Président table (no bidding/trump/teams to carry). */
+export function buildPresidentSeatView(
+  state: PresidentGameState,
+  seat: Seat,
+  roster: RosterEntry[],
+  settings: GameSettings,
+  hostSeat: Seat,
+): GameView {
+  return {
+    gameId: "adhoc",
+    roomCode: "P2P",
+    gameType: "president" as GameType,
+    status: state.phase === "finished" ? "finished" : "playing",
+    settings,
+    version: 0,
+    players: lobbyPlayers(roster),
+    mySeat: seat,
+    view: redactPresident(state, seat),
     hostUserId: null,
     hostSeat,
     isHost: seat === hostSeat,

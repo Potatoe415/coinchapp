@@ -3,6 +3,8 @@ import { legalCards as legalCoincheCards, type Seat } from "@/lib/coinche";
 import type { GameState as CoincheGameState } from "@/lib/coinche";
 import { legalCards as legalBouillaCards } from "@/lib/bouilla";
 import type { GameState as BouillaGameState } from "@/lib/bouilla";
+import { canPass as canPassPresident, legalCombos as legalPresidentCombos } from "@/lib/president";
+import type { GameState as PresidentGameState } from "@/lib/president";
 import { getServiceClient } from "@/lib/supabase/server";
 import {
   DEFAULT_STILL_THERE_TIMEOUT_SEC,
@@ -47,31 +49,43 @@ export function decideIdleAction(params: {
   return params.missedTurnsInRow >= 1 ? "convertToBot" : "autoPlay";
 }
 
-/** A uniformly random legal card for `seat` (first-offense auto-play only; once a
- *  seat is a permanent bot, every future move goes through the heuristic bot
- *  like any other bot seat instead). */
-function chooseRandomCard(gameType: GameType, state: AnyGameState, seat: Seat) {
-  const legal =
-    gameType === "bouilla"
-      ? legalBouillaCards(state as BouillaGameState, seat)
-      : legalCoincheCards(state as CoincheGameState, seat);
+/** A uniformly random legal move for `seat` (first-offense auto-play only; once
+ *  a seat is a permanent bot, every future move goes through the heuristic bot
+ *  like any other bot seat instead): a card for Coinche/Bouilla, or a random
+ *  legal combo (falling back to a pass) for Président. */
+function chooseRandomMove(gameType: GameType, state: AnyGameState, seat: Seat): HeuristicMove {
+  if (gameType === "bouilla") {
+    const legal = legalBouillaCards(state as BouillaGameState, seat);
+    if (legal.length === 0) throw new Error("no_legal_cards");
+    return { kind: "play", card: legal[Math.floor(Math.random() * legal.length)] };
+  }
+  if (gameType === "president") {
+    const legal = legalPresidentCombos(state as PresidentGameState, seat);
+    if (legal.length > 0) return { kind: "combo", combo: legal[Math.floor(Math.random() * legal.length)] };
+    if (!canPassPresident(state as PresidentGameState, seat)) throw new Error("no_legal_action");
+    return { kind: "pass" };
+  }
+  const legal = legalCoincheCards(state as CoincheGameState, seat);
   if (legal.length === 0) throw new Error("no_legal_cards");
-  return legal[Math.floor(Math.random() * legal.length)];
+  return { kind: "play", card: legal[Math.floor(Math.random() * legal.length)] };
 }
 
-/** Coinche bidding has no sensible "random" move (an unlucky random bid could
- *  hand out a huge, unwanted contract); idle bidding timeouts always use the
- *  same heuristic bid the 45s browser-gone safety net already relies on. */
-function isBiddingPhase(gameType: GameType, state: AnyGameState): boolean {
-  return gameType === "coinche" && state.phase === "bidding";
+/** Some phases have no sensible "random" move: Coinche's bidding (an unlucky
+ *  random bid could hand out a huge, unwanted contract) and Président's
+ *  exchange (no sensible random card return) always use the same heuristic
+ *  move the 45s browser-gone safety net already relies on. */
+function needsHeuristicMove(gameType: GameType, state: AnyGameState): boolean {
+  if (gameType === "coinche") return state.phase === "bidding";
+  if (gameType === "president") return state.phase === "exchange";
+  return false;
 }
 
-/** The move to apply for a given idle action: a genuine random card for a first
- *  offense (except bidding, see `isBiddingPhase`), or the heuristic bot's own
- *  move once the seat is being converted to a permanent bot. */
+/** The move to apply for a given idle action: a genuine random move for a first
+ *  offense (except where `needsHeuristicMove` applies), or the heuristic bot's
+ *  own move once the seat is being converted to a permanent bot. */
 function chooseIdleMove(gameType: GameType, state: AnyGameState, seat: Seat, action: IdleAction): HeuristicMove {
-  if (action === "convertToBot" || isBiddingPhase(gameType, state)) return chooseHeuristicMove(gameType, state, seat);
-  return { card: chooseRandomCard(gameType, state, seat) };
+  if (action === "convertToBot" || needsHeuristicMove(gameType, state)) return chooseHeuristicMove(gameType, state, seat);
+  return chooseRandomMove(gameType, state, seat);
 }
 
 /** DB side effects for a seat that just got auto-played or converted to a bot.

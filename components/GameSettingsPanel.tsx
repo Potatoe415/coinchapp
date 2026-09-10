@@ -5,8 +5,10 @@ import { BOT_PUNCH_LEVELS, type BotPunch } from "@/lib/coinche";
 import {
   BOT_THINK_MS_STEP,
   DEFAULT_BOT_THINK_MS,
+  DEFAULT_PRESIDENT_ROUNDS_TO_PLAY,
   MAX_BOT_THINK_MS,
   MIN_BOT_THINK_MS,
+  PRESIDENT_ROUNDS_OPTIONS,
   STILL_THERE_TIMEOUT_OPTIONS,
 } from "@/lib/supabase/types";
 import { ParamPresetPicker } from "./ParamPresetPicker";
@@ -29,6 +31,8 @@ export interface GameSetupValues {
   /** How long a bot "thinks" before playing, in ms. Shared by both games and
    *  every mode (see `GameSettings.botThinkMs`). */
   botThinkMs: number;
+  /** Président-only: number of rounds in the match (see `GameSettings.presidentRoundsToPlay`). */
+  roundsToPlay: number;
 }
 
 export const DEFAULT_GAME_SETUP: GameSetupValues = {
@@ -43,6 +47,7 @@ export const DEFAULT_GAME_SETUP: GameSetupValues = {
   botPunch: "med",
   stillThereTimeoutSec: 15,
   botThinkMs: DEFAULT_BOT_THINK_MS,
+  roundsToPlay: DEFAULT_PRESIDENT_ROUNDS_TO_PLAY,
 };
 
 const TARGETS = [500, 1000, 1500, 2000];
@@ -86,6 +91,9 @@ interface Props {
   /** Whether to show the Coinche-only fields (points/capot/preset picker/etc.).
    *  Defaults to true. */
   coincheFields?: boolean;
+  /** Whether to show the Président-only field (rounds-to-play slider).
+   *  Defaults to false. */
+  presidentFields?: boolean;
   /** Whether to show the shared idle-turn timer field. Online-only: local and
    *  ad-hoc games never run the server-side idle timer, so it would be dead UI
    *  there. Defaults to false. */
@@ -98,6 +106,7 @@ export function GameSettingsPanel({
   idPrefix,
   title,
   coincheFields = true,
+  presidentFields = false,
   showStillThereTimeout = false,
 }: Props) {
   const { t } = useI18n();
@@ -184,6 +193,31 @@ export function GameSettingsPanel({
             <div className="flex justify-between text-xs text-[var(--card-face)]/50">
               {STILL_THERE_TIMEOUT_OPTIONS.map((sec) => (
                 <span key={sec}>{sec}</span>
+              ))}
+            </div>
+          </div>
+        )}
+        {presidentFields && (
+          <div className="flex flex-col gap-1.5 text-sm" data-id={`${idPrefix}-rounds-to-play-row`}>
+            <div className="flex items-center justify-between">
+              <span className="text-[var(--card-face)]/75">{t("roundsToPlayLabel")}</span>
+              <span className="font-bold text-[var(--accent-yellow)]" data-id={`${idPrefix}-rounds-to-play-value`}>
+                {values.roundsToPlay}
+              </span>
+            </div>
+            <input
+              type="range"
+              min={0}
+              max={PRESIDENT_ROUNDS_OPTIONS.length - 1}
+              step={1}
+              value={(PRESIDENT_ROUNDS_OPTIONS as readonly number[]).indexOf(values.roundsToPlay)}
+              onChange={(e) => set("roundsToPlay", PRESIDENT_ROUNDS_OPTIONS[Number(e.target.value)])}
+              data-id={`${idPrefix}-rounds-to-play-slider`}
+              className="w-full accent-[var(--accent-yellow)]"
+            />
+            <div className="flex justify-between text-xs text-[var(--card-face)]/50">
+              {PRESIDENT_ROUNDS_OPTIONS.map((n) => (
+                <span key={n}>{n}</span>
               ))}
             </div>
           </div>

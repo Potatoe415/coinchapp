@@ -147,7 +147,7 @@ export function useP2PBouillaHost(config: P2PBouillaHostConfig): { gv: GameView;
 
   // Score table cap: even if some human never presses "Partie suivante", the round
   // starts anyway after ROUND_AUTO_ADVANCE_MS (mirrors the online gate, see
-  // `lib/server/bouilla-round-gate.ts`).
+  // `lib/server/round-gate.ts`).
   useEffect(() => {
     if (state.phase !== "scoring") return;
     const timer = setTimeout(forceAdvance, ROUND_AUTO_ADVANCE_MS);

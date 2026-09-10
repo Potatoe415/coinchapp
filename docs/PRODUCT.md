@@ -5,7 +5,7 @@ Status: Living document. Never edit autonomously - confirm with user first.
 ---
 
 Project_Name: Coinche en ligne
-Objective: Permettre de jouer une partie de Coinche à 4 dans un navigateur mobile, en ligne avec d'autres joueurs ou contre des bots.
+Objective: Permettre de jouer un jeu de cartes à 4 (Coinche, la Bouilla, ou Président) dans un navigateur mobile, en ligne avec d'autres joueurs ou contre des bots.
 Problem: Les jeux de Coinche existants sont souvent des apps natives ou peu adaptés au jeu rapide entre amis via un simple lien.
 
 Target_Users:
@@ -17,6 +17,7 @@ Core_Features:
 - Sièges vides remplis par des bots (jouable même seul).
 - Partie complète : enchères (annonce, coinche, surcoinche), jeu des plis, scoring.
 - Règles de Coinche : 32 cartes, ordres/points atout vs non-atout, dix de der, belote, capot.
+- Trois jeux disponibles : Coinche (enchères/plis/atout), la Bouilla (barbu : 6 manches fixes, pénalités cumulées), Président/Trou du cul (combos par rang, révolution, échange forcé, classement cumulé).
 - Paramètres de partie : objectif de points, difficulté des bots.
 - Synchronisation temps réel entre joueurs.
 

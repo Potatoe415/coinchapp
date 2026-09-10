@@ -1,6 +1,5 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
 import {
   beginNextDeal,
   createInitialState,
@@ -15,10 +14,11 @@ import {
 } from "@/lib/coinche";
 import type { GameActions } from "@/components/GameTable";
 import type { GameView } from "@/lib/server/view";
-import { runBotLoop, seededRng, wait } from "./cardGameDriver";
+import { seededRng, wait } from "./cardGameDriver";
 import { coincheEngine } from "./coincheEngineAdapter";
-import { LOCAL_COINCHE_STORAGE_KEY, loadPersistedGame, savePersistedGame } from "./localGamePersistence";
+import { LOCAL_COINCHE_STORAGE_KEY } from "./localGamePersistence";
 import { useBotWorker } from "./useBotWorker";
+import { useLocalCardGame } from "./useLocalCardGame";
 
 const BOTS = [false, true, true, true];
 const NAMES = ["Vous", "Adam", "Jane", "Lea"];
@@ -38,49 +38,18 @@ export function useLocalGame(
   botPunch: BotPunch,
   botThinkMs: number,
 ): { gv: GameView; actions: GameActions } {
-  const [state, setState] = useState<GameState>(() =>
-    startState(targetPoints, seed, scoringRules),
-  );
-  // Mirror of `state` for the async bot loop, kept in sync without waiting for a render.
-  const stateRef = useRef(state);
-  const busyRef = useRef(false);
-  const commit = useCallback((next: GameState) => {
-    stateRef.current = next;
-    setState(next);
-    savePersistedGame(LOCAL_COINCHE_STORAGE_KEY, next);
-  }, []);
   const decide = useBotWorker(botPunch, botThinkMs);
-
-  /** Advance bot seats one move at a time. The ISMCTS search runs in a Web
-   *  Worker and overlaps the minimum thinking delay, so the UI never blocks. */
-  const runBots = useCallback(async () => {
-    if (busyRef.current) return;
-    busyRef.current = true;
-    try {
-      await runBotLoop({
-        engine: coincheEngine,
-        getState: () => stateRef.current,
-        isBot: (seat) => BOTS[seat],
-        decide,
-        commit,
-        thinkingMs: botThinkMs,
-        collectDelayMs: COLLECT_DELAY_MS,
-      });
-    } finally {
-      busyRef.current = false;
-    }
-  }, [commit, decide, botThinkMs]);
-
-  /** On mount, resume any saved in-progress match (reload/relaunch-proof offline
-   *  play) before triggering bots, which otherwise handles initial bot turns
-   *  (e.g. bot bids first after the dealer). */
-  useEffect(() => {
-    const saved = loadPersistedGame<GameState>(LOCAL_COINCHE_STORAGE_KEY);
-    // Mount-only hydration from localStorage, not a reactive state sync.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (saved) commit(saved);
-    runBots();
-  }, [commit, runBots]);
+  // The ISMCTS search (via `decide`) runs in a Web Worker and overlaps the
+  // minimum thinking delay, so the UI never blocks.
+  const { state, stateRef, commit, runBots } = useLocalCardGame({
+    initialState: () => startState(targetPoints, seed, scoringRules),
+    storageKey: LOCAL_COINCHE_STORAGE_KEY,
+    engine: coincheEngine,
+    decide,
+    isBot: (seat) => BOTS[seat],
+    thinkingMs: botThinkMs,
+    collectDelayMs: COLLECT_DELAY_MS,
+  });
 
   const actions: GameActions = {
     onBid: async (payload) => {

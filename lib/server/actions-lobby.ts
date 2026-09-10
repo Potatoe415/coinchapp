@@ -2,12 +2,15 @@
 
 import { beginNextDeal, BOT_PUNCH_LEVELS, createInitialState } from "@/lib/coinche";
 import { beginNextRound, createInitialState as createInitialBouillaState } from "@/lib/bouilla";
+import { beginNextRound as beginNextPresidentRound, createInitialState as createInitialPresidentState } from "@/lib/president";
 import { getServiceClient, getUserId } from "@/lib/supabase/server";
 import {
   BOT_THINK_MS_STEP,
   DEFAULT_BOT_THINK_MS,
+  DEFAULT_PRESIDENT_ROUNDS_TO_PLAY,
   MAX_BOT_THINK_MS,
   MIN_BOT_THINK_MS,
+  PRESIDENT_ROUNDS_OPTIONS,
   STILL_THERE_TIMEOUT_OPTIONS,
   type AnyGameState,
   type GameRow,
@@ -35,6 +38,12 @@ function sanitizePoints(val: number | undefined, fallback: number): number {
 
 function sanitizeStillThereTimeoutSec(val: number | undefined): number {
   return (STILL_THERE_TIMEOUT_OPTIONS as readonly number[]).includes(val ?? 0) ? (val as number) : 15;
+}
+
+function sanitizePresidentRoundsToPlay(val: number | undefined): number {
+  return (PRESIDENT_ROUNDS_OPTIONS as readonly number[]).includes(val ?? 0)
+    ? (val as number)
+    : DEFAULT_PRESIDENT_ROUNDS_TO_PLAY;
 }
 
 /** Clamps to the slider's range and snaps to its step, so a tampered/stale value
@@ -65,18 +74,27 @@ function sanitizeCoincheSettings(input: Partial<GameSettings>): GameSettings {
 }
 
 /** Bouilla's 6 rounds/point values are fixed - its only configurable settings are
- *  the idle-turn timer and bot thinking time, both shared with Coinche. */
+ *  the idle-turn timer and bot thinking time, both shared with Coinche. Président
+ *  additionally has its own rounds-to-play setting. */
 function sanitizeSettings(gameType: GameType, input: Partial<GameSettings>): GameSettings {
-  return gameType === "bouilla"
-    ? {
-        stillThereTimeoutSec: sanitizeStillThereTimeoutSec(input.stillThereTimeoutSec),
-        botThinkMs: sanitizeBotThinkMs(input.botThinkMs),
-      }
-    : sanitizeCoincheSettings(input);
+  if (gameType === "bouilla") {
+    return {
+      stillThereTimeoutSec: sanitizeStillThereTimeoutSec(input.stillThereTimeoutSec),
+      botThinkMs: sanitizeBotThinkMs(input.botThinkMs),
+    };
+  }
+  if (gameType === "president") {
+    return {
+      stillThereTimeoutSec: sanitizeStillThereTimeoutSec(input.stillThereTimeoutSec),
+      botThinkMs: sanitizeBotThinkMs(input.botThinkMs),
+      presidentRoundsToPlay: sanitizePresidentRoundsToPlay(input.presidentRoundsToPlay),
+    };
+  }
+  return sanitizeCoincheSettings(input);
 }
 
 function isGameType(value: unknown): value is GameType {
-  return value === "coinche" || value === "bouilla";
+  return value === "coinche" || value === "bouilla" || value === "president";
 }
 
 function cleanName(name: string, fallback: string): string {
@@ -333,6 +351,9 @@ export async function swapSeats(gameId: string, seatA: number, seatB: number): P
 
 function startInitialState(gameType: GameType, settings: GameSettings): AnyGameState {
   if (gameType === "bouilla") return beginNextRound(createInitialBouillaState());
+  if (gameType === "president") {
+    return beginNextPresidentRound(createInitialPresidentState(settings.presidentRoundsToPlay ?? DEFAULT_PRESIDENT_ROUNDS_TO_PLAY));
+  }
   return beginNextDeal(createInitialState(settings.targetPoints ?? 1000, {
     countContractOnlyIfMade: settings.countContractOnlyIfMade,
     failedContractDefensePoints: settings.failedContractDefensePoints,

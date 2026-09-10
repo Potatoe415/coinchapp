@@ -4,6 +4,7 @@
 
 export const LOCAL_COINCHE_STORAGE_KEY = "coinchapp:local-coinche:v1";
 export const LOCAL_BOUILLA_STORAGE_KEY = "coinchapp:local-bouilla:v1";
+export const LOCAL_PRESIDENT_STORAGE_KEY = "coinchapp:local-president:v1";
 
 type PersistablePhaseState = { phase: string };
 

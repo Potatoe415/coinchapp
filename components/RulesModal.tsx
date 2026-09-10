@@ -53,6 +53,75 @@ const BOUILLA_RULES = {
   },
 } as const;
 
+const PRESIDENT_RULES = {
+  fr: {
+    title: "Règles du Président (Trou du cul)",
+    sections: [
+      {
+        heading: "But du jeu",
+        body: "4 joueurs, chacun pour soi. Paquet de 52 cartes (13 par joueur), pas d'atout. Le but est de se débarrasser de toutes ses cartes le plus vite possible, manche après manche.",
+      },
+      {
+        heading: "Ordre des cartes",
+        body: "Du plus faible au plus fort : 3, 4, 5, 6, 7, 8, 9, 10, Valet, Dame, Roi, As, 2 (le 2 est la carte la plus forte).",
+      },
+      {
+        heading: "Jouer",
+        body: "À son tour, on joue une carte seule, une paire, un brelan ou un carré (des cartes de même hauteur), plus fort que ce qui est posé, avec le même nombre de cartes — ou on passe. Une fois que tout le monde a passé, la pile est ramassée et celui qui a posé en dernier rejoue librement.",
+      },
+      {
+        heading: "La révolution",
+        body: "Poser un carré (4 cartes identiques) inverse l'ordre des cartes jusqu'à la prochaine révolution ou la fin de la manche : le 3 devient alors la carte la plus forte, et le 2 la plus faible.",
+      },
+      {
+        heading: "Les titres",
+        body: "Le premier à se débarrasser de toutes ses cartes devient Président, le 2e Vice-Président, le 3e Vice-Trou du cul, le dernier Trou du cul.",
+      },
+      {
+        heading: "L'échange",
+        body: "Au début de chaque manche suivante, le Trou du cul donne ses 2 meilleures cartes au Président (qui rend 2 cartes de son choix), et le Vice-Trou du cul donne sa meilleure carte au Vice-Président (qui rend 1 carte).",
+      },
+      {
+        heading: "Le score",
+        body: "Chaque manche, la place de chacun (1 pour Président, 4 pour Trou du cul) s'ajoute à son total. Après le nombre de manches prévu, le total le plus bas gagne.",
+      },
+    ],
+  },
+  en: {
+    title: "President (Asshole) Rules",
+    sections: [
+      {
+        heading: "Goal",
+        body: "4 players, every player for themselves. Full 52-card pack (13 each), no trump. The goal is to get rid of every card as fast as possible, round after round.",
+      },
+      {
+        heading: "Card order",
+        body: "Weakest to strongest: 3, 4, 5, 6, 7, 8, 9, 10, Jack, Queen, King, Ace, 2 (2 is the strongest card).",
+      },
+      {
+        heading: "Playing",
+        body: "On your turn, play a single card, a pair, a triple or a quad (same rank), stronger than what's down, with the same card count — or pass. Once everyone has passed, the pile clears and whoever played last leads freely again.",
+      },
+      {
+        heading: "Revolution",
+        body: "Playing a quad (4 identical cards) reverses the card order until the next revolution or the end of the round: 3 becomes the strongest card, 2 the weakest.",
+      },
+      {
+        heading: "Titles",
+        body: "The first to get rid of every card becomes President, the 2nd Vice-President, the 3rd Vice-Asshole, the last one Asshole.",
+      },
+      {
+        heading: "The exchange",
+        body: "At the start of every following round, the Asshole gives their 2 best cards to the President (who gives back any 2 cards), and the Vice-Asshole gives their best card to the Vice-President (who gives back 1 card).",
+      },
+      {
+        heading: "Scoring",
+        body: "Each round, everyone's finishing rank (1 for President, 4 for Asshole) is added to their total. After the planned number of rounds, the lowest total wins.",
+      },
+    ],
+  },
+} as const;
+
 const COINCHE_RULES = {
   fr: {
     title: "Règles de la Coinche",
@@ -116,7 +185,8 @@ const COINCHE_RULES = {
 
 export function RulesModal({ onClose, game = "coinche" }: Props) {
   const { locale } = useI18n();
-  const rules = (game === "bouilla" ? BOUILLA_RULES : COINCHE_RULES)[locale];
+  const rulesByGame = { coinche: COINCHE_RULES, bouilla: BOUILLA_RULES, president: PRESIDENT_RULES };
+  const rules = rulesByGame[game][locale];
 
   return (
     <div

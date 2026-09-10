@@ -13,7 +13,7 @@ Hosting: Vercel
 Authentication: Supabase anonymous sign-in (cookie session via @supabase/ssr)
 Authorization: RLS denies direct client access to games/game_players; only the service_role (Server Actions) reads/writes authoritative state.
 Security: Human hands stay redacted per seat. Bots run in the host client, which receives the bot seats' hands (trusted-runner model). The server stays authoritative: it validates every submitted move (human or bot) with the rules engine.
-Testing: Vitest (pure rules engine in lib/coinche)
+Testing: Vitest (pure rules engines in lib/coinche, lib/bouilla, lib/president)
 Deployment: Git push -> Vercel build (see docs/RUNBOOK.md)
 
 Conventions:
@@ -32,6 +32,8 @@ Architecture_Principles:
 
 Key_Modules:
 - lib/coinche: cards, deal, bidding, trick, scoring, engine, bot, redact, types.
+- lib/bouilla: cards, deal, trick, rounds, scoring, engine, bot, redact, types (Barbu-style, no bidding/trump).
+- lib/president: cards, deal, combos, play, exchange, scoring, engine, bot, redact, types (shedding game, revolution + forced exchange).
 - lib/server: repo (data access), view (redaction + host botViews), actions-lobby, actions-game (submitBotMove, becomeHost).
 - lib/supabase: client (browser), server (user + service clients).
 - lib/client: auth (anon), useGameView (realtime hook), bot (browser brain), useBotRunner (host drives bots), useLocalGame.

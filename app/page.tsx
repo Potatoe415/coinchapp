@@ -1,12 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { useI18n } from "@/lib/client/i18n";
-import { withHubName } from "@/lib/client/hubName";
 import { useInstallPrompt } from "@/lib/client/useInstallPrompt";
 import { HomeTopBar } from "@/components/HomeTopBar";
-import { RulesModal } from "@/components/RulesModal";
 import type { GameType } from "@/lib/supabase/types";
 
 async function resetBrowserData() {
@@ -53,104 +50,71 @@ async function resetBrowserData() {
   window.location.reload();
 }
 
+interface GameTile {
+  game: GameType;
+  href: string;
+  titleKey: "gameTabCoinche" | "gameTabBouilla" | "gameTabPresident";
+  descKey: "coincheTileDesc" | "bouillaTileDesc" | "presidentTileDesc";
+  accent: string;
+}
+
+const TILES: GameTile[] = [
+  { game: "coinche", href: "/coinche", titleKey: "gameTabCoinche", descKey: "coincheTileDesc", accent: "var(--accent-yellow)" },
+  { game: "bouilla", href: "/bouilla", titleKey: "gameTabBouilla", descKey: "bouillaTileDesc", accent: "var(--accent-cyan)" },
+  { game: "president", href: "/president", titleKey: "gameTabPresident", descKey: "presidentTileDesc", accent: "var(--accent-green)" },
+];
+
+/** App landing screen: a list of game tiles. Tapping one navigates to that
+ *  game's own splash screen (`/coinche`, `/bouilla`, `/president`), which each
+ *  offer the local/online/ad-hoc mode picker and the game's own rules. */
 export default function Home() {
-  const router = useRouter();
   const { t } = useI18n();
   const { installable, promptInstall } = useInstallPrompt();
-  const [showRules, setShowRules] = useState(false);
-  const [game, setGame] = useState<GameType>("coinche");
-  const gameSuffix = game === "bouilla" ? "?game=bouilla" : "";
-
-  const isBouilla = game === "bouilla";
 
   return (
     <main
-      className="relative mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-between overflow-hidden"
+      className="relative mx-auto flex w-full max-w-md flex-1 flex-col items-center overflow-hidden bg-felt"
       data-id="home-screen"
-      style={{
-        backgroundImage: isBouilla ? "url('/bouilla-full.jpg')" : "url('/splashscreen.jpg')",
-        backgroundSize: "cover",
-        backgroundPosition: "center top",
-        transition: "--accent-yellow 0.3s, --accent-cyan 0.3s",
-        ...(isBouilla && {
-          "--accent-yellow": "#ee6e63",
-          "--accent-cyan": "#f3c247",
-        } as React.CSSProperties),
-      }}
     >
-
       <HomeTopBar />
 
-      <div className="relative z-10 flex w-full flex-col items-center gap-3 px-6 pt-[25vh]" data-id="splash-actions">
-        <div className="flex w-full rounded-2xl bg-black/25 p-1" data-id="game-tabs">
-          <button
-            data-id="game-tab-coinche"
-            onClick={() => setGame("coinche")}
-            aria-pressed={game === "coinche"}
-            className={`flex-1 rounded-xl px-3 py-2.5 text-sm font-black transition-colors ${
-              game === "coinche" ? "bg-[var(--accent-yellow)] text-[var(--surface)]" : "text-white/70"
-            }`}
+      <div className="relative z-10 flex w-full flex-1 flex-col items-center gap-3 px-6 pt-[18vh]" data-id="game-tiles">
+        <header className="mb-2 text-center">
+          <h1 className="text-2xl font-black tracking-tight text-white" data-id="home-title">
+            {t("chooseGameTitle")}
+          </h1>
+          <p className="text-sm text-white/70">{t("chooseGameSubtitle")}</p>
+        </header>
+
+        {TILES.map((tile) => (
+          <Link
+            key={tile.game}
+            href={tile.href}
+            data-id={`game-tile-${tile.game}`}
+            className="w-full rounded-2xl bg-black/25 px-5 py-4 text-left shadow-lg ring-1 ring-white/10 transition active:scale-[0.98]"
           >
-            {t("gameTabCoinche")}
-          </button>
-          <button
-            data-id="game-tab-bouilla"
-            onClick={() => setGame("bouilla")}
-            aria-pressed={game === "bouilla"}
-            className={`flex-1 rounded-xl px-3 py-2.5 text-sm font-black transition-colors ${
-              game === "bouilla" ? "bg-[var(--accent-yellow)] text-[var(--surface)]" : "text-white/70"
-            }`}
-          >
-            {t("gameTabBouilla")}
-          </button>
-        </div>
-
-        <button
-          data-id="play-local-button"
-          onClick={() => router.push(`/local${gameSuffix}`)}
-          className="w-full rounded-2xl bg-[var(--accent-yellow)] px-4 py-5 text-lg font-black text-[var(--surface)] shadow-lg"
-        >
-          {t("playLocal")}
-          <span className="mt-0.5 block text-xs font-medium text-[var(--surface)]/80">
-            {t("localOfflineNote")}
-          </span>
-        </button>
-
-        <button
-          data-id="play-online-button"
-          onClick={() =>
-            router.push(
-              withHubName(game === "bouilla" ? "/online?game=bouilla" : "/online?target=1000"),
-            )
-          }
-          className="w-full rounded-2xl bg-[var(--accent-cyan)] px-4 py-5 text-lg font-black text-[var(--surface)] shadow-lg"
-        >
-          {t("playOnline")}
-        </button>
-
-        <button
-          data-id="play-adhoc-button"
-          onClick={() => router.push(withHubName(`/adhoc${gameSuffix}`))}
-          className="w-full rounded-2xl bg-[var(--accent-green)] px-4 py-5 text-lg font-black text-[var(--surface)] shadow-lg"
-        >
-          {t("playAdhoc")}
-          <span className="mt-0.5 block text-xs font-medium text-[var(--surface)]/80">
-            {t("adhocOfflineNote")}
-          </span>
-        </button>
+            <span
+              className="mb-1 block text-lg font-black"
+              style={{ color: tile.accent }}
+            >
+              {t(tile.titleKey)}
+            </span>
+            <span className="block text-sm text-white/70">{t(tile.descKey)}</span>
+          </Link>
+        ))}
 
         {installable && (
           <button
             data-id="install-app-button"
             onClick={promptInstall}
-            className="w-full rounded-2xl border border-white/40 bg-transparent px-4 py-3 text-sm font-bold text-white/85 transition hover:border-white/60 hover:text-white active:scale-95"
+            className="mt-2 w-full rounded-2xl border border-white/40 bg-transparent px-4 py-3 text-sm font-bold text-white/85 transition hover:border-white/60 hover:text-white active:scale-95"
           >
             {t("installButton")}
           </button>
         )}
       </div>
 
-      <div className="relative z-10 mt-auto mb-4 flex items-center gap-3 self-center" data-id="home-footer-actions">
+      <div className="relative z-10 mb-4 flex items-center gap-3 self-center" data-id="home-footer-actions">
         <button
           data-id="reset-browser-data-button"
           onClick={resetBrowserData}
@@ -158,19 +122,10 @@ export default function Home() {
         >
           Reset
         </button>
-        <button
-          data-id="rules-button"
-          onClick={() => setShowRules(true)}
-          className="rounded-lg border border-white/40 bg-transparent px-4 py-2 text-sm font-medium text-white/70 transition hover:border-white/60 hover:text-white/90 active:scale-95"
-        >
-          {t("rulesButton")}
-        </button>
         <span className="text-sm font-medium text-white/60" data-id="app-version-label">
           V{process.env.NEXT_PUBLIC_APP_VERSION}
         </span>
       </div>
-
-      {showRules && <RulesModal game={game} onClose={() => setShowRules(false)} />}
     </main>
   );
 }

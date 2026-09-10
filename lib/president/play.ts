@@ -1,0 +1,81 @@
+import { nextSeat } from "@/lib/cards";
+import { cardId } from "./cards";
+import { combosInHand, isLegalCombo, isValidComboShape } from "./combos";
+import type { Card, Combo, GameState, Seat } from "./types";
+
+const SEATS: Seat[] = [0, 1, 2, 3];
+
+function activeSeats(state: GameState): Seat[] {
+  const finished = new Set(state.finishedOrder);
+  return SEATS.filter((s) => !finished.has(s));
+}
+
+/** Next seat after `seat` that still has cards this round, wrapping around. */
+function nextActiveSeat(finishedOrder: Seat[], from: Seat): Seat {
+  const finished = new Set(finishedOrder);
+  let next = nextSeat(from);
+  while (finished.has(next) && next !== from) next = nextSeat(next);
+  return next;
+}
+
+/** How many active seats other than the pile's leader must still pass before
+ *  it clears (all of them, if the leader has since emptied their hand). */
+function othersStillOwingAPass(state: GameState): number {
+  const active = activeSeats(state);
+  const leaderStillActive = state.pile.leader !== null && active.includes(state.pile.leader);
+  return active.length - (leaderStillActive ? 1 : 0);
+}
+
+function removeFromHand(hand: Card[], combo: Combo): Card[] {
+  const ids = new Set(combo.cards.map(cardId));
+  return hand.filter((c) => !ids.has(cardId(c)));
+}
+
+/** Combos `seat` could legally play right now (empty outside its own turn). */
+export function legalCombos(state: GameState, seat: Seat): Combo[] {
+  if (state.phase !== "playing" || state.turn !== seat) return [];
+  return combosInHand(state.hands[seat]).filter((c) => isLegalCombo(state.pile, state.revolution, c));
+}
+
+/** True if `seat` may pass right now: always allowed except when leading a
+ *  freshly cleared pile (there is nothing yet to pass on). */
+export function canPass(state: GameState, seat: Seat): boolean {
+  return state.phase === "playing" && state.turn === seat && state.pile.combo !== null;
+}
+
+/** Apply a combo play: removes it from hand, updates the pile, toggles the
+ *  revolution on a quad, and ends the round the instant only one active seat
+ *  is left holding cards (that seat is automatically last/Trou du Cul - no
+ *  need to keep playing out a foregone conclusion). */
+export function applyPlay(state: GameState, seat: Seat, combo: Combo): GameState {
+  if (state.phase !== "playing") throw new Error("not_playing");
+  if (state.turn !== seat) throw new Error("not_your_turn");
+  if (!isValidComboShape(state.hands[seat], combo)) throw new Error("invalid_combo");
+  if (!isLegalCombo(state.pile, state.revolution, combo)) throw new Error("illegal_combo");
+
+  const hands = state.hands.map((h, i) => (i === seat ? removeFromHand(h, combo) : h));
+  const revolution = combo.cards.length === 4 ? !state.revolution : state.revolution;
+  const finishedOrder = hands[seat].length === 0 ? [...state.finishedOrder, seat] : state.finishedOrder;
+  const pile = { combo, leader: seat };
+
+  if (finishedOrder.length === 3) {
+    const lastSeat = SEATS.find((s) => !finishedOrder.includes(s))!;
+    return { ...state, hands, pile, revolution, finishedOrder: [...finishedOrder, lastSeat], phase: "scoring" };
+  }
+  return { ...state, hands, pile, passStreak: 0, revolution, finishedOrder, turn: nextActiveSeat(finishedOrder, seat) };
+}
+
+/** Apply a pass: clears the pile once every other active seat has passed in a
+ *  row, otherwise just advances the turn. */
+export function applyPass(state: GameState, seat: Seat): GameState {
+  if (!canPass(state, seat)) throw new Error("cannot_pass");
+
+  const passStreak = state.passStreak + 1;
+  const cleared = passStreak >= othersStillOwingAPass(state);
+  return {
+    ...state,
+    passStreak: cleared ? 0 : passStreak,
+    pile: cleared ? { combo: null, leader: null } : state.pile,
+    turn: nextActiveSeat(state.finishedOrder, seat),
+  };
+}

@@ -10,6 +10,7 @@ import type { GameSettings } from "@/lib/supabase/types";
 import type { P2PConnection } from "@/lib/client/p2p/connection";
 import type { P2PHostConfig } from "@/lib/client/useP2PHost";
 import type { P2PBouillaHostConfig } from "@/lib/client/useP2PBouillaHost";
+import type { P2PPresidentHostConfig } from "@/lib/client/useP2PPresidentHost";
 import type { RosterEntry } from "@/lib/client/p2p/protocol";
 import {
   GameSettingsPanel,
@@ -20,6 +21,7 @@ import { HostFlow } from "@/components/p2p/HostFlow";
 import { JoinFlow } from "@/components/p2p/JoinFlow";
 import { P2PHostGame } from "@/components/p2p/P2PHostGame";
 import { P2PBouillaHostGame } from "@/components/p2p/P2PBouillaHostGame";
+import { P2PPresidentHostGame } from "@/components/p2p/P2PPresidentHostGame";
 import { P2PClientGame } from "@/components/p2p/P2PClientGame";
 
 const BOT_NAMES = ["", "Adam", "Jane", "Léa"];
@@ -57,7 +59,9 @@ function buildRoster(hostName: string, humanCount: number, youName: string, play
 export function AdHocLobby() {
   const { t } = useI18n();
   const searchParams = useSearchParams();
-  const isBouilla = searchParams.get("game") === "bouilla";
+  const game = searchParams.get("game");
+  const isBouilla = game === "bouilla";
+  const isPresident = game === "president";
   const [phase, setPhase] = useState<Phase>("choose");
   const [name, setName] = useHubPrefillName();
   const [humanCount, setHumanCount] = useState(1);
@@ -65,6 +69,7 @@ export function AdHocLobby() {
   const [seed] = useState(() => (Math.random() * 0x100000000) >>> 0);
   const [hostConfig, setHostConfig] = useState<P2PHostConfig | null>(null);
   const [bouillaHostConfig, setBouillaHostConfig] = useState<P2PBouillaHostConfig | null>(null);
+  const [presidentHostConfig, setPresidentHostConfig] = useState<P2PPresidentHostConfig | null>(null);
   const [client, setClient] = useState<{ conn: P2PConnection; name: string } | null>(null);
 
   const humanSeats = useMemo(
@@ -77,20 +82,30 @@ export function AdHocLobby() {
       const roster = buildRoster(name, humanCount, t("defaultYouName"), t("defaultPlayerName"));
       if (isBouilla) {
         setBouillaHostConfig({ mySeat: 0, roster, connections: conns, seed, botThinkMs: setup.botThinkMs });
+      } else if (isPresident) {
+        setPresidentHostConfig({
+          mySeat: 0,
+          roster,
+          connections: conns,
+          seed,
+          roundsToPlay: setup.roundsToPlay,
+          botThinkMs: setup.botThinkMs,
+        });
       } else {
         setHostConfig({ mySeat: 0, roster, connections: conns, settings: toSettings(setup), seed });
       }
       setPhase("host-play");
     },
-    [name, humanCount, setup, seed, isBouilla, t],
+    [name, humanCount, setup, seed, isBouilla, isPresident, t],
   );
 
   if (phase === "host-play" && hostConfig) return <P2PHostGame config={hostConfig} />;
   if (phase === "host-play" && bouillaHostConfig) return <P2PBouillaHostGame config={bouillaHostConfig} />;
+  if (phase === "host-play" && presidentHostConfig) return <P2PPresidentHostGame config={presidentHostConfig} />;
   if (phase === "join-play" && client) return <P2PClientGame conn={client.conn} name={client.name} />;
 
   return (
-    <Shell isBouilla={isBouilla}>
+    <Shell isBouilla={isBouilla} isPresident={isPresident}>
       {phase === "choose" && <ChooseMode t={t} setPhase={setPhase} />}
       {phase === "host-setup" && (
         <div className="flex flex-col gap-4" data-id="adhoc-host-setup">
@@ -114,7 +129,8 @@ export function AdHocLobby() {
             onChange={setSetup}
             idPrefix="adhoc"
             title={t("settings")}
-            coincheFields={!isBouilla}
+            coincheFields={!isBouilla && !isPresident}
+            presidentFields={isPresident}
           />
         </div>
       )}
@@ -131,7 +147,15 @@ export function AdHocLobby() {
   );
 }
 
-function Shell({ children, isBouilla }: { children: React.ReactNode; isBouilla: boolean }) {
+function Shell({
+  children,
+  isBouilla,
+  isPresident,
+}: {
+  children: React.ReactNode;
+  isBouilla: boolean;
+  isPresident: boolean;
+}) {
   const { t } = useI18n();
   return (
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-5 bg-felt px-5 py-8" data-id="adhoc-screen">
@@ -145,10 +169,10 @@ function Shell({ children, isBouilla }: { children: React.ReactNode; isBouilla: 
       </Link>
       <header className="text-center">
         <h1 className="text-3xl font-black tracking-tight text-white" data-id="adhoc-title">
-          {isBouilla ? t("bouillaAdhocTitle") : t("playAdhoc")}
+          {isBouilla ? t("bouillaAdhocTitle") : isPresident ? t("presidentAdhocTitle") : t("playAdhoc")}
         </h1>
         <p className="text-sm text-white/70">
-          {isBouilla ? t("bouillaAdhocSubtitle") : t("adhocSubtitle")}
+          {isBouilla ? t("bouillaAdhocSubtitle") : isPresident ? t("presidentAdhocSubtitle") : t("adhocSubtitle")}
         </p>
       </header>
       {children}

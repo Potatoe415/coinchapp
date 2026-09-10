@@ -1,5 +1,6 @@
 import type { BotPunch, GameState as CoincheGameState } from "@/lib/coinche";
 import type { GameState as BouillaGameState } from "@/lib/bouilla";
+import type { GameState as PresidentGameState } from "@/lib/president";
 
 /** Coinche settings are all optional here: Bouilla's 6 rounds/point values are fixed
  *  (see docs/DECISIONS.md), so it only ever carries `stillThereTimeoutSec` below. */
@@ -26,6 +27,9 @@ export interface GameSettings {
    *  to both games, and to every mode (online/local/ad-hoc). Defaults to
    *  `DEFAULT_BOT_THINK_MS` when absent. */
   botThinkMs?: number;
+  /** Président only: how many rounds a match plays before it's over (see
+   *  docs/DATA_MODEL.md). Defaults to `DEFAULT_PRESIDENT_ROUNDS_TO_PLAY`. */
+  presidentRoundsToPlay?: number;
 }
 
 /** `GameSettings.botThinkMs` bounds and default - shared by the setup slider
@@ -44,6 +48,12 @@ export const DEFAULT_STILL_THERE_TIMEOUT_SEC = 15;
  *  (`lib/server/actions-lobby.ts`) both index into this same list. */
 export const STILL_THERE_TIMEOUT_OPTIONS = [10, 15, 20, 30, 60] as const;
 
+/** `GameSettings.presidentRoundsToPlay` default and selectable options - shared
+ *  by the setup slider (`GameSettingsPanel.tsx`) and the server-side sanitizer
+ *  (`lib/server/actions-lobby.ts`). */
+export const DEFAULT_PRESIDENT_ROUNDS_TO_PLAY = 4;
+export const PRESIDENT_ROUNDS_OPTIONS = [3, 4, 5, 6, 8] as const;
+
 /** Fixed length of the visible "are you still there?" countdown, in ms. Only the
  *  total timeout above is configurable; this trailing slice is always 5s. */
 export const STILL_THERE_POPUP_LEAD_MS = 5000;
@@ -51,9 +61,9 @@ export const STILL_THERE_POPUP_LEAD_MS = 5000;
 export type GameStatus = "lobby" | "playing" | "finished";
 
 /** Which game a row belongs to. Extend the union when a new game is added. */
-export type GameType = "coinche" | "bouilla";
+export type GameType = "coinche" | "bouilla" | "president";
 
-export type AnyGameState = CoincheGameState | BouillaGameState;
+export type AnyGameState = CoincheGameState | BouillaGameState | PresidentGameState;
 
 export interface GameRow {
   id: string;

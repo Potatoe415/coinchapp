@@ -1,13 +1,13 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
 import { beginNextRound, createInitialState, redact, startNextRound, submitPlay, type Card, type GameState } from "@/lib/bouilla";
 import type { BouillaActions } from "@/components/BouillaTable";
 import type { GameView } from "@/lib/server/view";
 import { useI18n } from "./i18n";
-import { runBotLoop, seededRng, wait } from "./cardGameDriver";
+import { seededRng, wait } from "./cardGameDriver";
 import { bouillaEngine, decideBouillaAction } from "./bouillaEngineAdapter";
-import { LOCAL_BOUILLA_STORAGE_KEY, loadPersistedGame, savePersistedGame } from "./localGamePersistence";
+import { LOCAL_BOUILLA_STORAGE_KEY } from "./localGamePersistence";
+import { useLocalCardGame } from "./useLocalCardGame";
 
 const BOTS = [false, true, true, true];
 const BOT_NAMES = ["", "Adam", "Jane", "Lea"];
@@ -24,43 +24,15 @@ function startState(seed: number): GameState {
  *  alone drives the "reflexion" feel (see GameSettings.botThinkMs). */
 export function useLocalBouillaGame(seed: number, botThinkMs: number): { gv: GameView; actions: BouillaActions } {
   const { t } = useI18n();
-  const [state, setState] = useState<GameState>(() => startState(seed));
-  // Mirror of `state` for the async bot loop, kept in sync without waiting for a render.
-  const stateRef = useRef(state);
-  const busyRef = useRef(false);
-  const commit = useCallback((next: GameState) => {
-    stateRef.current = next;
-    setState(next);
-    savePersistedGame(LOCAL_BOUILLA_STORAGE_KEY, next);
-  }, []);
-
-  const runBots = useCallback(async () => {
-    if (busyRef.current) return;
-    busyRef.current = true;
-    try {
-      await runBotLoop({
-        engine: bouillaEngine,
-        getState: () => stateRef.current,
-        isBot: (seat) => BOTS[seat],
-        decide: decideBouillaAction,
-        commit,
-        thinkingMs: botThinkMs,
-        collectDelayMs: COLLECT_DELAY_MS,
-      });
-    } finally {
-      busyRef.current = false;
-    }
-  }, [commit, botThinkMs]);
-
-  /** On mount, resume any saved in-progress match (reload/relaunch-proof
-   *  offline play) before triggering bots' initial turns. */
-  useEffect(() => {
-    const saved = loadPersistedGame<GameState>(LOCAL_BOUILLA_STORAGE_KEY);
-    // Mount-only hydration from localStorage, not a reactive state sync.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (saved) commit(saved);
-    runBots();
-  }, [commit, runBots]);
+  const { state, stateRef, commit, runBots } = useLocalCardGame({
+    initialState: () => startState(seed),
+    storageKey: LOCAL_BOUILLA_STORAGE_KEY,
+    engine: bouillaEngine,
+    decide: decideBouillaAction,
+    isBot: (seat) => BOTS[seat],
+    thinkingMs: botThinkMs,
+    collectDelayMs: COLLECT_DELAY_MS,
+  });
 
   const actions: BouillaActions = {
     onPlay: async (card: Card) => {

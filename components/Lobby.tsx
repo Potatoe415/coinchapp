@@ -106,6 +106,11 @@ export function Lobby({ gv, onChange, debugMode, onDebugModeChange }: LobbyProps
             {t("target")} {gv.settings.targetPoints}
           </p>
         )}
+        {gv.settings.presidentRoundsToPlay !== undefined && (
+          <p className="mt-1 text-xs text-[var(--foreground)]/60">
+            {t("roundsToPlayLabel")} {gv.settings.presidentRoundsToPlay}
+          </p>
+        )}
         <button
           data-id="lobby-copy-invite"
           onClick={copyInviteLink}
@@ -202,7 +207,7 @@ export function Lobby({ gv, onChange, debugMode, onDebugModeChange }: LobbyProps
             />
             {t("randomizeSeats")}
           </label>
-          {gv.gameType === "bouilla" && (
+          {gv.gameType !== "coinche" && (
             <label
               data-id="lobby-debug-mode"
               className="flex cursor-pointer items-center gap-2 self-start text-sm text-[var(--foreground)]/70"
