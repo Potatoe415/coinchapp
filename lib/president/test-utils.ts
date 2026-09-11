@@ -25,7 +25,7 @@ export function combo(rank: Rank, cards: Card[]): Combo {
 export function playingState(opts: {
   hands: Card[][];
   turn: Seat;
-  pile?: { combo: Combo; leader: Seat };
+  pile?: { combo: Combo; leader: Seat; stackCount?: number };
   revolution?: boolean;
   passStreak?: number;
   finishedOrder?: Seat[];

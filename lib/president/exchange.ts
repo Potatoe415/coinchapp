@@ -82,6 +82,7 @@ function nextExchangeStep(state: GameState, pending: PendingExchange): GameState
     turn: seatWithTitle(state.titles!, "trouDuCul"),
     pile: { combo: null, leader: null },
     lastBurn: null,
+    lastSkip: null,
     passStreak: 0,
     revolution: false,
     finishedOrder: [],

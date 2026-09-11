@@ -28,6 +28,13 @@ export type Titles = [Title, Title, Title, Title];
 export interface Pile {
   combo: Combo | null;
   leader: Seat | null;
+  /** Total cards of `combo.rank` played consecutively so far via leading
+   *  plus any rank-matching "double" plays on top of it (see `isLegalCombo`/
+   *  `applyPlay`) - reset to the new count whenever a strictly higher rank
+   *  beats the pile, irrelevant once `combo` is null. Undefined is treated
+   *  as `combo?.cards.length ?? 0` (every pre-existing pile before this
+   *  field existed). */
+  stackCount?: number;
 }
 
 /** Cumulative finishing-rank total per seat (1=President..4=Trou du Cul each
@@ -66,6 +73,13 @@ export interface GameState {
    *  than re-triggering on every render. Purely a display cue, never read by
    *  any rules logic. */
   lastBurn: { seat: Seat; combo: Combo } | null;
+  /** Set only on the exact play that just replayed the pile's rank (a
+   *  "double", see `applyPlay`) without yet completing all 4 cards of that
+   *  rank - skips `skippedSeat`'s turn entirely. Purely a display cue for a
+   *  "turn skipped" animation, never read by any rules logic; not re-cleared
+   *  afterwards, so clients must diff it against the previous view the same
+   *  way they already do for `lastBurn`. */
+  lastSkip: { seat: Seat; skippedSeat: Seat; combo: Combo } | null;
   /** Consecutive passes since the pile's current combo was played. */
   passStreak: number;
   /** Toggled by every quad played; reset to false at the start of each round. */

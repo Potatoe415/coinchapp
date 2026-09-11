@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { rankValue, type Card, type Combo, type PlayerView, type Seat } from "@/lib/president";
 import { useDelayedVisible } from "@/lib/client/useDelayedVisible";
-import { useI18n } from "@/lib/client/i18n";
+import { formatText, useI18n } from "@/lib/client/i18n";
 import type { ReactionPick, TableReaction } from "@/lib/client/reactions";
 import type { GameView } from "@/lib/server/view";
 import { EmojiButton } from "./EmojiButton";
@@ -200,6 +200,7 @@ export function PresidentTable({
           </>
         )}
         <PileArea view={view} seats={seats} />
+        <SkipFlash gv={gv} view={view} />
         {view.phase === "exchange" && !roundOverlayVisible && (
           <PresidentExchangePanel gv={gv} view={view} onSubmit={actions.onExchangeReturn} />
         )}
@@ -505,6 +506,53 @@ const HISTORY_OFFSETS = [
   { x: 18, y: 12, rot: 8 },
   { x: -14, y: 18, rot: -6 },
 ];
+
+function skipKey(skip: PlayerView["lastSkip"]): string {
+  return skip ? `${skip.seat}:${skip.skippedSeat}:${comboKey(skip.combo)}` : "";
+}
+
+/** Matches `.belote-flash`'s animation duration (`app/globals.css`, shared
+ *  with `GameTableScene.tsx`'s Belote/Rebelote banner) - reused here for the
+ *  "double" rule's turn-skipped announcement (`GameState.lastSkip`). */
+const SKIP_ANIMATION_MS = 2200;
+
+/** Same "diff the key to detect a *new* event" pattern as `usePileDisplay`
+ *  above, adjusting state during render for the key comparison and an
+ *  effect only for the flash's own timeout. */
+function useSkipFlash(lastSkip: PlayerView["lastSkip"]): { skippedSeat: Seat | null; visible: boolean } {
+  const [visible, setVisible] = useState(false);
+  const [key, setKey] = useState("");
+  const nextKey = skipKey(lastSkip);
+
+  if (nextKey !== key && nextKey !== "") {
+    setKey(nextKey);
+    setVisible(true);
+  }
+
+  useEffect(() => {
+    if (!visible) return;
+    const id = window.setTimeout(() => setVisible(false), SKIP_ANIMATION_MS);
+    return () => window.clearTimeout(id);
+  }, [visible, key]);
+
+  return { skippedSeat: lastSkip?.skippedSeat ?? null, visible };
+}
+
+/** Centered flash naming the seat whose turn just got skipped by the
+ *  "double" rule (replaying the pile's rank instead of beating it - see
+ *  `lib/president/play.ts`). */
+function SkipFlash({ gv, view }: { gv: PresidentGameView; view: PlayerView }) {
+  const { locale, t } = useI18n();
+  const { skippedSeat, visible } = useSkipFlash(view.lastSkip);
+  if (!visible || skippedSeat === null) return null;
+  return (
+    <div className="pointer-events-none absolute inset-x-0 top-[44%] z-30 flex justify-center" data-id="president-skip-flash">
+      <span className="belote-flash rounded-full bg-black/50 px-6 py-2 text-lg font-extrabold tracking-wide text-[var(--accent-yellow)] shadow-xl">
+        {formatText(t("turnSkippedBanner"), { player: playerName(gv, skippedSeat, locale) })}
+      </span>
+    </div>
+  );
+}
 
 /** Which way the burned pile should fly off toward the seat that played the
  *  "2" - same gather-then-fly direction logic as `CompletedTrickHold`

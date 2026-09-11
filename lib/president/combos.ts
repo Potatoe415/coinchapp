@@ -29,9 +29,13 @@ export function isValidComboShape(hand: Card[], combo: Combo): boolean {
 
 /** Legal to play `combo` onto `pile` right now: any count 1-4 when leading a
  *  freshly cleared pile, otherwise the same count as the pile's current
- *  requirement and a stronger rank. */
+ *  requirement and either a stronger rank, or - the "double" rule - the
+ *  exact same rank replayed instead of beaten (skips the next active seat,
+ *  or burns the pile once all 4 cards of that rank are down; see
+ *  `applyPlay`). */
 export function isLegalCombo(pile: Pile, revolution: boolean, combo: Combo): boolean {
   if (combo.cards.length < 1 || combo.cards.length > 4) return false;
   if (!pile.combo) return true;
-  return combo.cards.length === pile.combo.cards.length && outranks(combo.rank, pile.combo.rank, revolution);
+  if (combo.cards.length !== pile.combo.cards.length) return false;
+  return combo.rank === pile.combo.rank || outranks(combo.rank, pile.combo.rank, revolution);
 }

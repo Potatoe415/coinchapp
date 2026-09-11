@@ -70,6 +70,10 @@ const PRESIDENT_RULES = {
         body: "À son tour, on joue une carte seule, une paire, un brelan ou un carré (des cartes de même hauteur), plus fort que ce qui est posé, avec le même nombre de cartes — ou on passe. Une fois que tout le monde a passé, la pile est ramassée et celui qui a posé en dernier rejoue librement.",
       },
       {
+        heading: "Le doublé",
+        body: "Au lieu de monter, on peut aussi rejouer la même hauteur que la pile (même nombre de cartes) : ça saute le tour du joueur suivant. Si ça complète les 4 cartes de cette hauteur, la pile est brûlée d'un coup et on rejoue librement.",
+      },
+      {
         heading: "La révolution",
         body: "Poser un carré (4 cartes identiques) inverse l'ordre des cartes jusqu'à la prochaine révolution ou la fin de la manche : le 3 devient alors la carte la plus forte, et le 2 la plus faible.",
       },
@@ -101,6 +105,10 @@ const PRESIDENT_RULES = {
       {
         heading: "Playing",
         body: "On your turn, play a single card, a pair, a triple or a quad (same rank), stronger than what's down, with the same card count — or pass. Once everyone has passed, the pile clears and whoever played last leads freely again.",
+      },
+      {
+        heading: "The double",
+        body: "Instead of beating the pile, you can also replay its exact rank (same card count): this skips the next player's turn entirely. If it completes all 4 cards of that rank, the pile burns instantly instead and you lead freely again.",
       },
       {
         heading: "Revolution",

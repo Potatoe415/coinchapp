@@ -43,4 +43,10 @@ describe("isLegalCombo", () => {
     expect(isLegalCombo(pile, true, combo("5", [card("5", "S")]))).toBe(true);
     expect(isLegalCombo(pile, true, combo("A", [card("A", "S")]))).toBe(false);
   });
+
+  it("also allows replaying the pile's exact rank instead of beating it (the 'double' rule)", () => {
+    const pile = { combo: combo("6", [card("6", "H")]), leader: 0 as const };
+    expect(isLegalCombo(pile, false, combo("6", [card("6", "D")]))).toBe(true);
+    expect(isLegalCombo(pile, false, combo("6", [card("6", "D"), card("6", "C")]))).toBe(false); // wrong count
+  });
 });

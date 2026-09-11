@@ -18,6 +18,10 @@ export interface PlayerView {
   /** Not secret (a burn is always a face-up combo): passed through so the
    *  client can show a "the pile got burned" animation - see `GameState.lastBurn`. */
   lastBurn: GameState["lastBurn"];
+  /** Not secret (a skip is always a face-up combo + a public seat): passed
+   *  through so the client can show a "turn skipped" animation - see
+   *  `GameState.lastSkip`. */
+  lastSkip: GameState["lastSkip"];
   revolution: boolean;
   finishedOrder: Seat[];
   titles: Titles | null;
@@ -41,6 +45,7 @@ export function redact(state: GameState, seat: Seat): PlayerView {
     canPass: canPass(state, seat),
     pile: state.pile,
     lastBurn: state.lastBurn,
+    lastSkip: state.lastSkip,
     revolution: state.revolution,
     finishedOrder: state.finishedOrder,
     titles: state.titles,

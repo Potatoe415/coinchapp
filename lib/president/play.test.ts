@@ -94,6 +94,46 @@ describe("applyPlay", () => {
     expect(next.lastBurn).toBeNull();
     expect(next.turn).not.toBe(0);
   });
+
+  it("the 'double' rule: replaying the pile's rank skips the very next active seat", () => {
+    const state = playingState({
+      turn: 1,
+      hands: [[card("K", "S")], [card("6", "D"), card("3", "H")], [card("Q", "C")], [card("J", "H")]],
+      pile: { combo: combo("6", [card("6", "H")]), leader: 0 },
+    });
+    const next = applyPlay(state, 1, combo("6", [card("6", "D")]));
+    expect(next.pile).toEqual({ combo: combo("6", [card("6", "D")]), leader: 1, stackCount: 2 });
+    expect(next.lastSkip).toEqual({ seat: 1, skippedSeat: 2, combo: combo("6", [card("6", "D")]) });
+    expect(next.turn).toBe(3); // seat 2 skipped entirely
+    expect(next.passStreak).toBe(0);
+  });
+
+  it("the 'double' rule: completing all 4 cards of the rank burns the pile instead of skipping", () => {
+    const state = playingState({
+      turn: 1,
+      hands: [[card("K", "S")], [card("6", "D"), card("6", "C"), card("3", "H")], [card("Q", "C")], [card("J", "H")]],
+      pile: { combo: combo("6", [card("6", "H"), card("6", "S")]), leader: 0, stackCount: 2 },
+    });
+    const next = applyPlay(state, 1, combo("6", [card("6", "D"), card("6", "C")]));
+    expect(next.pile).toEqual({ combo: null, leader: null });
+    expect(next.lastBurn).toEqual({ seat: 1, combo: combo("6", [card("6", "D"), card("6", "C")]) });
+    expect(next.lastSkip).toBeNull();
+    expect(next.turn).toBe(1);
+  });
+
+  it("the 'double' rule does not skip or burn when the matching play also empties the hand", () => {
+    const state = playingState({
+      turn: 1,
+      hands: [[card("K", "S")], [card("6", "D")], [card("Q", "C")], [card("J", "H")]],
+      pile: { combo: combo("6", [card("6", "H")]), leader: 0 },
+    });
+    const next = applyPlay(state, 1, combo("6", [card("6", "D")]));
+    expect(next.pile.combo).not.toBeNull();
+    expect(next.lastSkip).toBeNull();
+    expect(next.lastBurn).toBeNull();
+    expect(next.turn).toBe(2);
+    expect(next.finishedOrder).toEqual([1]);
+  });
 });
 
 describe("applyPass", () => {

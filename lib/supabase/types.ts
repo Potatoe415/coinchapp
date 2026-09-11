@@ -52,7 +52,7 @@ export const STILL_THERE_TIMEOUT_OPTIONS = [10, 15, 20, 30, 60] as const;
  *  by the setup slider (`GameSettingsPanel.tsx`) and the server-side sanitizer
  *  (`lib/server/actions-lobby.ts`). */
 export const DEFAULT_PRESIDENT_ROUNDS_TO_PLAY = 4;
-export const PRESIDENT_ROUNDS_OPTIONS = [3, 4, 5, 6, 8] as const;
+export const PRESIDENT_ROUNDS_OPTIONS = [1, 2, 3, 4, 5] as const;
 
 /** Fixed length of the visible "are you still there?" countdown, in ms. Only the
  *  total timeout above is configurable; this trailing slice is always 5s. */

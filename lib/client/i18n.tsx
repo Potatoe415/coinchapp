@@ -182,6 +182,7 @@ const TRANSLATIONS = {
     pileEmpty: "Posez une carte pour ouvrir la manche",
     sortHandByRank: "Trier par valeur",
     sortHandBySuit: "Trier par couleur",
+    turnSkippedBanner: "Tour sauté : {player} !",
     combo1: "seule", combo2: "paire", combo3: "brelan", combo4: "carré",
   },
   en: {
@@ -352,6 +353,7 @@ const TRANSLATIONS = {
     pileEmpty: "Play a card to open the round",
     sortHandByRank: "Sort by rank",
     sortHandBySuit: "Sort by suit",
+    turnSkippedBanner: "Turn skipped: {player}!",
     combo1: "single", combo2: "pair", combo3: "triple", combo4: "quad",
   },
 } as const;

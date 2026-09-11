@@ -25,6 +25,7 @@ export function createInitialState(roundsToPlay: number): GameState {
     hands: [[], [], [], []],
     pile: { combo: null, leader: null },
     lastBurn: null,
+    lastSkip: null,
     passStreak: 0,
     revolution: false,
     finishedOrder: [],
@@ -47,6 +48,7 @@ export function beginNextRound(state: GameState, rng: Rng = Math.random): GameSt
   const cleared = {
     pile: { combo: null, leader: null },
     lastBurn: null,
+    lastSkip: null,
     passStreak: 0,
     revolution: false,
     finishedOrder: [],
