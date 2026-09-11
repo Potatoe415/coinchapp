@@ -3,7 +3,7 @@ import { beginNextRound, createInitialState, dealHands } from "./deal";
 import { buildDeck } from "./cards";
 import { seededRng } from "./test-utils";
 import { shuffle } from "@/lib/cards";
-import type { Titles } from "./types";
+import type { RoundResult, Titles } from "./types";
 
 describe("dealHands", () => {
   it("deals the full 52-card pack evenly, 13 cards per seat", () => {
@@ -42,5 +42,13 @@ describe("beginNextRound", () => {
     expect(state.hands.map((h) => h.length)).toEqual([15, 14, 12, 11]);
     expect(state.pendingExchange).toEqual({ awaiting: [0, 1], owed: { 0: 2, 1: 1 } });
     expect(state.turn).toBe(0);
+  });
+
+  it("clears the previous round's lastRoundResult - otherwise the round-end overlay never leaves (PresidentTable.tsx's roundOverlayVisible stays truthy), blocking round 2+'s exchange phase", () => {
+    const titles: Titles = ["president", "vicePresident", "viceTrouDuCul", "trouDuCul"];
+    const previousResult: RoundResult = { roundIndex: 0, finishedOrder: [0, 1, 2, 3], titles };
+    const base = { ...createInitialState(4), roundIndex: 1, titles, lastRoundResult: previousResult };
+    const state = beginNextRound(base, seededRng(3));
+    expect(state.lastRoundResult).toBeNull();
   });
 });
