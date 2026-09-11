@@ -15,6 +15,20 @@ export type TableSeats = {
   bottom: number;
 };
 
+export type EnterDirection = "top" | "left" | "right" | "bottom";
+
+/** Maps a seat to which side of the table it sits on, relative to `seats`
+ *  (the local player's own seat is always "bottom" - see `relativeSeat`).
+ *  Shared by every game that needs to animate a card toward/from a seat:
+ *  played-card entrances here, and burn/collect fly-off directions
+ *  (`PresidentTable.tsx`'s `burnFlyDirection`). */
+export function seatDirection(seats: TableSeats, seat: number | null): EnterDirection {
+  if (seat === seats.top) return "top";
+  if (seat === seats.left) return "left";
+  if (seat === seats.right) return "right";
+  return "bottom";
+}
+
 function cardKey(card: CardOf<string>): string {
   return `${card.rank}${card.suit}`;
 }
@@ -223,7 +237,7 @@ function AnimatedPlayedCard({
   return (
     <div
       className="played-card-enter will-change-transform"
-      style={{ ...animationStart(enterFrom), animationDelay: `${delay}ms` }}
+      style={{ ...playedCardEnterStyle(enterFrom), animationDelay: `${delay}ms` }}
       data-id={dataId ? `${dataId}-anim` : undefined}
     >
       <PlayingCard card={card} size="lg" dataId={dataId} />
@@ -231,11 +245,14 @@ function AnimatedPlayedCard({
   );
 }
 
-function animationStart(enterFrom: "top" | "left" | "right" | "bottom") {
-  if (enterFrom === "top") return { "--played-card-from": "translate3d(0,-210px,0) scale(0.7) rotate(-10deg)" };
-  if (enterFrom === "left") return { "--played-card-from": "translate3d(-210px,0,0) scale(0.7) rotate(-14deg)" };
-  if (enterFrom === "right") return { "--played-card-from": "translate3d(210px,0,0) scale(0.7) rotate(14deg)" };
-  return { "--played-card-from": "translate3d(0,210px,0) scale(0.7) rotate(10deg)" };
+/** CSS custom property driving the `.played-card-enter` keyframes (`app/globals.css`):
+ *  where the card slides in from, per seat direction. Shared by every game's
+ *  played-card entrance (`AnimatedPlayedCard` above, `PresidentTable.tsx`'s pile). */
+export function playedCardEnterStyle(enterFrom: EnterDirection): React.CSSProperties {
+  if (enterFrom === "top") return { "--played-card-from": "translate3d(0,-210px,0) scale(0.7) rotate(-10deg)" } as React.CSSProperties;
+  if (enterFrom === "left") return { "--played-card-from": "translate3d(-210px,0,0) scale(0.7) rotate(-14deg)" } as React.CSSProperties;
+  if (enterFrom === "right") return { "--played-card-from": "translate3d(210px,0,0) scale(0.7) rotate(14deg)" } as React.CSSProperties;
+  return { "--played-card-from": "translate3d(0,210px,0) scale(0.7) rotate(10deg)" } as React.CSSProperties;
 }
 
 const FAN_STEP_H = 22;

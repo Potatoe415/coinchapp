@@ -16,7 +16,7 @@ import { TITLE_SHORT_LABEL } from "./presidentLabels";
 import { PresidentRoundOverlay } from "./PresidentRoundOverlay";
 import { PresidentScoreboard } from "./PresidentScoreboard";
 import { SelfNameChip } from "./SelfNameChip";
-import { CardBackFanH, CardBackStackV, type TableSeats } from "./TrickStage";
+import { CardBackFanH, CardBackStackV, playedCardEnterStyle, seatDirection, type TableSeats } from "./TrickStage";
 
 /** This table only ever renders a Président game: narrow the shared, multi-game
  *  `GameView` down to its Président-specific view/botViews shape. */
@@ -500,7 +500,7 @@ function usePileDisplay(pile: PlayerView["pile"], lastBurn: BurnEvent): { stack:
  *  "2" - same gather-then-fly direction logic as `CompletedTrickHold`
  *  (TrickStage.tsx) for Coinche/Bouilla's own trick collection. */
 function burnFlyDirection(seats: TableSeats, seat: Seat | null): { flyX: string; flyY: string } {
-  const dir = seat === seats.top ? "top" : seat === seats.left ? "left" : seat === seats.right ? "right" : "bottom";
+  const dir = seatDirection(seats, seat);
   return {
     flyX: dir === "left" ? "-260px" : dir === "right" ? "260px" : "0px",
     flyY: dir === "top" ? "-260px" : dir === "bottom" ? "260px" : "0px",
@@ -511,6 +511,7 @@ function PileArea({ view, seats }: { view: PlayerView; seats: TableSeats }) {
   const { t } = useI18n();
   const { stack, burning } = usePileDisplay(view.pile, view.lastBurn);
   const { flyX, flyY } = burnFlyDirection(seats, view.lastBurn?.seat ?? null);
+  const enterFrom = seatDirection(seats, view.pile.leader);
 
   return (
     <div className="absolute left-1/2 top-[41%] -translate-x-1/2 -translate-y-1/2" data-id="president-pile">
@@ -548,6 +549,14 @@ function PileArea({ view, seats }: { view: PlayerView; seats: TableSeats }) {
                         "--fly-y": flyY,
                       } as React.CSSProperties
                     }
+                  >
+                    {cards}
+                  </div>
+                ) : isTop ? (
+                  <div
+                    className="played-card-enter will-change-transform"
+                    data-id="president-pile-played-anim"
+                    style={playedCardEnterStyle(enterFrom)}
                   >
                     {cards}
                   </div>
