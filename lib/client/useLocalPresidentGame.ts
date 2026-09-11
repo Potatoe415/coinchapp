@@ -22,9 +22,10 @@ import { useLocalCardGame } from "./useLocalCardGame";
 
 const BOTS = [false, true, true, true];
 const BOT_NAMES = ["", "Adam", "Jane", "Lea"];
-/** Shorter than Coinche/Bouilla's trick-collect pause: there is no card-collect
- *  animation here, just a beat once a seat empties its hand. */
-const COLLECT_DELAY_MS = 900;
+/** Matches the shared `.trick-collect-card` CSS animation duration
+ *  (`app/globals.css`), reused for the pile-burn sweep in `PresidentTable.tsx`
+ *  - also doubles as a plain pacing beat once a seat empties its hand. */
+const COLLECT_DELAY_MS = 1500;
 
 function startState(seed: number, roundsToPlay: number): GameState {
   return beginNextRound(createInitialState(roundsToPlay), seededRng(seed));

@@ -43,6 +43,17 @@ export function canPass(state: GameState, seat: Seat): boolean {
   return state.phase === "playing" && state.turn === seat && state.pile.combo !== null;
 }
 
+/** A "2" (single, pair, or triple - a quad already has its own revolution
+ *  effect) always burns the pile: nobody can ever beat it, so instead of
+ *  making every other active seat pass it in turn, the pile clears the
+ *  instant it lands and the same seat leads again right away. */
+const BURN_RANK = "2";
+const BURN_MAX_COUNT = 3;
+
+function burnsThePile(combo: Combo, handEmptied: boolean): boolean {
+  return combo.rank === BURN_RANK && combo.cards.length <= BURN_MAX_COUNT && !handEmptied;
+}
+
 /** Apply a combo play: removes it from hand, updates the pile, toggles the
  *  revolution on a quad, and ends the round the instant only one active seat
  *  is left holding cards (that seat is automatically last/Trou du Cul - no
@@ -55,12 +66,16 @@ export function applyPlay(state: GameState, seat: Seat, combo: Combo): GameState
 
   const hands = state.hands.map((h, i) => (i === seat ? removeFromHand(h, combo) : h));
   const revolution = combo.cards.length === 4 ? !state.revolution : state.revolution;
-  const finishedOrder = hands[seat].length === 0 ? [...state.finishedOrder, seat] : state.finishedOrder;
+  const finished = hands[seat].length === 0;
+  const finishedOrder = finished ? [...state.finishedOrder, seat] : state.finishedOrder;
   const pile = { combo, leader: seat };
 
   if (finishedOrder.length === 3) {
     const lastSeat = SEATS.find((s) => !finishedOrder.includes(s))!;
     return { ...state, hands, pile, revolution, finishedOrder: [...finishedOrder, lastSeat], phase: "scoring" };
+  }
+  if (burnsThePile(combo, finished)) {
+    return { ...state, hands, pile: { combo: null, leader: null }, lastBurn: { seat, combo }, passStreak: 0, revolution, finishedOrder, turn: seat };
   }
   return { ...state, hands, pile, passStreak: 0, revolution, finishedOrder, turn: nextActiveSeat(finishedOrder, seat) };
 }

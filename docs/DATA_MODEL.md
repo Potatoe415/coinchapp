@@ -121,6 +121,7 @@ Président ("Trou du cul") plays a fixed number of rounds (`presidentRoundsToPla
 - Modeled as two sequential turns on the single `state.turn` field (President returns first, then Vice-President), not concurrent, so the exchange fits the same turn model every shared subsystem (idle-timer, stale-turn takeover) already assumes for every other game.
 - Finishing rank per round (1=President..4=Trou du Cul) accumulates into `totalScores` like Bouilla's penalties - lowest total wins at the end of `presidentRoundsToPlay` rounds.
 - A quad (4-of-a-kind) play triggers a "revolution": rank order inverts for the rest of that round (toggles again on a second quad, always resets at the start of the next round). Tracked as `state.revolution: boolean`, not persisted separately.
+- A "2" (single, pair, or triple - a quad still only revolutions) instantly burns the pile: `state.pile` is cleared and the same seat leads again. `state.lastBurn: { seat, combo } | null` is a display cue for the collect-and-fly animation (redacted through to `PlayerView.lastBurn`); rules never read it. Cleared at deal / next round / end of exchange. Playing a "2" that empties the hand does not burn (normal finish flow).
 
 ---
 

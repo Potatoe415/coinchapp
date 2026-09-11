@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import type { Card, Combo, PlayerView } from "@/lib/president";
+import { rankValue, type Card, type Combo, type PlayerView, type Seat } from "@/lib/president";
 import { useDelayedVisible } from "@/lib/client/useDelayedVisible";
 import { useI18n } from "@/lib/client/i18n";
 import type { ReactionPick, TableReaction } from "@/lib/client/reactions";
@@ -43,6 +43,9 @@ export interface PresidentActions {
 }
 
 const MAX_HAND_COUNT = 13;
+/** How long to wait before auto-passing when passing is the only legal move
+ *  (see `mustPass` in `PresidentTable`), if the setting is enabled. */
+const AUTO_PASS_DELAY_MS = 2000;
 
 function cardKey(card: Card): string {
   return `${card.rank}${card.suit}`;
@@ -65,18 +68,28 @@ export function PresidentTable({
   const mySeat = gv.mySeat!;
   const [scoreboardOpen, setScoreboardOpen] = useState(false);
   const [emojiOn, setEmojiOn] = useState(true);
+  const [autoPassOn, setAutoPassOn] = useState(true);
   const [selected, setSelected] = useState<Card[]>([]);
   const [busy, setBusy] = useState(false);
+  const [handSort, setHandSort] = useState<HandSortMode>("suit");
 
   useEffect(() => {
     // Post-hydration browser read: deferred to after mount to avoid an SSR/client mismatch.
     // eslint-disable-next-line react-hooks/set-state-in-effect
     if (localStorage.getItem("coinchapp-emoji") === "false") setEmojiOn(false);
+    if (localStorage.getItem("coinchapp-president-autopass") === "false") setAutoPassOn(false);
   }, []);
 
   function toggleEmoji() {
     setEmojiOn((v) => {
       localStorage.setItem("coinchapp-emoji", String(!v));
+      return !v;
+    });
+  }
+
+  function toggleAutoPass() {
+    setAutoPassOn((v) => {
+      localStorage.setItem("coinchapp-president-autopass", String(!v));
       return !v;
     });
   }
@@ -92,10 +105,25 @@ export function PresidentTable({
   const comboLegal =
     selected.length > 0 && view.legalCombos.some((c) => c.rank === selectedRank && c.cards.length === selected.length);
   const legalRanks = new Set(view.legalCombos.map((c) => c.rank));
+  // True when every legal move this turn is a single card (leading with no
+  // pairs/triples to offer, or following a pile already down to one card):
+  // there is no card-count choice left to make, so tapping a card can play it
+  // outright instead of waiting for the "Jouer" button.
+  const singleCardTurn = view.legalCombos.length > 0 && view.legalCombos.every((c) => c.cards.length === 1);
   const roundOverlayVisible = useDelayedVisible(!!view.lastRoundResult || view.phase === "finished", 1200);
 
-  function tapCard(card: Card) {
+  async function tapCard(card: Card) {
     if (!myTurnToPlay || busy) return;
+    if (singleCardTurn) {
+      setBusy(true);
+      try {
+        await actions.onPlay({ rank: card.rank, cards: [card] });
+        setSelected([]);
+      } finally {
+        setBusy(false);
+      }
+      return;
+    }
     const key = cardKey(card);
     setSelected((prev) => {
       if (prev.some((c) => cardKey(c) === key)) return prev.filter((c) => cardKey(c) !== key);
@@ -126,6 +154,19 @@ export function PresidentTable({
     }
   }
 
+  // When passing is the only legal action (no combo can beat the pile), the
+  // "Passer" tap is a foregone conclusion: auto-pass after a short delay
+  // instead of making the player tap it every time. Opt-out via settings.
+  const mustPass = myTurnToPlay && view.canPass && view.legalCombos.length === 0;
+  useEffect(() => {
+    if (!autoPassOn || !mustPass || busy) return;
+    const id = window.setTimeout(() => {
+      void handlePass();
+    }, AUTO_PASS_DELAY_MS);
+    return () => window.clearTimeout(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- handlePass closes over stable refs (view/busy checked inside)
+  }, [autoPassOn, mustPass, busy]);
+
   return (
     <main
       className="relative mx-auto flex h-svh min-h-[720px] w-full max-w-[460px] flex-1 flex-col overflow-hidden bg-felt text-[var(--card-face)]"
@@ -143,6 +184,7 @@ export function PresidentTable({
             : undefined
         }
         emojiControls={actions.onSendReaction ? { enabled: emojiOn, onToggle: toggleEmoji } : undefined}
+        autoPassControls={{ enabled: autoPassOn, onToggle: toggleAutoPass }}
       />
       <div className="flex-1" aria-hidden="true" />
       <div className="relative h-[720px] w-full shrink-0" data-id="president-table-scene">
@@ -157,7 +199,7 @@ export function PresidentTable({
             <OpponentBadge gv={gv} view={view} seat={seats.right} position="right" reaction={reactions?.get(seats.right)} />
           </>
         )}
-        <PileArea view={view} />
+        <PileArea view={view} seats={seats} />
         {view.phase === "exchange" && !roundOverlayVisible && (
           <PresidentExchangePanel gv={gv} view={view} onSubmit={actions.onExchangeReturn} />
         )}
@@ -181,6 +223,9 @@ export function PresidentTable({
             selected={selected}
             myTurnToPlay={myTurnToPlay}
             legalRanks={legalRanks}
+            revolution={view.revolution}
+            sortMode={handSort}
+            onToggleSort={() => setHandSort((mode) => (mode === "suit" ? "rank" : "suit"))}
             canPlay={comboLegal}
             canPass={view.canPass}
             busy={busy}
@@ -201,6 +246,7 @@ function PresidentHud({
   view,
   onOpenScoreboard,
   emojiControls,
+  autoPassControls,
   onReset,
   host,
 }: {
@@ -208,6 +254,7 @@ function PresidentHud({
   view: PlayerView;
   onOpenScoreboard: () => void;
   emojiControls?: EmojiControls;
+  autoPassControls: EmojiControls;
   onReset?: () => void;
   host?: HostControls;
 }) {
@@ -240,6 +287,7 @@ function PresidentHud({
           host={host}
           onReset={onReset}
           emojiControls={emojiControls}
+          autoPassControls={autoPassControls}
           onOpenScoreboard={() => {
             setSettingsOpen(false);
             onOpenScoreboard();
@@ -256,6 +304,7 @@ function PresidentSettingsPanel({
   host,
   onReset,
   emojiControls,
+  autoPassControls,
   onOpenScoreboard,
   onClose,
 }: {
@@ -263,6 +312,7 @@ function PresidentSettingsPanel({
   host?: HostControls;
   onReset?: () => void;
   emojiControls?: EmojiControls;
+  autoPassControls: EmojiControls;
   onOpenScoreboard: () => void;
   onClose: () => void;
 }) {
@@ -299,6 +349,17 @@ function PresidentSettingsPanel({
             </button>
           </div>
         )}
+        <div className="mb-3 flex items-center justify-between" data-id="president-autopass-toggle-row">
+          <span className="text-sm text-[var(--card-face)]/80">{t("autoPassLabel")}</span>
+          <button
+            data-id="president-autopass-toggle-button"
+            onClick={autoPassControls.onToggle}
+            aria-pressed={autoPassControls.enabled}
+            className={`relative h-7 w-12 shrink-0 rounded-full transition-colors duration-200 ${autoPassControls.enabled ? "bg-[var(--accent-green)]" : "bg-[var(--card-face)]/20"}`}
+          >
+            <span className={`absolute left-0.5 top-0.5 h-6 w-6 rounded-full bg-white shadow transition-transform duration-200 ${autoPassControls.enabled ? "translate-x-5" : "translate-x-0"}`} />
+          </button>
+        </div>
         {host && <HostRow host={host} onClose={onClose} />}
         {onReset && (
           <button
@@ -377,35 +438,80 @@ function comboKey(combo: Combo | null): string {
   return combo ? combo.cards.map(cardKey).join(",") : "";
 }
 
-/** Keeps the last 2 combos this pile cycle so `PileArea` can show them fading
- *  behind the current one - purely a display trail, cleared once the pile
- *  itself clears (a new leader starts a fresh cycle). Adjusts state during
- *  render (React's documented "reset state on prop change" pattern, tracking
- *  the previous combo in state rather than a ref) instead of an effect, since
- *  there is nothing external to synchronize with here. */
-function usePileHistory(combo: Combo | null): Combo[] {
-  const [history, setHistory] = useState<Combo[]>([]);
-  const [prev, setPrev] = useState<{ combo: Combo | null; key: string }>({ combo: null, key: "" });
+type BurnEvent = PlayerView["lastBurn"];
 
-  const key = comboKey(combo);
-  if (key !== prev.key) {
-    setPrev({ combo, key });
-    if (combo === null) {
-      setHistory([]);
-    } else if (prev.combo) {
-      const previous = prev.combo;
-      setHistory((h) => [...h, previous].slice(-2));
-    }
-  }
-
-  return history;
+function burnKey(burn: BurnEvent): string {
+  return burn ? `${burn.seat}:${comboKey(burn.combo)}` : "";
 }
 
-function PileArea({ view }: { view: PlayerView }) {
+/** Matches the shared `.trick-collect-card` CSS animation duration
+ *  (`app/globals.css`) reused below for the burn sweep. */
+const BURN_ANIMATION_MS = 1500;
+
+/** Keeps the last 2 combos this pile cycle so `PileArea` can show them fading
+ *  behind the current one - purely a display trail, cleared once the pile
+ *  itself clears. When the pile clears *because a "2" burned it*
+ *  (`view.lastBurn`, see `lib/president/play.ts`), the whole trail plus the
+ *  burning combo stays on screen for `BURN_ANIMATION_MS` so `PileArea` can
+ *  play the "collect" sweep instead of the pile just vanishing. Adjusts state
+ *  during render for the prop-driven parts (React's documented "reset state
+ *  on prop change" pattern), an effect only for the animation's own timeout. */
+function usePileDisplay(pile: PlayerView["pile"], lastBurn: BurnEvent): { stack: Combo[]; burning: boolean } {
+  const [history, setHistory] = useState<Combo[]>([]);
+  const [burning, setBurning] = useState(false);
+  const [track, setTrack] = useState<{ combo: Combo | null; comboKey: string; burnKey: string }>({
+    combo: null,
+    comboKey: "",
+    burnKey: "",
+  });
+
+  const combo = pile.combo;
+  const nextComboKey = comboKey(combo);
+  const nextBurnKey = burnKey(lastBurn);
+
+  if (nextComboKey !== track.comboKey || nextBurnKey !== track.burnKey) {
+    if (combo !== null) {
+      const previous = track.combo;
+      setHistory((h) => (previous ? [...h, previous].slice(-2) : []));
+      setBurning(false);
+    } else if (nextBurnKey && nextBurnKey !== track.burnKey) {
+      const previous = track.combo;
+      const burningCombo = lastBurn!.combo;
+      setHistory((h) => (previous ? [...h, previous, burningCombo] : [...h, burningCombo]).slice(-3));
+      setBurning(true);
+    } else {
+      setHistory([]);
+      setBurning(false);
+    }
+    setTrack({ combo, comboKey: nextComboKey, burnKey: nextBurnKey });
+  }
+
+  useEffect(() => {
+    if (!burning) return;
+    const id = window.setTimeout(() => setBurning(false), BURN_ANIMATION_MS);
+    return () => window.clearTimeout(id);
+  }, [burning]);
+
+  const stack = combo !== null ? [...history, combo] : burning ? history : [];
+  return { stack, burning };
+}
+
+/** Which way the burned pile should fly off toward the seat that played the
+ *  "2" - same gather-then-fly direction logic as `CompletedTrickHold`
+ *  (TrickStage.tsx) for Coinche/Bouilla's own trick collection. */
+function burnFlyDirection(seats: TableSeats, seat: Seat | null): { flyX: string; flyY: string } {
+  const dir = seat === seats.top ? "top" : seat === seats.left ? "left" : seat === seats.right ? "right" : "bottom";
+  return {
+    flyX: dir === "left" ? "-260px" : dir === "right" ? "260px" : "0px",
+    flyY: dir === "top" ? "-260px" : dir === "bottom" ? "260px" : "0px",
+  };
+}
+
+function PileArea({ view, seats }: { view: PlayerView; seats: TableSeats }) {
   const { t } = useI18n();
-  const combo = view.pile.combo;
-  const history = usePileHistory(combo);
-  const stack = combo ? [...history, combo] : [];
+  const { stack, burning } = usePileDisplay(view.pile, view.lastBurn);
+  const { flyX, flyY } = burnFlyDirection(seats, view.lastBurn?.seat ?? null);
+
   return (
     <div className="absolute left-1/2 top-[41%] -translate-x-1/2 -translate-y-1/2" data-id="president-pile">
       {stack.length > 0 ? (
@@ -413,18 +519,41 @@ function PileArea({ view }: { view: PlayerView }) {
           {stack.map((layer, si) => {
             const isTop = si === stack.length - 1;
             const depth = stack.length - 1 - si;
+            const cards = (
+              <div className="flex">
+                {layer.cards.map((card, i) => (
+                  <div key={cardKey(card)} className={i > 0 ? "-ml-6" : ""} style={{ zIndex: i }}>
+                    <PlayingCard card={card} size="lg" dimmed={!isTop && !burning} dataId={`president-pile-card-${si}-${i}`} />
+                  </div>
+                ))}
+              </div>
+            );
             return (
               <div
                 key={`${comboKey(layer)}-${si}`}
-                className="absolute flex"
-                style={{ top: -depth * 10, left: -depth * 10, zIndex: si }}
+                className="absolute"
+                style={burning ? { zIndex: si } : { top: -depth * 10, left: -depth * 10, zIndex: si }}
                 data-id={isTop ? "president-pile-current" : `president-pile-history-${depth}`}
               >
-                {layer.cards.map((card, i) => (
-                  <div key={cardKey(card)} className={i > 0 ? "-ml-6" : ""} style={{ zIndex: i }}>
-                    <PlayingCard card={card} size="lg" dimmed={!isTop} dataId={`president-pile-card-${si}-${i}`} />
+                {burning ? (
+                  <div
+                    className="trick-collect-card"
+                    data-id="president-pile-burning"
+                    style={
+                      {
+                        "--gather-x": "0px",
+                        "--gather-y": "0px",
+                        "--gather-rot": `${(si - (stack.length - 1) / 2) * 6}deg`,
+                        "--fly-x": flyX,
+                        "--fly-y": flyY,
+                      } as React.CSSProperties
+                    }
+                  >
+                    {cards}
                   </div>
-                ))}
+                ) : (
+                  cards
+                )}
               </div>
             );
           })}
@@ -446,13 +575,36 @@ const DEFAULT_MAX_FAN_WIDTH = 340;
 /** Same suit order as Coinche/Bouilla's hand (`GameTable.tsx`/`BouillaTable.tsx`'s
  *  `SUIT_ORDER`), kept in sync for a consistent hand layout across all games. */
 const SUIT_ORDER: Record<string, number> = { S: 0, H: 1, C: 2, D: 3 };
-const RANK_ORDER = ["3", "4", "5", "6", "7", "8", "9", "10", "J", "Q", "K", "A", "2"];
 
-function sortHand(hand: Card[]): Card[] {
+type HandSortMode = "suit" | "rank";
+
+function sortHand(hand: Card[], mode: HandSortMode, revolution: boolean): Card[] {
   return [...hand].sort((a, b) => {
+    if (mode === "rank") {
+      const byRank = rankValue(a.rank, revolution) - rankValue(b.rank, revolution);
+      if (byRank !== 0) return byRank;
+      return SUIT_ORDER[a.suit] - SUIT_ORDER[b.suit];
+    }
     if (a.suit !== b.suit) return SUIT_ORDER[a.suit] - SUIT_ORDER[b.suit];
-    return RANK_ORDER.indexOf(a.rank) - RANK_ORDER.indexOf(b.rank);
+    return rankValue(a.rank, false) - rankValue(b.rank, false);
   });
+}
+
+function HandSortButton({ mode, onToggle }: { mode: HandSortMode; onToggle: () => void }) {
+  const { t } = useI18n();
+  const byRank = mode === "rank";
+  return (
+    <button
+      type="button"
+      data-id="president-hand-sort-button"
+      aria-label={byRank ? t("sortHandBySuit") : t("sortHandByRank")}
+      aria-pressed={byRank}
+      onClick={onToggle}
+      className="flex h-9 w-9 items-center justify-center rounded-full bg-black/55 text-base font-black text-[var(--card-face)] shadow-lg ring-1 ring-white/30 backdrop-blur-sm"
+    >
+      {byRank ? "A" : "♠"}
+    </button>
+  );
 }
 
 function HandArea({
@@ -460,6 +612,9 @@ function HandArea({
   selected,
   myTurnToPlay,
   legalRanks,
+  revolution,
+  sortMode,
+  onToggleSort,
   canPlay,
   canPass,
   busy,
@@ -471,6 +626,9 @@ function HandArea({
   selected: Card[];
   myTurnToPlay: boolean;
   legalRanks: Set<Card["rank"]>;
+  revolution: boolean;
+  sortMode: HandSortMode;
+  onToggleSort: () => void;
   canPlay: boolean;
   canPass: boolean;
   busy: boolean;
@@ -479,7 +637,7 @@ function HandArea({
   onPass: () => void;
 }) {
   const { t } = useI18n();
-  const sorted = sortHand(hand);
+  const sorted = sortHand(hand, sortMode, revolution);
   const n = sorted.length;
   const step = n > 1 ? Math.min(HAND_STEP, Math.max(0, DEFAULT_MAX_FAN_WIDTH - HAND_EDGE_MARGIN * 2 - CARD_W_LG) / (n - 1)) : HAND_STEP;
   const fanW = n > 1 ? CARD_W_LG + (n - 1) * step : CARD_W_LG;
@@ -496,7 +654,7 @@ function HandArea({
             return (
               <div
                 key={key}
-                className="absolute bottom-0 transition-transform duration-150"
+                className="absolute bottom-0 transition-[left,transform] duration-200"
                 style={{ left: i * step, zIndex: isSelected ? 60 + i : i, transform: isSelected ? "translateY(-28px)" : "none" }}
               >
                 <div className={isSelected ? "rounded-lg ring-2 ring-[var(--accent-yellow)]" : undefined}>
@@ -505,6 +663,9 @@ function HandArea({
               </div>
             );
           })}
+        </div>
+        <div className="absolute right-2 top-6 z-30">
+          <HandSortButton mode={sortMode} onToggle={onToggleSort} />
         </div>
       </div>
       {myTurnToPlay && (

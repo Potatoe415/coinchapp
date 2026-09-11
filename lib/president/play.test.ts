@@ -60,6 +60,40 @@ describe("applyPlay", () => {
     expect(next.phase).toBe("scoring");
     expect(next.finishedOrder).toEqual([1, 2, 0, 3]);
   });
+
+  it("a '2' burns the pile instantly: clears it and the same seat leads again", () => {
+    const state = playingState({
+      turn: 1,
+      hands: [[], [card("2", "H"), card("3", "D")], [card("5", "C")], [card("6", "S")]],
+      pile: { combo: combo("7", [card("7", "H")]), leader: 0 },
+    });
+    const next = applyPlay(state, 1, combo("2", [card("2", "H")]));
+    expect(next.pile).toEqual({ combo: null, leader: null });
+    expect(next.turn).toBe(1);
+    expect(next.passStreak).toBe(0);
+    expect(next.lastBurn).toEqual({ seat: 1, combo: combo("2", [card("2", "H")]) });
+  });
+
+  it("a double or triple '2' also burns the pile (a quad still just revolutions)", () => {
+    const state = playingState({
+      turn: 0,
+      hands: [[card("2", "H"), card("2", "D"), card("3", "C")], [], [], []],
+    });
+    const next = applyPlay(state, 0, combo("2", [card("2", "H"), card("2", "D")]));
+    expect(next.pile.combo).toBeNull();
+    expect(next.turn).toBe(0);
+  });
+
+  it("does not burn when playing a '2' empties the hand (finishing play keeps the normal flow)", () => {
+    const state = playingState({
+      turn: 0,
+      hands: [[card("2", "H")], [card("5", "D")], [card("6", "C")], [card("7", "S")]],
+    });
+    const next = applyPlay(state, 0, combo("2", [card("2", "H")]));
+    expect(next.pile.combo).not.toBeNull();
+    expect(next.lastBurn).toBeNull();
+    expect(next.turn).not.toBe(0);
+  });
 });
 
 describe("applyPass", () => {

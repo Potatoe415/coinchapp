@@ -38,7 +38,11 @@ self.addEventListener("activate", (event) => {
 });
 
 function isImmutableStaticAsset(url) {
-  return url.pathname.startsWith("/_next/static/");
+  if (!url.pathname.startsWith("/_next/static/")) return false;
+  // Turbopack/dev reuses names like `_124401c._.js` while the contents
+  // change. Cache-first would pin a stale bundle across HMR/reloads.
+  if (url.pathname.includes("._.")) return false;
+  return true;
 }
 
 async function networkFirst(request) {

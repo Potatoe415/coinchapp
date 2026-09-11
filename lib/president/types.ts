@@ -60,6 +60,12 @@ export interface GameState {
   /** hands[seat] = remaining cards. HIDDEN: server-only, redacted per seat. */
   hands: Card[][];
   pile: Pile;
+  /** Set only on the exact play that just burned the pile (a "2", see
+   *  `applyPlay`) - not re-cleared afterwards, so clients must diff it against
+   *  the previous view (by seat + card identity) to detect a *new* burn rather
+   *  than re-triggering on every render. Purely a display cue, never read by
+   *  any rules logic. */
+  lastBurn: { seat: Seat; combo: Combo } | null;
   /** Consecutive passes since the pile's current combo was played. */
   passStreak: number;
   /** Toggled by every quad played; reset to false at the start of each round. */

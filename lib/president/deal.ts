@@ -24,6 +24,7 @@ export function createInitialState(roundsToPlay: number): GameState {
     turn: 0,
     hands: [[], [], [], []],
     pile: { combo: null, leader: null },
+    lastBurn: null,
     passStreak: 0,
     revolution: false,
     finishedOrder: [],
@@ -43,7 +44,7 @@ export function createInitialState(roundsToPlay: number): GameState {
  *  President can each choose what to give back, before play resumes. */
 export function beginNextRound(state: GameState, rng: Rng = Math.random): GameState {
   const hands = dealHands(shuffle(buildDeck(), rng));
-  const cleared = { pile: { combo: null, leader: null }, passStreak: 0, revolution: false, finishedOrder: [] };
+  const cleared = { pile: { combo: null, leader: null }, lastBurn: null, passStreak: 0, revolution: false, finishedOrder: [] };
 
   if (!state.titles) {
     return { ...state, ...cleared, phase: "playing", hands, turn: findThreeOfClubs(hands) };

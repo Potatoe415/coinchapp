@@ -38,7 +38,8 @@ export const presidentEngine: BotLoopEngine<GameState, PlayerView, PresidentBotA
   currentTurn: turnFor,
   redact: (state, seat) => redact(state, seat as Seat),
   applyBotAction: (state, seat, action) => applyPresidentBotAction(state, seat as Seat, action),
-  // No "trick" concept: pause instead once a seat empties its hand, so the
-  // player has a moment to notice before bots keep racing to the finish.
-  didCollectTrick: (prev, next) => next.finishedOrder.length > prev.finishedOrder.length,
+  // No "trick" concept: pause instead once a seat empties its hand, or once a
+  // "2" burns the pile (see lib/president/play.ts), so the player has a
+  // moment to notice - and see the burn animation - before bots keep racing.
+  didCollectTrick: (prev, next) => next.finishedOrder.length > prev.finishedOrder.length || next.lastBurn !== prev.lastBurn,
 };

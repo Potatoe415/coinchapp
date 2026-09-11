@@ -15,6 +15,9 @@ export interface PlayerView {
   legalCombos: Combo[];
   canPass: boolean;
   pile: Pile;
+  /** Not secret (a burn is always a face-up combo): passed through so the
+   *  client can show a "the pile got burned" animation - see `GameState.lastBurn`. */
+  lastBurn: GameState["lastBurn"];
   revolution: boolean;
   finishedOrder: Seat[];
   titles: Titles | null;
@@ -37,6 +40,7 @@ export function redact(state: GameState, seat: Seat): PlayerView {
     legalCombos: legalCombos(state, seat),
     canPass: canPass(state, seat),
     pile: state.pile,
+    lastBurn: state.lastBurn,
     revolution: state.revolution,
     finishedOrder: state.finishedOrder,
     titles: state.titles,

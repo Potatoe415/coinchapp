@@ -23,8 +23,10 @@ import { runBotLoop } from "./cardGameDriver";
 import { decidePresidentAction, presidentEngine } from "./presidentEngineAdapter";
 import { DEFAULT_BOT_THINK_MS, DEFAULT_PRESIDENT_ROUNDS_TO_PLAY } from "@/lib/supabase/types";
 
-/** Matches the "seat just emptied its hand" pause in `presidentEngineAdapter.ts`. */
-const COLLECT_DELAY_MS = 900;
+/** Matches the shared `.trick-collect-card` CSS animation duration
+ *  (`app/globals.css`) and `presidentEngineAdapter.ts`'s `didCollectTrick`
+ *  pause (hand-emptied or pile-burned). */
+const COLLECT_DELAY_MS = 1500;
 
 export interface P2PPresidentHostConfig {
   mySeat: Seat;
@@ -130,7 +132,7 @@ export function useP2PPresidentHost(config: P2PPresidentHostConfig): { gv: GameV
         return;
       }
       commit(next);
-      if (next.finishedOrder.length > prev.finishedOrder.length) await wait(COLLECT_DELAY_MS);
+      if (presidentEngine.didCollectTrick(prev, next)) await wait(COLLECT_DELAY_MS);
       await runBots();
     },
     [commit, runBots],
@@ -224,7 +226,7 @@ export function useP2PPresidentHost(config: P2PPresidentHostConfig): { gv: GameV
         const prev = stateRef.current;
         const next = submitPlay(prev, mySeat, combo);
         commit(next);
-        if (next.finishedOrder.length > prev.finishedOrder.length) await wait(COLLECT_DELAY_MS);
+        if (presidentEngine.didCollectTrick(prev, next)) await wait(COLLECT_DELAY_MS);
         await runBots();
       },
       onPass: async () => {

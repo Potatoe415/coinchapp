@@ -153,6 +153,7 @@ const TRANSLATIONS = {
     appTitle: "Coinchapp — Coinche et la Bouilla",
     appDescription: "Jouez à la Coinche et à la Bouilla dans votre navigateur.",
     emojiReactions: "Réactions", scoreboard: "Tableau des scores",
+    autoPassLabel: "Passer automatiquement",
     round: "Manche", lowestScoreWins: "Le moins de points gagne.",
     youWin: "Vous gagnez !", gameFinished: "Partie terminée",
     winner: "Vainqueur", winners: "Vainqueurs",
@@ -179,6 +180,8 @@ const TRANSLATIONS = {
     exchangeWaitingOn: "En attente de {player}…",
     exchangeYouReceived: "Vous avez reçu les meilleures cartes de {player}",
     pileEmpty: "Posez une carte pour ouvrir la manche",
+    sortHandByRank: "Trier par valeur",
+    sortHandBySuit: "Trier par couleur",
     combo1: "seule", combo2: "paire", combo3: "brelan", combo4: "carré",
   },
   en: {
@@ -320,6 +323,7 @@ const TRANSLATIONS = {
     appTitle: "Coinchapp — Coinche and la Bouilla",
     appDescription: "Play Coinche and la Bouilla in your browser.",
     emojiReactions: "Reactions", scoreboard: "Scoreboard",
+    autoPassLabel: "Auto-pass",
     round: "Round", lowestScoreWins: "Lowest score wins.",
     youWin: "You win!", gameFinished: "Game over",
     winner: "Winner", winners: "Winners",
@@ -346,6 +350,8 @@ const TRANSLATIONS = {
     exchangeWaitingOn: "Waiting on {player}…",
     exchangeYouReceived: "You received {player}'s best cards",
     pileEmpty: "Play a card to open the round",
+    sortHandByRank: "Sort by rank",
+    sortHandBySuit: "Sort by suit",
     combo1: "single", combo2: "pair", combo3: "triple", combo4: "quad",
   },
 } as const;
