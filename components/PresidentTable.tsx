@@ -648,6 +648,10 @@ const HAND_STEP = 36;
 const CARD_W_LG = 64;
 const HAND_EDGE_MARGIN = 12;
 const DEFAULT_MAX_FAN_WIDTH = 340;
+/** Slight arc for the player's own hand: max upward lift at the center card (px)
+ *  and max rotation at the outer edges (deg), tapering to 0 for a single card. */
+const HAND_CURVE_LIFT = 10;
+const HAND_CURVE_ROTATE = 6;
 
 /** Same suit order as Coinche/Bouilla's hand (`GameTable.tsx`/`BouillaTable.tsx`'s
  *  `SUIT_ORDER`), kept in sync for a consistent hand layout across all games. */
@@ -719,6 +723,7 @@ function HandArea({
   const step = n > 1 ? Math.min(HAND_STEP, Math.max(0, DEFAULT_MAX_FAN_WIDTH - HAND_EDGE_MARGIN * 2 - CARD_W_LG) / (n - 1)) : HAND_STEP;
   const fanW = n > 1 ? CARD_W_LG + (n - 1) * step : CARD_W_LG;
   const selectedKeys = new Set(selected.map(cardKey));
+  const mid = (n - 1) / 2;
 
   return (
     <section className="absolute inset-x-0 bottom-0 z-20 pb-3" data-id="president-action-area">
@@ -728,11 +733,22 @@ function HandArea({
             const key = cardKey(card);
             const isSelected = selectedKeys.has(key);
             const isPlayable = myTurnToPlay && legalRanks.has(card.rank);
+            // Slight fan curve (own hand only): outer cards dip down and rotate a bit,
+            // so the whole hand arcs instead of sitting in a flat, dead-straight row.
+            const offset = mid > 0 ? (i - mid) / mid : 0;
+            const curveLift = HAND_CURVE_LIFT * (1 - offset * offset);
+            const curveRotate = offset * HAND_CURVE_ROTATE;
+            const selectedLift = isSelected ? 28 : 0;
             return (
               <div
                 key={key}
                 className="absolute bottom-0 transition-[left,transform] duration-200"
-                style={{ left: i * step, zIndex: isSelected ? 60 + i : i, transform: isSelected ? "translateY(-28px)" : "none" }}
+                style={{
+                  left: i * step,
+                  zIndex: isSelected ? 60 + i : i,
+                  transform: `translateY(${-(curveLift + selectedLift)}px) rotate(${curveRotate}deg)`,
+                  transformOrigin: "bottom center",
+                }}
               >
                 <div className={isSelected ? "rounded-lg ring-2 ring-[var(--accent-yellow)]" : undefined}>
                   <PlayingCard card={card} size="lg" dataId={`president-hand-card-${key}`} playable={isPlayable} onClick={isPlayable ? () => onTap(card) : undefined} />
