@@ -496,6 +496,16 @@ function usePileDisplay(pile: PlayerView["pile"], lastBurn: BurnEvent): { stack:
   return { stack, burning };
 }
 
+/** Fixed left/right/tilt offsets for older plays sitting behind the current pile card
+ *  (`PileArea`'s `historyOffset`) - alternates sides and rotation so the discard heap
+ *  looks scattered rather than a neat diagonal stack. Cycled by depth, not randomized,
+ *  so the same play never jitters between re-renders. */
+const HISTORY_OFFSETS = [
+  { x: -22, y: 6, rot: -9 },
+  { x: 18, y: 12, rot: 8 },
+  { x: -14, y: 18, rot: -6 },
+];
+
 /** Which way the burned pile should fly off toward the seat that played the
  *  "2" - same gather-then-fly direction logic as `CompletedTrickHold`
  *  (TrickStage.tsx) for Coinche/Bouilla's own trick collection. */
@@ -520,8 +530,11 @@ function PileArea({ view, seats }: { view: PlayerView; seats: TableSeats }) {
           {stack.map((layer, si) => {
             const isTop = si === stack.length - 1;
             const depth = stack.length - 1 - si;
+            // Combos with 2+ cards grow the flex row rightward from its anchor - center it
+            // on that anchor instead, so the current play always lands dead-center on the
+            // felt regardless of how many cards it has.
             const cards = (
-              <div className="flex">
+              <div className="flex -translate-x-1/2">
                 {layer.cards.map((card, i) => (
                   <div key={cardKey(card)} className={i > 0 ? "-ml-6" : ""} style={{ zIndex: i }}>
                     <PlayingCard card={card} size="lg" dimmed={!isTop && !burning} dataId={`president-pile-card-${si}-${i}`} />
@@ -529,11 +542,18 @@ function PileArea({ view, seats }: { view: PlayerView; seats: TableSeats }) {
                 ))}
               </div>
             );
+            // Older plays behind the current one get a scattered, slightly-tilted-left-or-right
+            // offset instead of a neat diagonal stack, so the pile reads as a messy discard heap.
+            const historyOffset = HISTORY_OFFSETS[(depth - 1 + HISTORY_OFFSETS.length) % HISTORY_OFFSETS.length];
             return (
               <div
                 key={`${comboKey(layer)}-${si}`}
                 className="absolute"
-                style={burning ? { zIndex: si } : { top: -depth * 10, left: -depth * 10, zIndex: si }}
+                style={
+                  burning || isTop
+                    ? { zIndex: si }
+                    : { transform: `translate(${historyOffset.x}px, ${historyOffset.y}px) rotate(${historyOffset.rot}deg)`, zIndex: si }
+                }
                 data-id={isTop ? "president-pile-current" : `president-pile-history-${depth}`}
               >
                 {burning ? (
