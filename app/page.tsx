@@ -50,6 +50,24 @@ async function resetBrowserData() {
   window.location.reload();
 }
 
+/** Forces the latest deployed version without wiping local game saves: drops
+ *  the service worker's cached shell/assets and unregisters it so the next
+ *  load re-registers a fresh one, then reloads. Unlike `resetBrowserData`,
+ *  this keeps localStorage/sessionStorage/IndexedDB (local game state) intact. */
+async function forceUpdate() {
+  if ("caches" in window) {
+    const keys = await caches.keys();
+    await Promise.all(keys.map((key) => caches.delete(key)));
+  }
+
+  if ("serviceWorker" in navigator) {
+    const registrations = await navigator.serviceWorker.getRegistrations();
+    await Promise.all(registrations.map((registration) => registration.unregister()));
+  }
+
+  window.location.reload();
+}
+
 interface GameTile {
   game: GameType;
   href: string;
@@ -120,6 +138,13 @@ export default function Home() {
       </div>
 
       <div className="relative z-10 mb-4 flex items-center gap-3 self-center" data-id="home-footer-actions">
+        <button
+          data-id="force-update-button"
+          onClick={forceUpdate}
+          className="rounded-lg border border-white/40 bg-transparent px-4 py-2 text-sm font-medium text-white/70 transition hover:border-white/60 hover:text-white/90 active:scale-95"
+        >
+          Actualiser
+        </button>
         <button
           data-id="reset-browser-data-button"
           onClick={resetBrowserData}

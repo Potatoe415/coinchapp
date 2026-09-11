@@ -6,9 +6,10 @@ History lives in `docs/DECISIONS.md` (decisions) and `docs/BACKLOG.md` (tasks).
 ---
 
 Status: Third game "Président" (Trou du cul) shipped end-to-end (local/online/ad-hoc), alongside Coinche and "la Bouilla". Online games have an idle-turn timer with permanent bot takeover. Local solo play is offline/reload-proof (PWA + localStorage). Online finished screens offer a same-room rematch. Reaction picker sends Giphy GIFs next to emojis (online + local). Deployed on Vercel (project `coinchapp`, team `remiinsf-3156s-projects`).
-Current_Goal: Président table UX (2-burns, hand sort, instant single, auto-pass) committed and pushed; idle, awaiting next request.
-Last_Action: Committed and pushed all pending Président work on `main`: 2 burns the pile (`lastBurn` + collect animation), suit/rank hand-sort button, instant single-card play, auto-pass when nothing is legal, Turbopack/dev SW cache skip, LanguageSwitcher hidden on `/coinche` and `/president`.
+Current_Goal: Gave Président's pile a played-card entrance animation like Bouilla/Coinche's tricks; idle, awaiting next request.
+Last_Action: `PresidentTable.tsx`'s `PileArea` now slides a freshly played combo in from the seat that played it, reusing `TrickStage.tsx`'s `.played-card-enter` CSS animation. Extracted `seatDirection()` and exported `playedCardEnterStyle()` from `TrickStage.tsx` so Président, Coinche, and Bouilla share the same seat-to-slide-direction logic (also used to de-duplicate `burnFlyDirection`).
 Next_Actions:
+- Manually verify in Président: playing a combo now visibly slides in from the playing seat's side (top/left/right/bottom) instead of just appearing; the existing "2" burn animation is unaffected.
 - If the sort button is missing after a local reload, unregister the old service worker once (or hard-refresh) so the new `sw.js` can take over.
 - Manually verify on a phone: single-card turns play on tap, forced passes auto-trigger after ~2s, 2s burn the pile with the fly animation, hand-sort toggles suit vs rank.
 - Investigate the `PresidentTable.tsx` `IconLink` hydration warning seen in dev mode (server/client mismatch, not yet triaged).
@@ -24,8 +25,8 @@ Open_Questions:
 - Ad-hoc P2P host hooks are now 3 parallel ~200-line files (Coinche/Bouilla/Président) - generalize now, or keep deferring per the accepted N=2 and N=3 trade-offs?
 
 Recent_Changes:
+- 2026-09-11 Président: played combos now slide into the pile from the playing seat's direction, reusing Bouilla/Coinche's shared `TrickStage.tsx` entrance animation instead of appearing statically.
+- 2026-09-11 Home: new "Actualiser" button (`force-update-button`) drops CacheStorage + unregisters the SW then reloads, without wiping localStorage/sessionStorage/IndexedDB - a non-destructive alternative to the existing `Reset` button, for when a phone shows a stale UI but a full data wipe isn't wanted.
 - 2026-09-11 Président: 2 burns the pile, hand-sort toggle, instant single-card play, auto-pass, and SW skip of mutable Turbopack chunks - committed and pushed.
 - 2026-09-11 Président: small sort button to the right of the player's cards toggles rank order vs the existing suit order. `public/sw.js` no longer cache-firsts Turbopack/dev `._.` chunks.
 - 2026-09-11 Président: single-card turns now play on tap (no "Jouer" needed), and forced passes (no legal combo) auto-pass after 2s via a new "Passer automatiquement" setting, default on.
-- 2026-09-11 Président: a "2" (single/double/triple) now instantly burns the pile - clears it, the same seat leads again - with a card-collect-and-fly animation toward that seat.
-- 2026-09-10 Home tile grid restyled: 3 square (`aspect-square`) cards with each game's splash art as background + accent-colored title label, replacing the old full-width plain-color rows.
